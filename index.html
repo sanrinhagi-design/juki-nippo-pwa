@@ -96,6 +96,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .yard-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
 .chip{flex:0 0 auto;font-size:11px;padding:6px 12px;border-radius:16px;border:1.5px solid #e0e0e0;background:#fff;color:#666;cursor:pointer;font-weight:600;white-space:nowrap}
 .chip.on{background:#185fa5;color:#fff;border-color:#185fa5}
+.cal-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;border:1px solid #eee;background:#fff}
+.cal-ok{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
+.cal-caution{background:#faeeda;color:#854f0b;border-color:#fac775}
+.cal-warn{background:#fcebeb;color:#791f1f;border-color:#f09595}
+.cal-day{font-weight:700}
+.cal-sub{font-size:8px}
 /* Inspection checklist */
 .insp-group{margin-bottom:12px}
 .insp-gh{font-size:11px;font-weight:700;color:#185fa5;padding:6px 0;border-bottom:1.5px solid #e6f1fb;margin-bottom:4px}
@@ -144,6 +150,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <span>未送信: <span class="sync-cnt" id="pend-cnt">0</span>件</span>
     <span class="sync-btn" onclick="syncNow()">今すぐ送信 →</span>
   </div>
+  <div class="notice n-info" id="list-net-note" style="display:none">
+    <span id="list-net-txt">オンライン中：全端末の最新データを表示</span>
+    <span style="margin-left:auto;color:#0c447c;font-weight:700;cursor:pointer" id="list-refresh" onclick="refreshTodayList(true)">↻ 更新</span>
+  </div>
   <div class="yard-chips" id="list-yards"></div>
   <div class="slbl">本日入力済みの稼働（<span id="list-count">0</span>件）</div>
   <div id="list-body"></div>
@@ -168,11 +178,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       </select>
     </div>
     <div class="fg">
-      <label class="fl">運転者 <span style="color:#c0392b">*</span></label>
-      <select class="fc" id="f-operator"><option value="">選択してください</option></select>
+      <label class="fl">運転者（任意）　<span onclick="openOpModal()" style="color:#185fa5;cursor:pointer;font-size:11px;font-weight:700">👥 運転者を管理</span></label>
+      <select class="fc" id="f-operator"><option value="">選択してください（空欄可）</option></select>
     </div>
     <div class="fg" style="margin-bottom:0">
-      <label class="fl">現場名 <span style="color:#c0392b">*</span></label>
+      <label class="fl">現場名（任意）</label>
       <input class="fc" type="text" id="f-location" placeholder="例: 深山林道 3工区">
     </div>
   </div></div>
@@ -195,6 +205,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <span class="btn btn-sm btn-o" onclick="getGPS()" style="margin-left:auto">再取得</span>
     </div>
     <div class="gps-coord" id="gps-coord">取得中...</div>
+    <div style="font-size:10px;color:#888;margin-top:6px">重機の所在確認用</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
+      <input type="checkbox" id="gps-skip" style="width:18px;height:18px;flex-shrink:0">
+      <span style="font-size:12px;color:#555">位置情報を記録しない</span>
+    </label>
   </div>
 
   <div class="card"><div class="card-b">
@@ -307,6 +322,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="slbl" id="dash-month"></div>
   <div class="stat-grid" id="dash-stats"></div>
 
+  <div class="slbl">機体別カレンダー</div>
+  <div class="card"><div class="card-b">
+    <select class="fc" id="cal-machine" onchange="loadCalMonth()" style="margin-bottom:10px"></select>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(-1)">‹</span>
+      <span style="font-size:13px;font-weight:700" id="cal-title"></span>
+      <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(1)">›</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:9px;color:#999;text-align:center;margin-bottom:4px"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px" id="cal-grid"></div>
+    <div style="font-size:10px;color:#999;margin-top:8px;line-height:1.5">緑＝入力済み／黄＝点検未実施／赤＝備考あり／白＝未入力。日付をタップで編集できます。</div>
+    <button class="btn btn-o" style="margin-top:10px" onclick="printMonth()">🖨 この月の日報を印刷 / PDF保存</button>
+  </div></div>
+
   <div class="slbl">特定自主検査 期限警告</div>
   <div id="dash-jikensa"></div>
 
@@ -367,6 +396,69 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <input class="fc" type="url" id="ji-url" placeholder="https://drive.google.com/...">
     </div>
     <button class="btn btn-p" onclick="saveJiModal()">保存する</button>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- 日報編集モーダル（カレンダーから） -->
+<div class="modal-bg" id="day-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t" id="dm-title">日報編集</span>
+      <span class="modal-x" onclick="closeDayModal()">&times;</span>
+    </div>
+    <input type="hidden" id="dm-id">
+    <div id="dm-empty" style="display:none;font-size:13px;color:#888;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
+    <div id="dm-form">
+      <div class="fg"><label class="fl">運転者</label>
+        <select class="fc" id="dm-operator"></select>
+      </div>
+      <div class="fg"><label class="fl">現場名</label><input class="fc" id="dm-location"></div>
+      <div class="frow" style="margin-bottom:11px">
+        <div class="fg" style="margin-bottom:0"><label class="fl">アワーメータ終了(h)</label><input class="fc" type="number" id="dm-hmeter" inputmode="decimal"></div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">稼働時間(h)</label><input class="fc" type="number" id="dm-whours" step="0.5" inputmode="decimal"></div>
+      </div>
+      <div class="frow" style="margin-bottom:11px">
+        <div class="fg" style="margin-bottom:0"><label class="fl">給油場所</label>
+          <select class="fc" id="dm-floc"><option value="">なし</option><option value="事務所">事務所</option><option value="現場">現場</option><option value="その他">その他</option></select>
+        </div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">給油量(L)</label><input class="fc" type="number" id="dm-famt" inputmode="decimal"></div>
+      </div>
+      <div class="fg"><label class="fl">始業前点検</label>
+        <select class="fc" id="dm-insp"><option value="済">済</option><option value="未">未</option></select>
+      </div>
+      <div class="card"><div class="card-b">
+        <div class="trow"><span class="tlbl">グリス充填実施</span><div class="tog off" id="dm-grease" onclick="togEl(this)"><div class="tog-k"></div></div></div>
+        <div class="trow"><span class="tlbl">回送あり</span><div class="tog off" id="dm-trans" onclick="togEl(this)"><div class="tog-k"></div></div></div>
+      </div></div>
+      <div class="fg"><label class="fl">備考</label><textarea class="fc" id="dm-notes" rows="2"></textarea></div>
+      <div class="fg"><label class="fl">GPS座標（記録値・変更不可）</label><input class="fc" id="dm-gps" readonly style="background:#f0f0f0"></div>
+      <div id="dm-noid" style="display:none;font-size:11px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:10px">旧形式のデータのため編集できません（閲覧のみ）。</div>
+      <button class="btn btn-p" id="dm-save" onclick="saveDayModal()">保存する</button>
+    </div>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- 運転者マスタ管理モーダル -->
+<div class="modal-bg" id="op-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t">運転者マスタ管理</span>
+      <span class="modal-x" onclick="closeOpModal()">&times;</span>
+    </div>
+    <div class="slbl">登録運転者　<span id="op-cnt"></span></div>
+    <div class="card" id="op-list"></div>
+    <div class="fg" style="margin-top:12px">
+      <label class="fl">運転者を追加</label>
+      <div style="display:flex;gap:8px">
+        <input class="fc" id="op-new" placeholder="氏名を入力" style="flex:1">
+        <button class="btn btn-p" style="width:auto;padding:10px 18px" onclick="addOperator()">追加</button>
+      </div>
+    </div>
+    <p style="font-size:10px;color:#999;margin-top:10px;line-height:1.5">
+      スプレッドシートの「運転者マスタ」シートで直接編集も可能です。変更はオンライン時に全端末へ反映されます。
+    </p>
     <div style="height:10px"></div>
   </div>
 </div>
@@ -464,7 +556,7 @@ function initApp(){
   setDate(); updateNet(); populateForms();
   renderYardChips(); renderList(); renderMachines(); renderJikensa(); renderDash();
   getGPS(); updateSyncRow();
-  window.addEventListener('online', ()=>{updateNet();autoSync();});
+  window.addEventListener('online', ()=>{updateNet();autoSync();refreshTodayList(false);});
   window.addEventListener('offline', updateNet);
   if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e));}
   fetchRemote();
@@ -518,10 +610,30 @@ async function fetchRemote(){
     const mr=await fetch(GAS_URL+'?action=getMachines');
     const md=await mr.json();
     if(md.machines && md.machines.length>0){machines=md.machines;saveData();populateForms();renderMachines();renderYardChips();}
+    const or=await fetch(GAS_URL+'?action=getOperators');
+    const od=await or.json();
+    if(od.operators && od.operators.length>0){operators=od.operators;saveData();populateForms();}
     const ir=await fetch(GAS_URL+'?action=getInspections');
     const id=await ir.json();
     if(id.inspections){inspections=id.inspections;saveData();renderJikensa();renderDash();}
+    refreshTodayList(false);
   }catch(e){console.warn('fetchRemote:',e);}
+}
+
+// 本日の全端末データを取得（稼働一覧のオンライン参照）
+let serverToday=[];
+async function refreshTodayList(showMsg){
+  if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){renderList();return;}
+  try{
+    const res=await fetch(GAS_URL+'?action=getReports&month='+monthStr());
+    const data=await res.json();
+    if(data.reports){
+      const t=todayStr();
+      serverToday=data.reports.filter(r=>String(r.date)===t).map(r=>({...r,synced:true}));
+      renderList();
+      if(showMsg)showToast('最新データに更新しました','ok');
+    }
+  }catch(e){console.warn('refreshToday:',e);if(showMsg)showToast('更新に失敗しました','err');}
 }
 
 // ===== FORMS =====
@@ -622,11 +734,12 @@ function submitReport(){
   const machineId=document.getElementById('f-machine').value;
   const operator=document.getElementById('f-operator').value;
   const location=document.getElementById('f-location').value.trim();
-  if(!machineId||!operator||!location){showToast('重機番号・運転者・現場名は必須です','err');return;}
+  if(!machineId){showToast('重機番号を選択してください','err');return;}
   const m=findMachine(machineId);
   const inspTotal=curInspType?INSPECTION_DATA[curInspType].items.length:0;
   const inspDone=Object.values(curInspChecks).filter(Boolean).length;
   const inspStatus=inspDone===0?'未':(inspDone===inspTotal?'済':`一部(${inspDone}/${inspTotal})`);
+  const skipGps=document.getElementById('gps-skip').checked;
 
   const report={
     id:Date.now().toString()+Math.random().toString(36).slice(2,6),
@@ -639,7 +752,7 @@ function submitReport(){
     grease:document.getElementById('tog-grease').classList.contains('on')?'済':'未',
     transfer:document.getElementById('tog-trans').classList.contains('on')?'有':'無',
     notes:document.getElementById('f-notes').value.trim(),
-    lat:gpsLat||'', lng:gpsLng||'', accuracy:gpsAcc||'',
+    lat:skipGps?'':(gpsLat||''), lng:skipGps?'':(gpsLng||''), accuracy:skipGps?'':(gpsAcc||''),
     savedAt:new Date().toISOString(), synced:false, deviceId:getDeviceId()
   };
   pending.push(report);saveData();updateSyncRow();
@@ -650,6 +763,7 @@ function submitReport(){
 function resetForm(){
   ['f-machine','f-operator','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes'].forEach(id=>document.getElementById(id).value='');
   ['tog-grease','tog-trans'].forEach(id=>{const t=document.getElementById(id);t.classList.remove('on');t.classList.add('off');});
+  document.getElementById('gps-skip').checked=false;
   curInspChecks={};curInspType=null;
   document.getElementById('insp-status').textContent='未実施';
   document.getElementById('insp-status').className='bdg bdg-none';
@@ -708,7 +822,24 @@ function setJiYard(y){jiYard=y;renderYardChips();renderJikensa();}
 // ===== 稼働一覧 =====
 function renderList(){
   const el=document.getElementById('list-body');
-  let tr=todayReports();
+  const note=document.getElementById('list-net-note');
+  const noteTxt=document.getElementById('list-net-txt');
+  const refreshBtn=document.getElementById('list-refresh');
+  const t=todayStr();
+  let tr;
+  if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    const sids=new Set(serverToday.map(r=>r.id).filter(Boolean));
+    const localOnly=pending.filter(r=>r.date===t && !sids.has(r.id));
+    tr=[...serverToday,...localOnly];
+    note.style.display='flex';
+    noteTxt.textContent='オンライン中：全端末の最新データを表示';
+    refreshBtn.style.display='inline';
+  }else{
+    tr=todayReports();
+    note.style.display='flex';
+    noteTxt.textContent='圏外のため端末内データのみ表示';
+    refreshBtn.style.display='none';
+  }
   if(listYard)tr=tr.filter(r=>r.yard===listYard);
   document.getElementById('list-count').textContent=tr.length;
 
@@ -912,6 +1043,283 @@ function renderDash(){
   }
 }
 
+// ===== 機体別カレンダー =====
+let calYear=new Date().getFullYear(), calMonth=new Date().getMonth(); // 0-indexed
+let calReports=[]; // 選択機体・選択月の日報
+
+function calYM(){return `${calYear}-${pad(calMonth+1)}`;}
+
+function populateCalMachine(){
+  const sel=document.getElementById('cal-machine');
+  const cur=sel.value;
+  sel.innerHTML='';
+  YARDS.forEach(y=>{
+    const inY=machines.filter(m=>m.yard===y);
+    if(inY.length===0)return;
+    let grp=`<optgroup label="${y}">`;
+    inY.forEach(m=>{
+      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+      grp+=`<option value="${m.id}">${lbl}</option>`;
+    });
+    grp+='</optgroup>';
+    sel.innerHTML+=grp;
+  });
+  if(cur && machines.find(m=>m.id===cur))sel.value=cur;
+}
+
+function calNav(dir){
+  calMonth+=dir;
+  if(calMonth<0){calMonth=11;calYear--;}
+  if(calMonth>11){calMonth=0;calYear++;}
+  loadCalMonth();
+}
+
+async function loadCalMonth(){
+  const mid=document.getElementById('cal-machine').value;
+  if(!mid){renderCalendar();return;}
+  const ym=calYM();
+  // ローカル分（未送信含む）
+  let local=allReports().filter(r=>r.machineId===mid && String(r.date).startsWith(ym));
+  if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    try{
+      const res=await fetch(GAS_URL+'?action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid));
+      const data=await res.json();
+      if(data.reports){
+        const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
+        const localOnly=local.filter(r=>!sids.has(r.id));
+        calReports=[...data.reports,...localOnly];
+        renderCalendar();return;
+      }
+    }catch(e){console.warn('cal:',e);}
+  }
+  calReports=local;
+  renderCalendar();
+}
+
+function dayStatus(r){
+  if(r.notes && String(r.notes).trim()!=='')return 'warn';    // 赤: 備考あり
+  if(r.inspection==='未')return 'caution';                    // 黄: 点検未
+  return 'ok';                                                 // 緑
+}
+
+function renderCalendar(){
+  document.getElementById('cal-title').textContent=`令和${calYear-2018}年${calMonth+1}月`;
+  const grid=document.getElementById('cal-grid');
+  grid.innerHTML='';
+  const first=new Date(calYear,calMonth,1);
+  const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  for(let i=0;i<first.getDay();i++)grid.appendChild(document.createElement('div'));
+  // 日付ごとに最新1件を選ぶ
+  const byDay={};
+  calReports.forEach(r=>{
+    const d=parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d))return;
+    if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
+  });
+  for(let d=1;d<=daysIn;d++){
+    const cell=document.createElement('div');
+    const r=byDay[d];
+    if(r){
+      const st=dayStatus(r);
+      cell.className='cal-cell cal-'+st;
+      const sub=st==='warn'?'備考あり':(st==='caution'?'点検未':((r.workHours!==''&&r.workHours!==undefined&&r.workHours!==null)?r.workHours+'h':'入力済'));
+      cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${sub}</div>`;
+    }else{
+      cell.className='cal-cell';
+      cell.innerHTML=`<div class="cal-day" style="color:#bbb;font-weight:500">${d}</div>`;
+    }
+    cell.onclick=()=>openDayModal(d,r);
+    grid.appendChild(cell);
+  }
+}
+
+// ===== 日報編集モーダル =====
+let dmCurrent=null;
+function openDayModal(day,r){
+  const mid=document.getElementById('cal-machine').value;
+  document.getElementById('dm-title').textContent=`${calMonth+1}月${day}日　${mid}`;
+  const form=document.getElementById('dm-form');
+  const empty=document.getElementById('dm-empty');
+  if(!r){
+    form.style.display='none';empty.style.display='block';dmCurrent=null;
+    document.getElementById('day-modal').classList.add('on');
+    return;
+  }
+  form.style.display='block';empty.style.display='none';
+  dmCurrent=r;
+  // 運転者select: マスタ + 現在値
+  const opSel=document.getElementById('dm-operator');
+  opSel.innerHTML='<option value="">（空欄）</option>';
+  const names=[...operators];
+  if(r.operator && !names.includes(r.operator))names.unshift(r.operator);
+  names.forEach(n=>opSel.innerHTML+=`<option value="${n}">${n}</option>`);
+  opSel.value=r.operator||'';
+  document.getElementById('dm-location').value=r.location||'';
+  document.getElementById('dm-hmeter').value=r.hourMeter!==undefined?r.hourMeter:'';
+  document.getElementById('dm-whours').value=r.workHours!==undefined?r.workHours:'';
+  document.getElementById('dm-floc').value=r.fuelLocation||'';
+  document.getElementById('dm-famt').value=r.fuelAmount!==undefined?r.fuelAmount:'';
+  // 点検select: 済/未 + 一部の現在値
+  const inspSel=document.getElementById('dm-insp');
+  inspSel.innerHTML='<option value="済">済</option><option value="未">未</option>';
+  if(r.inspection && r.inspection!=='済' && r.inspection!=='未')inspSel.innerHTML+=`<option value="${r.inspection}">${r.inspection}</option>`;
+  inspSel.value=r.inspection||'未';
+  const g=document.getElementById('dm-grease');
+  g.className='tog '+(r.grease==='済'?'on':'off');
+  const tr=document.getElementById('dm-trans');
+  tr.className='tog '+(r.transfer==='有'?'on':'off');
+  document.getElementById('dm-notes').value=r.notes||'';
+  document.getElementById('dm-gps').value=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
+  // 旧データ(ID無し)は編集不可
+  const noid=!r.id;
+  document.getElementById('dm-noid').style.display=noid?'block':'none';
+  document.getElementById('dm-save').style.display=noid?'none':'block';
+  document.getElementById('day-modal').classList.add('on');
+}
+function closeDayModal(){document.getElementById('day-modal').classList.remove('on');}
+
+async function saveDayModal(){
+  if(!dmCurrent||!dmCurrent.id){showToast('編集できないデータです','err');return;}
+  if(!navigator.onLine){showToast('編集はオンライン時のみ可能です','err');return;}
+  const upd={
+    id:dmCurrent.id,
+    operator:document.getElementById('dm-operator').value,
+    location:document.getElementById('dm-location').value.trim(),
+    hourMeter:document.getElementById('dm-hmeter').value,
+    workHours:document.getElementById('dm-whours').value,
+    fuelLocation:document.getElementById('dm-floc').value,
+    fuelAmount:document.getElementById('dm-famt').value,
+    inspection:document.getElementById('dm-insp').value,
+    grease:document.getElementById('dm-grease').classList.contains('on')?'済':'未',
+    transfer:document.getElementById('dm-trans').classList.contains('on')?'有':'無',
+    notes:document.getElementById('dm-notes').value.trim()
+  };
+  showToast('保存中...','');
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'editReport',report:upd})});
+    const data=await res.json();
+    if(data.success){
+      // ローカルコピーも更新
+      [pending,synced].forEach(arr=>{
+        const idx=arr.findIndex(r=>r.id===upd.id);
+        if(idx>=0)Object.assign(arr[idx],upd);
+      });
+      saveData();
+      closeDayModal();
+      showToast('日報を更新しました','ok');
+      loadCalMonth();refreshTodayList(false);
+    }else{
+      showToast(data.error||'更新に失敗しました','err');
+    }
+  }catch(e){showToast('通信エラー: '+e.message,'err');}
+}
+
+// ===== 運転者マスタ管理 =====
+function openOpModal(){renderOps();document.getElementById('op-modal').classList.add('on');}
+function closeOpModal(){document.getElementById('op-modal').classList.remove('on');}
+function renderOps(){
+  document.getElementById('op-cnt').textContent=operators.length+'名';
+  const el=document.getElementById('op-list');
+  if(operators.length===0){el.innerHTML='<div class="empty"><div class="empty-txt">運転者が登録されていません</div></div>';return;}
+  el.innerHTML=operators.map(n=>`<div class="mrow"><span class="mrow-name" style="font-size:13px">${n}</span><span class="btn btn-sm btn-d" onclick="deleteOperator('${n}')">削除</span></div>`).join('');
+}
+function addOperator(){
+  const inp=document.getElementById('op-new');
+  const name=inp.value.trim();
+  if(!name){showToast('氏名を入力してください','err');return;}
+  if(operators.includes(name)){showToast(name+' は既に登録されています','err');return;}
+  operators.push(name);saveData();populateForms();renderOps();
+  inp.value='';
+  showToast(name+' を追加しました','ok');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addOperator',name})}).catch(()=>{});
+  }
+}
+function deleteOperator(name){
+  if(!confirm(name+' を削除しますか？'))return;
+  operators=operators.filter(n=>n!==name);saveData();populateForms();renderOps();
+  showToast(name+' を削除しました','');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteOperator',name})}).catch(()=>{});
+  }
+}
+
+// ===== 月次印刷（紙フォーマット再現・機種共通） =====
+function printMonth(){
+  const mid=document.getElementById('cal-machine').value;
+  if(!mid){showToast('機体を選択してください','err');return;}
+  const m=findMachine(mid);
+  const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+  const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  const byDay={};
+  calReports.forEach(r=>{
+    const d=parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d))return;
+    if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
+  });
+  const notes=[];
+  let monthlyChecked=false;
+  Object.entries(byDay).forEach(([d,r])=>{
+    if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
+    if(r.inspection==='済')monthlyChecked=true;
+  });
+  const mkRows=(from,to,padTo)=>{
+    let h='';
+    for(let d=from;d<=to;d++){
+      const r=byDay[d];
+      if(r){
+        const loc=[r.location,r.operator].filter(Boolean).join(' / ');
+        const fuel=[r.fuelLocation,(r.fuelAmount!==''&&r.fuelAmount!==undefined&&r.fuelAmount!==null)?r.fuelAmount+'L':''].filter(Boolean).join(' ');
+        h+=`<tr><td>${d}</td><td>${r.hourMeter!==''&&r.hourMeter!==undefined?r.hourMeter:''}</td><td>${r.workHours!==''&&r.workHours!==undefined?r.workHours:''}</td><td class="tl">${loc}</td><td>${fuel}</td><td>${r.inspection==='済'?'☑':'☐'}</td><td>${r.transfer==='有'?'☑':'☐'}</td></tr>`;
+      }else{
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td>☐</td><td>☐</td></tr>`;
+      }
+    }
+    for(let i=(to-from+1);i<padTo;i++){
+      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    }
+    return h;
+  };
+  const tableHead=`<tr><th style="width:7%">日</th><th style="width:13%">ｱﾜﾒｰﾀ</th><th style="width:10%">稼働h</th><th>現場名/運転者</th><th style="width:16%">給油</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
+<style>
+@page{size:A4 portrait;margin:10mm}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0}
+.head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4mm}
+.title{font-size:14px;font-weight:700}
+.cols{display:flex;gap:4mm}
+.col{flex:1}
+table{width:100%;border-collapse:collapse;font-size:8px}
+th,td{border:1px solid #333;padding:2px 3px;text-align:center;height:14px}
+th{background:#eee}
+.tl{text-align:left}
+.foot{margin-top:4mm;font-size:9px}
+.notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
+@media print{.noprint{display:none}}
+.noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
+</style></head><body>
+<button class="noprint" onclick="window.print()">🖨 印刷する</button>
+<div class="head">
+  <span class="title">運転日報　${mid}（${nm}）</span>
+  <span>令和${calYear-2018}年${calMonth+1}月</span>
+</div>
+<div class="cols">
+  <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
+  <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
+</div>
+<div class="foot">
+  <div>備考（故障・注意事項等）</div>
+  <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
+  <div style="margin-top:3mm">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
+  <div style="margin-top:2mm;font-size:8px;color:#555">※回送した時は回送の欄にチェック✓　※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+</div>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(!w){showToast('ポップアップがブロックされました。許可してください','err');return;}
+  w.document.write(html);
+  w.document.close();
+}
+
 // ===== NAV =====
 function showTab(name){
   const tabs=['list','input','machines','jikensa','dash'];
@@ -919,10 +1327,10 @@ function showTab(name){
     document.getElementById('scr-'+t).className='scr'+(t===name?' on':'');
     document.querySelectorAll('.tab')[i].className='tab'+(t===name?' on':'');
   });
-  if(name==='list'){renderList();updateSyncRow();}
+  if(name==='list'){refreshTodayList(false);renderList();updateSyncRow();}
   if(name==='machines')renderMachines();
   if(name==='jikensa')renderJikensa();
-  if(name==='dash')renderDash();
+  if(name==='dash'){renderDash();populateCalMachine();loadCalMonth();}
   if(name==='input')updateNet();
   window.scrollTo(0,0);
 }
