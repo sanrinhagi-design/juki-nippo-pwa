@@ -1,0 +1,270 @@
+// ============================================================
+// 重機稼働日報 — GAS バックエンド v2
+// 追加: 拠点管理 / 始業前点検 / グリス充填 / 特定自主検査管理
+// ============================================================
+
+const SHEET_REPORT     = '日報';
+const SHEET_MACHINE    = '重機マスタ';
+const SHEET_INSPECTION = '特定自主検査';   // 年次の特定自主検査台帳
+const ALERT_EMAIL      = 'm.nakamoto@sanyochip.com>mail.com'; // ← 通知先メールに変更
+const HOUR_INTERVAL    = 250;              // アワーメーター警告間隔(h)
+const INSPECT_ALERT_DAYS = 30;            // 特定自主検査の事前通知日数
+
+// ---------- ルーティング ----------
+
+function doGet(e) {
+  const action = (e.parameter && e.parameter.action) || '';
+  let result;
+  try {
+    if      (action === 'getMachines')    result = getMachines();
+    else if (action === 'getReports')     result = getReports(e.parameter.month || '');
+    else if (action === 'getInspections') result = getInspections();
+    else if (action === 'ping')           result = {ok: true};
+    else result = {error: 'Unknown action: ' + action};
+  } catch(err) {
+    result = {error: err.message};
+  }
+  return json(result);
+}
+
+function doPost(e) {
+  let data, result;
+  try {
+    data = JSON.parse(e.postData.contents);
+    const a = data.action || '';
+    if      (a === 'batchAddReports') result = batchAddReports(data.reports || []);
+    else if (a === 'addReport')       result = addReport(data.report);
+    else if (a === 'addMachine')      result = addMachine(data.machine);
+    else if (a === 'deleteMachine')   result = deleteMachine(data.machineId);
+    else if (a === 'editMachine')     result = editMachine(data.machine);
+    else if (a === 'saveInspection')  result = saveInspection(data.inspection);
+    else if (a === 'deleteInspection')result = deleteInspection(data.machineId);
+    else result = {error: 'Unknown action: ' + a};
+  } catch(err) {
+    result = {error: err.message};
+  }
+  return json(result);
+}
+
+function json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- シート取得 ----------
+
+function getOrCreate(name, headers) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(headers);
+    sheet.getRange(1,1,1,headers.length)
+         .setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// ---------- 重機マスタ ----------
+
+const MACHINE_HEADERS = ['重機番号','機種名','アタッチメント','拠点','機種タイプ','登録日','状態'];
+
+function getMachines() {
+  const s = getOrCreate(SHEET_MACHINE, MACHINE_HEADERS);
+  const rows = s.getDataRange().getValues().slice(1);
+  return {
+    machines: rows.map(r => ({
+      id: r[0], model: r[1], attachment: r[2], yard: r[3], type: r[4],
+      registeredAt: r[5] ? Utilities.formatDate(new Date(r[5]),'Asia/Tokyo','yyyy-MM-dd') : '',
+      status: r[6]
+    })).filter(m => m.id)
+  };
+}
+
+function addMachine(m) {
+  if (!m || !m.id || !m.model) return {error:'重機番号と機種名は必須です'};
+  const s = getOrCreate(SHEET_MACHINE, MACHINE_HEADERS);
+  const rows = s.getDataRange().getValues().slice(1);
+  if (rows.some(r => r[0] === m.id)) return {error: m.id + ' は既に登録されています'};
+  s.appendRow([m.id, m.model, m.attachment||'', m.yard||'', m.type||'backhoe', new Date(), '稼働中']);
+  return {success:true};
+}
+
+function deleteMachine(id) {
+  const s = getOrCreate(SHEET_MACHINE, MACHINE_HEADERS);
+  const rows = s.getDataRange().getValues();
+  for (let i=1;i<rows.length;i++){
+    if (rows[i][0]===id){ s.deleteRow(i+1); return {success:true}; }
+  }
+  return {error: id + ' が見つかりません'};
+}
+
+function editMachine(m) {
+  const s = getOrCreate(SHEET_MACHINE, MACHINE_HEADERS);
+  const rows = s.getDataRange().getValues();
+  for (let i=1;i<rows.length;i++){
+    if (rows[i][0]===m.id){
+      s.getRange(i+1,2,1,4).setValues([[m.model, m.attachment||'', m.yard||'', m.type||'backhoe']]);
+      return {success:true};
+    }
+  }
+  return {error: m.id + ' が見つかりません'};
+}
+
+// ---------- 日報 ----------
+
+const REPORT_HEADERS = [
+  '受信日時','日付','重機番号','拠点','運転者','現場名',
+  'アワーメータ(h)','稼働時間(h)','給油場所','給油量(L)',
+  '始業前点検','グリス充填','回送','緯度','経度','精度(m)','備考','デバイスID','端末保存日時'
+];
+
+function addReport(r) {
+  if (!r) return {error:'データなし'};
+  const s = getOrCreate(SHEET_REPORT, REPORT_HEADERS);
+  s.appendRow([
+    new Date(), r.date||'', r.machineId||'', r.yard||'', r.operator||'', r.location||'',
+    r.hourMeter!=='' ? Number(r.hourMeter):'',
+    r.workHours!=='' ? Number(r.workHours):'',
+    r.fuelLocation||'',
+    r.fuelAmount!=='' ? Number(r.fuelAmount):'',
+    r.inspection||'', r.grease||'', r.transfer||'',
+    r.lat||'', r.lng||'', r.accuracy||'', r.notes||'',
+    r.deviceId||'', r.savedAt||''
+  ]);
+  checkHourAlert(r.machineId, r.hourMeter);
+  return {success:true};
+}
+
+function batchAddReports(reports) {
+  if (!reports || reports.length===0) return {success:true, count:0};
+  reports.forEach(r => addReport(r));
+  return {success:true, count:reports.length};
+}
+
+function getReports(month) {
+  const s = getOrCreate(SHEET_REPORT, REPORT_HEADERS);
+  const rows = s.getDataRange().getValues().slice(1);
+  let reports = rows.map(r => ({
+    receivedAt: r[0]?Utilities.formatDate(new Date(r[0]),'Asia/Tokyo','yyyy-MM-dd HH:mm'):'',
+    date:r[1], machineId:r[2], yard:r[3], operator:r[4], location:r[5],
+    hourMeter:r[6], workHours:r[7], fuelLocation:r[8], fuelAmount:r[9],
+    inspection:r[10], grease:r[11], transfer:r[12],
+    lat:r[13], lng:r[14], accuracy:r[15], notes:r[16]
+  }));
+  if (month) reports = reports.filter(r => String(r.date).startsWith(month));
+  return {reports};
+}
+
+// ---------- 特定自主検査（年次）台帳 ----------
+
+const INSPECT_HEADERS = ['重機番号','前回検査日','標章番号','次回実施日','検査書類URL','検査業者','更新日時'];
+
+function getInspections() {
+  const s = getOrCreate(SHEET_INSPECTION, INSPECT_HEADERS);
+  const rows = s.getDataRange().getValues().slice(1);
+  return {
+    inspections: rows.map(r => ({
+      machineId: r[0],
+      lastDate:  r[1] ? Utilities.formatDate(new Date(r[1]),'Asia/Tokyo','yyyy-MM-dd') : '',
+      labelNo:   r[2],
+      nextDate:  r[3] ? Utilities.formatDate(new Date(r[3]),'Asia/Tokyo','yyyy-MM-dd') : '',
+      docUrl:    r[4],
+      vendor:    r[5]
+    })).filter(x => x.machineId)
+  };
+}
+
+function saveInspection(insp) {
+  if (!insp || !insp.machineId) return {error:'重機番号は必須です'};
+  const s = getOrCreate(SHEET_INSPECTION, INSPECT_HEADERS);
+  const rows = s.getDataRange().getValues();
+  const row = [
+    insp.machineId,
+    insp.lastDate ? new Date(insp.lastDate) : '',
+    insp.labelNo||'',
+    insp.nextDate ? new Date(insp.nextDate) : '',
+    insp.docUrl||'', insp.vendor||'', new Date()
+  ];
+  for (let i=1;i<rows.length;i++){
+    if (rows[i][0]===insp.machineId){
+      s.getRange(i+1,1,1,INSPECT_HEADERS.length).setValues([row]);
+      return {success:true, updated:true};
+    }
+  }
+  s.appendRow(row);
+  return {success:true, created:true};
+}
+
+function deleteInspection(machineId) {
+  const s = getOrCreate(SHEET_INSPECTION, INSPECT_HEADERS);
+  const rows = s.getDataRange().getValues();
+  for (let i=1;i<rows.length;i++){
+    if (rows[i][0]===machineId){ s.deleteRow(i+1); return {success:true}; }
+  }
+  return {error:'見つかりません'};
+}
+
+// ---------- アラート ----------
+
+function checkHourAlert(machineId, hourMeter) {
+  if (!machineId || hourMeter==='' || hourMeter===undefined) return;
+  const h = Number(hourMeter);
+  if (isNaN(h)) return;
+  if (h % HOUR_INTERVAL < 10) {
+    const next = Math.ceil(h/HOUR_INTERVAL)*HOUR_INTERVAL;
+    try {
+      MailApp.sendEmail({
+        to: ALERT_EMAIL,
+        subject: '【重機メンテ推奨】'+machineId+' '+h+'h 到達',
+        body: machineId+' のアワーメーターが '+h+'h に達しました。\n次回定期点検目安: '+next+'h（残り '+(next-h)+'h）\n\n重機稼働日報システムより自動送信'
+      });
+    } catch(e){}
+  }
+}
+
+// 特定自主検査の期限チェック（月1回タイマー実行を推奨）
+function checkInspectionDue() {
+  const {inspections} = getInspections();
+  const now = new Date();
+  const soon = [];
+  inspections.forEach(x => {
+    if (!x.nextDate) return;
+    const nd = new Date(x.nextDate);
+    const days = Math.ceil((nd - now)/(1000*60*60*24));
+    if (days <= INSPECT_ALERT_DAYS) soon.push({id:x.machineId, next:x.nextDate, days});
+  });
+  if (soon.length > 0) {
+    const body = soon.map(s =>
+      s.days < 0 ? s.id+': '+s.next+'（'+(-s.days)+'日超過）'
+                 : s.id+': '+s.next+'（あと'+s.days+'日）'
+    ).join('\n');
+    MailApp.sendEmail({
+      to: ALERT_EMAIL,
+      subject: '【特定自主検査 期限通知】'+soon.length+'台',
+      body: '特定自主検査の期限が近い重機:\n\n'+body+'\n\n重機稼働日報システムより自動送信'
+    });
+  }
+}
+
+// 月次点検チェック（月末実行推奨）
+function checkMonthlyInspection() {
+  const month = Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy-MM');
+  const {reports} = getReports(month);
+  if (!reports || reports.length===0) return;
+  const map = {};
+  reports.forEach(r => {
+    if (!map[r.machineId]) map[r.machineId]={total:0, ok:0};
+    map[r.machineId].total++;
+    if (r.inspection==='済') map[r.machineId].ok++;
+  });
+  const ng = Object.entries(map).filter(([,v])=>v.ok===0).map(([k])=>k);
+  if (ng.length>0) {
+    MailApp.sendEmail({
+      to: ALERT_EMAIL,
+      subject:'【要確認】点検未実施重機 '+month,
+      body: month+' に始業前点検が記録されていない重機:\n\n'+ng.join('\n')+'\n\n重機稼働日報システムより自動送信'
+    });
+  }
+}
