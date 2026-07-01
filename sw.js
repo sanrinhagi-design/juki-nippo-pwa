@@ -2,7 +2,7 @@
 // Service Worker — キャッシュ & オフライン対応
 // ============================================================
 
-const CACHE_NAME = 'juki-nippo-v1';
+const CACHE_NAME = 'juki-nippo-v3';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -25,6 +25,19 @@ self.addEventListener('fetch', e => {
   // GAS API リクエストはキャッシュしない
   if (e.request.url.includes('script.google.com')) return;
   if (e.request.method !== 'GET') return;
+
+  // index.html等のナビゲーションはネットワーク優先（圏外時のみキャッシュ）
+  const isNav = e.request.mode === 'navigate' || e.request.url.endsWith('index.html') || e.request.url.endsWith('/');
+  if (isNav) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        return res;
+      }).catch(() => caches.match(e.request).then(c => c || caches.match('./index.html')))
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(e.request).then(cached => {
