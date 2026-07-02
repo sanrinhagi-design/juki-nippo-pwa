@@ -20,7 +20,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .tabs{display:flex;background:#fff;border-bottom:1px solid #e8e8e8;position:sticky;top:52px;z-index:99;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
 .tab{flex:1 0 auto;padding:11px 8px;text-align:center;font-size:11px;color:#999;cursor:pointer;border-bottom:2px solid transparent;font-weight:500;white-space:nowrap}
 .tab.on{color:#185fa5;border-bottom-color:#185fa5;font-weight:700}
-.scr{display:none;padding:12px;min-height:calc(100vh - 104px)}
+.scr{display:none;min-height:calc(100vh - 104px)}
+.scr-fixed{padding:12px 12px 0;background:#f0f0f0;position:sticky;top:88px;z-index:50}
+.scr-scroll{padding:0 12px 12px;overflow-y:auto}
 .scr.on{display:block}
 .card{background:#fff;border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
 .card-h{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f5f5f5}
@@ -146,17 +148,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
 <!-- ===== 稼働一覧 ===== -->
 <div id="scr-list" class="scr on">
-  <div class="sync-row" id="sync-row" style="display:none">
-    <span>未送信: <span class="sync-cnt" id="pend-cnt">0</span>件</span>
-    <span class="sync-btn" onclick="syncNow()">今すぐ送信 →</span>
+  <div class="scr-fixed">
+    <div class="sync-row" id="sync-row" style="display:none">
+      <span>未送信: <span class="sync-cnt" id="pend-cnt">0</span>件</span>
+      <span class="sync-btn" onclick="syncNow()">今すぐ送信 →</span>
+    </div>
+    <div class="notice n-info" id="list-net-note" style="display:none">
+      <span id="list-net-txt">オンライン中：全端末の最新データを表示</span>
+      <span style="margin-left:auto;color:#0c447c;font-weight:700;cursor:pointer" id="list-refresh" onclick="refreshTodayList(true)">↻ 更新</span>
+    </div>
+    <div class="yard-chips" id="list-yards"></div>
+    <div class="slbl">本日入力済みの稼働（<span id="list-count">0</span>件）</div>
   </div>
-  <div class="notice n-info" id="list-net-note" style="display:none">
-    <span id="list-net-txt">オンライン中：全端末の最新データを表示</span>
-    <span style="margin-left:auto;color:#0c447c;font-weight:700;cursor:pointer" id="list-refresh" onclick="refreshTodayList(true)">↻ 更新</span>
+  <div class="scr-scroll">
+    <div id="list-body"></div>
   </div>
-  <div class="yard-chips" id="list-yards"></div>
-  <div class="slbl">本日入力済みの稼働（<span id="list-count">0</span>件）</div>
-  <div id="list-body"></div>
   <div class="fab" onclick="showTab('input')">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     日報を入力する
@@ -181,6 +187,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <label class="fl">運転者（任意）　<span onclick="openOpModal()" style="color:#185fa5;cursor:pointer;font-size:11px;font-weight:700">👥 運転者を管理</span></label>
       <select class="fc" id="f-operator"><option value="">選択してください（空欄可）</option></select>
     </div>
+    <div class="fg">
+      <label class="fl">元請（任意）</label>
+      <input class="fc" type="text" id="f-contractor" placeholder="例: 〇〇林業">
+    </div>
     <div class="fg" style="margin-bottom:0">
       <label class="fl">現場名（任意）</label>
       <input class="fc" type="text" id="f-location" placeholder="例: 深山林道 3工区">
@@ -199,13 +209,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <!-- GPS -->
   <div class="gps-box" id="gps-box">
+    <div style="font-size:10px;color:#888;margin-bottom:8px;font-weight:700">重機の所在確認用</div>
     <div class="gps-row">
       <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       <span class="gps-st" id="gps-st">GPS取得中...</span>
       <span class="btn btn-sm btn-o" onclick="getGPS()" style="margin-left:auto">再取得</span>
     </div>
     <div class="gps-coord" id="gps-coord">取得中...</div>
-    <div style="font-size:10px;color:#888;margin-top:6px">重機の所在確認用</div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
       <input type="checkbox" id="gps-skip" style="width:18px;height:18px;flex-shrink:0">
       <span style="font-size:12px;color:#555">位置情報を記録しない</span>
@@ -260,8 +270,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
 <!-- ===== 重機管理 ===== -->
 <div id="scr-machines" class="scr">
-  <div class="yard-chips" id="m-yards"></div>
-  <div class="slbl">登録重機　<span id="m-cnt" style="color:#185fa5;font-weight:800"></span></div>
+  <div class="scr-fixed">
+    <div class="yard-chips" id="m-yards"></div>
+    <div class="slbl">登録重機　<span id="m-cnt" style="color:#185fa5;font-weight:800"></span></div>
+  </div>
+  <div class="scr-scroll">
   <div class="card" id="m-list"></div>
 
   <div class="slbl" style="margin-top:16px">重機を追加</div>
@@ -303,18 +316,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     削除しても過去の日報データは残ります。稼働中の機体は慎重に操作してください。
   </div>
   <div style="height:20px"></div>
+  </div>
 </div>
 
 <!-- ===== 特定自主検査 ===== -->
 <div id="scr-jikensa" class="scr">
-  <div class="notice n-info">
-    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-    年次の特定自主検査（特自検）の記録を管理します。次回実施日が近づくと集計画面に警告表示。
+  <div class="scr-fixed">
+    <div class="notice n-info">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      年次の特定自主検査（特自検）の記録を管理します。次回実施日が近づくと集計画面に警告表示。
+    </div>
+    <div class="yard-chips" id="ji-yards"></div>
+    <div class="slbl">検査台帳</div>
   </div>
-  <div class="yard-chips" id="ji-yards"></div>
-  <div class="slbl">検査台帳</div>
-  <div id="ji-list"></div>
-  <div style="height:20px"></div>
+  <div class="scr-scroll">
+    <div id="ji-list"></div>
+    <div style="height:20px"></div>
+  </div>
 </div>
 
 <!-- ===== 集計 ===== -->
@@ -413,6 +431,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <div class="fg"><label class="fl">運転者</label>
         <select class="fc" id="dm-operator"></select>
       </div>
+      <div class="fg"><label class="fl">元請</label><input class="fc" id="dm-contractor"></div>
       <div class="fg"><label class="fl">現場名</label><input class="fc" id="dm-location"></div>
       <div class="frow" style="margin-bottom:11px">
         <div class="fg" style="margin-bottom:0"><label class="fl">アワーメータ終了(h)</label><input class="fc" type="number" id="dm-hmeter" inputmode="decimal"></div>
@@ -437,6 +456,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <button class="btn btn-p" id="dm-save" onclick="saveDayModal()">保存する</button>
     </div>
     <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- 重機編集モーダル -->
+<div class="modal-bg" id="machine-edit-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t">重機情報を編集</span>
+      <span class="modal-x" onclick="closeMachineEditModal()">&times;</span>
+    </div>
+    <input type="hidden" id="me-oldid">
+    <div class="fg"><label class="fl">重機番号</label><input class="fc" id="me-id" style="text-transform:uppercase"></div>
+    <div class="fg"><label class="fl">機種名</label><input class="fc" id="me-model"></div>
+    <div class="fg"><label class="fl">アタッチメント</label><input class="fc" id="me-att"></div>
+    <div class="fg"><label class="fl">拠点</label>
+      <select class="fc" id="me-yard"></select>
+    </div>
+    <div class="fg"><label class="fl">機種タイプ</label>
+      <select class="fc" id="me-type">
+        <option value="backhoe">バックホウ系</option>
+        <option value="wheel">タイヤショベル</option>
+        <option value="carrier">不整地運搬車</option>
+        <option value="forklift">フォークリフト</option>
+      </select>
+    </div>
+    <div style="font-size:11px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:12px">
+      重機番号を変更すると、過去の日報・特定自主検査データとの紐付けは変更後の番号に引き継がれません（新規番号として扱われます）。拠点移動などで番号ごと変える場合はご注意ください。
+    </div>
+    <button class="btn btn-p" onclick="saveMachineEdit()">保存する</button>
+    <div style="height:8px"></div>
   </div>
 </div>
 
@@ -556,10 +605,20 @@ function initApp(){
   setDate(); updateNet(); populateForms();
   renderYardChips(); renderList(); renderMachines(); renderJikensa(); renderDash();
   getGPS(); updateSyncRow();
+  syncStickyOffset();
+  window.addEventListener('resize', syncStickyOffset);
   window.addEventListener('online', ()=>{updateNet();autoSync();refreshTodayList(false);});
   window.addEventListener('offline', updateNet);
   if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e));}
   fetchRemote();
+}
+
+// hdr+tabsの実測高さに.scr-fixedのtopを合わせる（フォント設定等でズレないように）
+function syncStickyOffset(){
+  const tabs=document.querySelector('.tabs');
+  if(!tabs)return;
+  const offset=tabs.offsetTop+tabs.offsetHeight;
+  document.querySelectorAll('.scr-fixed').forEach(el=>el.style.top=offset+'px');
 }
 
 function setDate(){
@@ -733,6 +792,7 @@ function togEl(el){el.classList.toggle('on');el.classList.toggle('off');}
 function submitReport(){
   const machineId=document.getElementById('f-machine').value;
   const operator=document.getElementById('f-operator').value;
+  const contractor=document.getElementById('f-contractor').value.trim();
   const location=document.getElementById('f-location').value.trim();
   if(!machineId){showToast('重機番号を選択してください','err');return;}
   const m=findMachine(machineId);
@@ -743,7 +803,7 @@ function submitReport(){
 
   const report={
     id:Date.now().toString()+Math.random().toString(36).slice(2,6),
-    date:todayStr(), machineId, yard:m?m.yard:'', operator, location,
+    date:todayStr(), machineId, yard:m?m.yard:'', operator, contractor, location,
     hourMeter:document.getElementById('f-hmeter').value,
     workHours:document.getElementById('f-whours').value,
     fuelLocation:document.getElementById('f-floc').value,
@@ -761,7 +821,7 @@ function submitReport(){
 }
 
 function resetForm(){
-  ['f-machine','f-operator','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes'].forEach(id=>document.getElementById(id).value='');
+  ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes'].forEach(id=>document.getElementById(id).value='');
   ['tog-grease','tog-trans'].forEach(id=>{const t=document.getElementById(id);t.classList.remove('on');t.classList.add('off');});
   document.getElementById('gps-skip').checked=false;
   curInspChecks={};curInspType=null;
@@ -887,7 +947,7 @@ function renderMachines(){
     return `<div class="mrow">
       <span class="mrow-id">${m.id}</span>
       <span class="mrow-name">${nm}<br><span style="font-size:10px;color:#aaa">${tl}</span></span>
-      <div class="mrow-acts"><span class="btn btn-sm btn-d" onclick="deleteMachine('${m.id}')">削除</span></div>
+      <div class="mrow-acts"><span class="btn btn-sm btn-o" onclick="openMachineEditModal(machines.find(x=>x.id==='${m.id}'))">編集</span><span class="btn btn-sm btn-d" onclick="deleteMachine('${m.id}')">削除</span></div>
     </div>`;
   }).join('');
 }
@@ -907,6 +967,38 @@ function addMachine(){
     fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addMachine',machine:m})}).catch(()=>{});
   }
 }
+function openMachineEditModal(m){
+  if(!m)return;
+  document.getElementById('me-oldid').value=m.id;
+  document.getElementById('me-id').value=m.id;
+  document.getElementById('me-model').value=m.model||'';
+  document.getElementById('me-att').value=m.attachment||'';
+  const ysel=document.getElementById('me-yard');
+  ysel.innerHTML=YARDS.map(y=>`<option value="${y}" ${y===m.yard?'selected':''}>${y}</option>`).join('');
+  document.getElementById('me-type').value=m.type||'backhoe';
+  document.getElementById('machine-edit-modal').classList.add('on');
+}
+function closeMachineEditModal(){document.getElementById('machine-edit-modal').classList.remove('on');}
+function saveMachineEdit(){
+  const oldId=document.getElementById('me-oldid').value;
+  const id=document.getElementById('me-id').value.trim().toUpperCase();
+  const model=document.getElementById('me-model').value.trim();
+  const attachment=document.getElementById('me-att').value.trim();
+  const yard=document.getElementById('me-yard').value;
+  const type=document.getElementById('me-type').value;
+  if(!id||!model){showToast('重機番号と機種名は必須です','err');return;}
+  if(id!==oldId && machines.some(x=>x.id===id)){showToast(`${id} は既に使用されています`,'err');return;}
+  const idx=machines.findIndex(x=>x.id===oldId);
+  if(idx<0){showToast('対象の重機が見つかりません','err');return;}
+  machines[idx]={id,model,attachment,yard,type,registeredAt:machines[idx].registeredAt,status:machines[idx].status};
+  saveData();renderMachines();renderYardChips();populateForms();
+  closeMachineEditModal();
+  showToast(`${id} を更新しました`,'ok');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'editMachine',machine:{oldId,id,model,attachment,yard,type}})}).catch(()=>{});
+  }
+}
+
 function deleteMachine(id){
   if(!confirm(`${id} を削除しますか？`))return;
   machines=machines.filter(m=>m.id!==id);saveData();renderMachines();renderYardChips();populateForms();
@@ -1155,6 +1247,7 @@ function openDayModal(day,r){
   names.forEach(n=>opSel.innerHTML+=`<option value="${n}">${n}</option>`);
   opSel.value=r.operator||'';
   document.getElementById('dm-location').value=r.location||'';
+  document.getElementById('dm-contractor').value=r.contractor||'';
   document.getElementById('dm-hmeter').value=r.hourMeter!==undefined?r.hourMeter:'';
   document.getElementById('dm-whours').value=r.workHours!==undefined?r.workHours:'';
   document.getElementById('dm-floc').value=r.fuelLocation||'';
@@ -1184,6 +1277,7 @@ async function saveDayModal(){
   const upd={
     id:dmCurrent.id,
     operator:document.getElementById('dm-operator').value,
+    contractor:document.getElementById('dm-contractor').value.trim(),
     location:document.getElementById('dm-location').value.trim(),
     hourMeter:document.getElementById('dm-hmeter').value,
     workHours:document.getElementById('dm-whours').value,
@@ -1268,7 +1362,7 @@ function printMonth(){
     for(let d=from;d<=to;d++){
       const r=byDay[d];
       if(r){
-        const loc=[r.location,r.operator].filter(Boolean).join(' / ');
+        const loc=[r.contractor,r.location,r.operator].filter(Boolean).join(' / ');
         const fuel=[r.fuelLocation,(r.fuelAmount!==''&&r.fuelAmount!==undefined&&r.fuelAmount!==null)?r.fuelAmount+'L':''].filter(Boolean).join(' ');
         h+=`<tr><td>${d}</td><td>${r.hourMeter!==''&&r.hourMeter!==undefined?r.hourMeter:''}</td><td>${r.workHours!==''&&r.workHours!==undefined?r.workHours:''}</td><td class="tl">${loc}</td><td>${fuel}</td><td>${r.inspection==='済'?'☑':'☐'}</td><td>${r.transfer==='有'?'☑':'☐'}</td></tr>`;
       }else{
