@@ -11,14 +11,32 @@
 <link rel="manifest" href="manifest.json">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#f0f0f0;color:#1a1a1a;max-width:480px;margin:0 auto;min-height:100vh;-webkit-font-smoothing:antialiased}
-.hdr{background:#1a1a2e;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.hdr-title{font-size:15px;font-weight:700;letter-spacing:.3px}
-.hdr-date{font-size:10px;color:#9aa;margin-top:2px}
-.net-badge{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:600;transition:.3s}
+html{font-size:17px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#e2e2e2;color:#1a1a1a;min-height:100vh;-webkit-font-smoothing:antialiased}
+.app-shell{max-width:100%;margin:0 auto;background:#f0f0f0;min-height:100vh}
+@media(min-width:1200px){.app-shell{max-width:1400px;box-shadow:0 0 24px rgba(0,0,0,.08)}}
+/* PC: カードをグリッド表示 */
+@media(min-width:700px){#list-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}}
+@media(min-width:1100px){#list-body{grid-template-columns:1fr 1fr 1fr}}
+/* グループ表示 */
+.cnt-badge{background:#185fa5;color:#fff;font-size:14px;font-weight:800;padding:4px 12px;border-radius:12px}
+.arrow{font-size:18px;color:#999;transition:transform .2s;display:inline-block}
+.arrow.open{transform:rotate(180deg)}
+.entries{border-top:1px solid #eee;display:none}
+.entries.open{display:block}
+.entry{padding:13px 14px;border-bottom:1px solid #f4f4f4;display:flex;align-items:flex-start;gap:12px}
+.entry:last-child{border-bottom:none}
+.entry-time{font-size:16px;font-weight:800;color:#185fa5;min-width:56px}
+.entry-body{flex:1}
+.entry-op{font-size:17px;font-weight:700}
+.entry-dtl{font-size:14px;color:#777;margin-top:3px;line-height:1.5}
+.hdr{background:#1a1a2e;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr-title{font-size:20px;font-weight:700;letter-spacing:.3px}
+.hdr-date{font-size:14px;color:#c5cad6;margin-top:3px}
+.net-badge{font-size:14px;padding:5px 14px;border-radius:12px;font-weight:700;transition:.3s}
 .net-on{background:#27ae60}.net-off{background:#c0392b}
 .tabs{display:flex;background:#fff;border-bottom:1px solid #e8e8e8;position:sticky;top:52px;z-index:99;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
-.tab{flex:1 0 auto;padding:11px 8px;text-align:center;font-size:11px;color:#999;cursor:pointer;border-bottom:2px solid transparent;font-weight:500;white-space:nowrap}
+.tab{flex:1 0 auto;padding:15px 10px;text-align:center;font-size:15px;color:#999;cursor:pointer;border-bottom:3px solid transparent;font-weight:600;white-space:nowrap}
 .tab.on{color:#185fa5;border-bottom-color:#185fa5;font-weight:700}
 .scr{display:none;min-height:calc(100vh - 104px)}
 .scr-fixed{padding:12px 12px 0;background:#f0f0f0;position:sticky;top:88px;z-index:50}
@@ -28,18 +46,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .card-h{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f5f5f5}
 .card-b{padding:10px 12px}
 .card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.mname{font-size:13px;font-weight:700}
-.msub{font-size:11px;color:#888;margin-top:2px}
-.sl{font-size:10px;color:#888}.sv{font-size:13px;font-weight:700;margin-top:2px}
-.bdg{font-size:10px;padding:3px 8px;border-radius:8px;font-weight:700;white-space:nowrap}
+.mname{font-size:18px;font-weight:700}
+.msub{font-size:15px;color:#777;margin-top:3px}
+.sl{font-size:13px;color:#777}.sv{font-size:17px;font-weight:700;margin-top:3px}
+.bdg{font-size:13px;padding:5px 11px;border-radius:9px;font-weight:700;white-space:nowrap}
 .bdg-ok{background:#eaf3de;color:#3b6d11}
 .bdg-pend{background:#faeeda;color:#854f0b}
 .bdg-none{background:#eef0f2;color:#666}
 .bdg-warn{background:#fcebeb;color:#791f1f}
 .bdg-blue{background:#e6f1fb;color:#0c447c}
 .fg{margin-bottom:11px}
-.fl{font-size:12px;color:#555;margin-bottom:4px;display:block;font-weight:600}
-.fc{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;background:#fafafa;color:#1a1a1a;-webkit-appearance:none;appearance:none;transition:border .15s}
+.fl{font-size:15px;color:#444;margin-bottom:6px;display:block;font-weight:600}
+.fc{width:100%;padding:14px 14px;border:1.5px solid #d5d5d5;border-radius:9px;font-size:17px;background:#fafafa;color:#1a1a1a;-webkit-appearance:none;appearance:none;transition:border .15s}
 .fc:focus{outline:none;border-color:#185fa5;background:#fff}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .trow{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f5f5f5}
@@ -49,37 +67,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .tog.on{background:#27ae60}.tog.off{background:#ccc}
 .tog-k{width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:2px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .tog.on .tog-k{left:22px}.tog.off .tog-k{left:2px}
-.btn{padding:13px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;display:block;width:100%;text-align:center;transition:opacity .15s;letter-spacing:.3px}
+.btn{padding:16px;border-radius:11px;font-size:17px;font-weight:700;cursor:pointer;border:none;display:block;width:100%;text-align:center;transition:opacity .15s;letter-spacing:.3px}
 .btn:active{opacity:.82}
 .btn-p{background:#185fa5;color:#fff}
 .btn-d{background:#fcebeb;color:#791f1f;border:1px solid #f09595}
 .btn-o{background:#fff;color:#185fa5;border:1.5px solid #185fa5}
 .btn-g{background:#27ae60;color:#fff}
-.btn-sm{padding:5px 11px;font-size:11px;border-radius:6px;width:auto;display:inline-block}
+.btn-sm{padding:9px 16px;font-size:14px;border-radius:8px;width:auto;display:inline-block}
 .gps-box{background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:10px 12px;margin-bottom:12px;transition:.3s}
 .gps-box.ok{background:#eaf3de;border-color:#97c459}
 .gps-box.err{background:#fcebeb;border-color:#f09595}
 .gps-row{display:flex;align-items:center;gap:8px}
-.gps-st{font-size:12px;font-weight:700;color:#185fa5}
+.gps-st{font-size:16px;font-weight:700;color:#185fa5}
 .gps-box.ok .gps-st{color:#27ae60}.gps-box.err .gps-st{color:#c0392b}
-.gps-coord{font-size:11px;color:#185fa5;margin-top:5px;font-family:monospace;word-break:break-all}
+.gps-coord{font-size:14px;color:#185fa5;margin-top:6px;font-family:monospace;word-break:break-all}
 .gps-box.err .gps-coord{color:#c0392b}
-.notice{padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:7px;line-height:1.5}
+.notice{padding:12px 14px;border-radius:9px;font-size:15px;margin-bottom:14px;display:flex;align-items:flex-start;gap:9px;line-height:1.55}
 .n-info{background:#e6f1fb;color:#0c447c;border:1px solid #b5d4f4}
 .n-warn{background:#faeeda;color:#854f0b;border:1px solid #fac775}
 .n-ok{background:#eaf3de;color:#3b6d11;border:1px solid #97c459}
-.slbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;font-weight:700}
+.slbl{font-size:14px;color:#777;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;font-weight:700}
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.stat-card{background:#fff;border-radius:10px;padding:13px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
-.stat-card .num{font-size:22px;font-weight:800}
-.stat-card .lbl{font-size:10px;color:#888;margin-top:3px;font-weight:600}
-.sync-row{display:flex;align-items:center;justify-content:space-between;background:#fff;padding:9px 12px;border-radius:9px;margin-bottom:10px;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.stat-card{background:#fff;border-radius:11px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.stat-card .num{font-size:28px;font-weight:800}
+.stat-card .lbl{font-size:13px;color:#777;margin-top:4px;font-weight:600}
+.sync-row{display:flex;align-items:center;justify-content:space-between;background:#fff;padding:13px 16px;border-radius:10px;margin-bottom:12px;font-size:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
 .sync-cnt{color:#854f0b;font-weight:700}
 .sync-btn{color:#185fa5;font-weight:700;cursor:pointer;padding:4px 8px}
 .mrow{display:flex;align-items:center;padding:11px 12px;border-bottom:1px solid #f5f5f5;gap:10px}
 .mrow:last-child{border-bottom:none}
-.mrow-id{font-size:12px;font-weight:800;color:#185fa5;min-width:46px}
-.mrow-name{font-size:12px;color:#444;flex:1;line-height:1.4}
+.mrow-id{font-size:16px;font-weight:800;color:#185fa5;min-width:58px}
+.mrow-name{font-size:16px;color:#333;flex:1;line-height:1.45}
 .mrow-acts{display:flex;gap:6px;flex-shrink:0}
 .prog-wrap{flex:1;padding:0 10px}
 .prog-bg{background:#f0f0f0;border-radius:4px;height:6px;overflow:hidden}
@@ -96,7 +114,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .empty-ico{font-size:32px;margin-bottom:10px}
 .empty-txt{font-size:13px}
 .yard-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
-.chip{flex:0 0 auto;font-size:11px;padding:6px 12px;border-radius:16px;border:1.5px solid #e0e0e0;background:#fff;color:#666;cursor:pointer;font-weight:600;white-space:nowrap}
+.chip{flex:0 0 auto;font-size:14px;padding:9px 16px;border-radius:18px;border:1.5px solid #d5d5d5;background:#fff;color:#555;cursor:pointer;font-weight:600;white-space:nowrap}
 .chip.on{background:#185fa5;color:#fff;border-color:#185fa5}
 .cal-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;border:1px solid #eee;background:#fff}
 .cal-ok{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
@@ -112,12 +130,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .insp-chk.on{background:#27ae60;border-color:#27ae60}
 .insp-chk.on::after{content:'✓';color:#fff;font-size:15px;font-weight:800}
 .insp-txt{font-size:13px;color:#333;line-height:1.4}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:flex-end}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:flex-end;justify-content:center}
 .modal-bg.on{display:flex}
-.modal{background:#fff;width:100%;max-width:480px;margin:0 auto;border-radius:16px 16px 0 0;padding:16px;max-height:88vh;overflow-y:auto}
-.modal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.modal-t{font-size:16px;font-weight:800}
-.modal-x{font-size:22px;color:#999;cursor:pointer;line-height:1;padding:4px}
+.modal{background:#fff;width:100%;max-width:640px;margin:0 auto;border-radius:18px 18px 0 0;padding:20px;max-height:88vh;overflow-y:auto}
+.modal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-t{font-size:20px;font-weight:800}
+.modal-x{font-size:28px;color:#999;cursor:pointer;line-height:1;padding:4px}
 .insp-linkbar{display:flex;gap:8px;margin-bottom:12px}
 .insp-linkbar a{flex:1;text-align:center;background:#e6f1fb;color:#185fa5;padding:9px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none}
 .due-tag{font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700}
@@ -129,13 +147,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 </style>
 </head>
 <body>
+<div class="app-shell">
 
 <div class="hdr">
   <div>
     <div class="hdr-title">重機稼働日報</div>
     <div class="hdr-date" id="hdr-date">読み込み中...</div>
   </div>
-  <span class="net-badge net-off" id="net-badge">圏外</span>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span onclick="toggleFS()" style="font-size:14px;padding:6px 12px;border-radius:9px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);cursor:pointer">⛶ 全画面</span>
+    <span class="net-badge net-off" id="net-badge">圏外</span>
+  </div>
 </div>
 
 <div class="tabs">
@@ -426,6 +448,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <span class="modal-x" onclick="closeDayModal()">&times;</span>
     </div>
     <input type="hidden" id="dm-id">
+    <div id="dm-multi"></div>
     <div id="dm-empty" style="display:none;font-size:13px;color:#888;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
     <div id="dm-form">
       <div class="fg"><label class="fl">運転者</label>
@@ -613,6 +636,14 @@ function initApp(){
   fetchRemote();
 }
 
+function toggleFS(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen().catch(()=>showToast('この端末はホーム画面に追加で全画面になります',''));
+  }else{
+    document.exitFullscreen();
+  }
+}
+
 // hdr+tabsの実測高さに.scr-fixedのtopを合わせる（フォント設定等でズレないように）
 function syncStickyOffset(){
   const tabs=document.querySelector('.tabs');
@@ -665,18 +696,27 @@ function findMachine(id){return machines.find(m=>m.id===id);}
 // リモートから最新データ取得（オンライン時）
 async function fetchRemote(){
   if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE') return;
-  try{
-    const mr=await fetch(GAS_URL+'?action=getMachines');
-    const md=await mr.json();
-    if(md.machines && md.machines.length>0){machines=md.machines;saveData();populateForms();renderMachines();renderYardChips();}
-    const or=await fetch(GAS_URL+'?action=getOperators');
-    const od=await or.json();
-    if(od.operators && od.operators.length>0){operators=od.operators;saveData();populateForms();}
-    const ir=await fetch(GAS_URL+'?action=getInspections');
-    const id=await ir.json();
-    if(id.inspections){inspections=id.inspections;saveData();renderJikensa();renderDash();}
-    refreshTodayList(false);
-  }catch(e){console.warn('fetchRemote:',e);}
+  // 4本のAPIを並列取得（直列比で約1/3〜1/4の時間）
+  const get=a=>fetch(GAS_URL+'?action='+a).then(r=>r.json());
+  const [mR,oR,iR,tR]=await Promise.allSettled([
+    get('getMachines'), get('getOperators'), get('getInspections'),
+    get('getReports&month='+monthStr())
+  ]);
+  if(mR.status==='fulfilled'&&mR.value.machines&&mR.value.machines.length>0){
+    machines=mR.value.machines;populateForms();renderMachines();renderYardChips();
+  }
+  if(oR.status==='fulfilled'&&oR.value.operators&&oR.value.operators.length>0){
+    operators=oR.value.operators;populateForms();
+  }
+  if(iR.status==='fulfilled'&&iR.value.inspections){
+    inspections=iR.value.inspections;renderJikensa();renderDash();
+  }
+  if(tR.status==='fulfilled'&&tR.value.reports){
+    const t=todayStr();
+    serverToday=tR.value.reports.filter(r=>String(r.date)===t).map(r=>({...r,synced:true}));
+    renderList();
+  }
+  saveData();
 }
 
 // 本日の全端末データを取得（稼働一覧のオンライン参照）
@@ -901,37 +941,77 @@ function renderList(){
     refreshBtn.style.display='none';
   }
   if(listYard)tr=tr.filter(r=>r.yard===listYard);
-  document.getElementById('list-count').textContent=tr.length;
+
+  // 機体ごとにグループ化
+  const groups={};
+  tr.forEach(r=>{
+    if(!groups[r.machineId])groups[r.machineId]=[];
+    groups[r.machineId].push(r);
+  });
+  const gkeys=Object.keys(groups);
+  document.getElementById('list-count').textContent=`${tr.length}件・${gkeys.length}機体`;
 
   if(tr.length===0){
     el.innerHTML='<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">本日の入力はまだありません<br>下のボタンから日報を入力してください</div></div>';
     return;
   }
-  el.innerHTML=tr.map(r=>{
-    const m=findMachine(r.machineId);
+
+  el.innerHTML=gkeys.map(mid=>{
+    const rs=groups[mid].slice().sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||'')));
+    const m=findMachine(mid);
     const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
-    const gpsStr=r.lat?`${r.lat}, ${r.lng}`:'GPS未記録';
-    const gpsLink=r.lat?`<a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:10px">地図</a>`:'';
-    const bdg=r.synced?'<span class="bdg bdg-ok">✓ 送信済</span>':'<span class="bdg bdg-pend">⏳ 送信待ち</span>';
-    const inspBdg=r.inspection==='済'?'<span class="bdg bdg-ok" style="margin-left:4px">点検済</span>':(r.inspection==='未'?'<span class="bdg bdg-warn" style="margin-left:4px">点検未</span>':'<span class="bdg bdg-pend" style="margin-left:4px">点検一部</span>');
-    const greaseBdg=r.grease==='済'?'<span class="bdg bdg-blue" style="margin-left:4px">グリス済</span>':'';
-    return `<div class="card">
-      <div class="card-h">
-        <div><div class="mname">${r.machineId}　${nm}</div><div class="msub">${r.operator} / ${r.location}</div></div>
-        ${bdg}
-      </div>
-      <div class="card-b">
-        <div class="card-grid" style="margin-bottom:8px">
-          <div><div class="sl">稼働時間</div><div class="sv">${r.workHours||'—'} h</div></div>
-          <div><div class="sl">アワーメータ</div><div class="sv">${r.hourMeter||'—'} h</div></div>
-          <div><div class="sl">給油量</div><div class="sv">${r.fuelAmount||'—'} L</div></div>
-          <div><div class="sl">GPS ${gpsLink}</div><div class="sv" style="font-size:10px;color:#185fa5">${gpsStr}</div></div>
+    const yard=rs[0].yard||'';
+    const multi=rs.length>1;
+    // 合計・最終値
+    const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+    const lastH=rs.reduce((mx,r)=>{const v=parseFloat(r.hourMeter);return isNaN(v)?mx:Math.max(mx,v);},NaN);
+    const totalF=rs.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
+    const allSynced=rs.every(r=>r.synced);
+    const bdg=allSynced?'<span class="bdg bdg-ok">✓ 送信済</span>':'<span class="bdg bdg-pend">⏳ 送信待ちあり</span>';
+    const entries=rs.map(r=>{
+      const tm=r.savedAt?new Date(r.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):(r.receivedAt?String(r.receivedAt).slice(11,16):'--:--');
+      const inspTxt=r.inspection==='済'?'点検済':(r.inspection==='未'?'<span style="color:#854f0b;font-weight:700">点検未</span>':r.inspection);
+      const dtl=[`稼働 ${r.workHours||'—'}h`,`アワー ${r.hourMeter||'—'}h`,(r.fuelAmount?`給油 ${r.fuelAmount}L`:'給油なし'),inspTxt].join(' ／ ');
+      const eBdg=r.synced?'<span class="bdg bdg-ok">✓</span>':'<span class="bdg bdg-pend">⏳</span>';
+      const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:12px" onclick="event.stopPropagation()">地図</a>`:'';
+      const noteHtml=r.notes?`<div style="margin-top:5px;font-size:13px;color:#666;background:#f8f8f8;padding:6px 9px;border-radius:6px">📝 ${r.notes}</div>`:'';
+      return `<div class="entry">
+        <span class="entry-time">${tm}</span>
+        <div class="entry-body">
+          <div class="entry-op">${r.operator||'（運転者未記入）'}</div>
+          <div class="entry-dtl">${dtl}${gpsLink}</div>
+          ${noteHtml}
         </div>
-        <div>${inspBdg}${greaseBdg}${r.transfer==='有'?'<span class="bdg bdg-blue" style="margin-left:4px">回送</span>':''}</div>
-        ${r.notes?`<div style="margin-top:8px;font-size:11px;color:#666;background:#f8f8f8;padding:6px 8px;border-radius:6px">📝 ${r.notes}</div>`:''}
+        ${eBdg}
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="card-h" onclick="toggleEntries(this)" style="cursor:pointer">
+        <div><div class="mname">${mid}　${nm}</div><div class="msub">${yard}</div></div>
+        <div style="display:flex;align-items:center;gap:9px">
+          ${multi?`<span class="cnt-badge">${rs.length}件</span>`:''}
+          ${bdg}
+          <span class="arrow">▾</span>
+        </div>
       </div>
+      <div class="card-b" style="padding-top:10px">
+        <div class="card-grid">
+          <div><div class="sl">${multi?'合計稼働':'稼働時間'}</div><div class="sv">${totalW||'—'} h</div></div>
+          <div><div class="sl">${multi?'最終アワー':'アワーメータ'}</div><div class="sv">${isNaN(lastH)?'—':lastH} h</div></div>
+          <div><div class="sl">${multi?'給油合計':'給油量'}</div><div class="sv">${totalF||'—'} L</div></div>
+        </div>
+      </div>
+      <div class="entries">${entries}</div>
     </div>`;
   }).join('');
+}
+
+function toggleEntries(h){
+  const card=h.closest('.card');
+  const e=card.querySelector('.entries');
+  const a=card.querySelector('.arrow');
+  if(e){e.classList.toggle('open');}
+  if(a){a.classList.toggle('open');}
 }
 
 // ===== 重機管理 =====
@@ -1166,12 +1246,17 @@ function calNav(dir){
   loadCalMonth();
 }
 
+let calMonthCache={}; // 'H-17|2026-06' → reports（セッション内キャッシュ）
 async function loadCalMonth(){
   const mid=document.getElementById('cal-machine').value;
   if(!mid){renderCalendar();return;}
   const ym=calYM();
-  // ローカル分（未送信含む）
-  let local=allReports().filter(r=>r.machineId===mid && String(r.date).startsWith(ym));
+  const key=mid+'|'+ym;
+  // ① まず手元にあるもので即描画（0秒表示）
+  const local=allReports().filter(r=>r.machineId===mid && String(r.date).startsWith(ym));
+  calReports=calMonthCache[key]?calMonthCache[key]:local;
+  renderCalendar();
+  // ② 裏で最新を取得して静かに差し替え
   if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
     try{
       const res=await fetch(GAS_URL+'?action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid));
@@ -1180,12 +1265,12 @@ async function loadCalMonth(){
         const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
         const localOnly=local.filter(r=>!sids.has(r.id));
         calReports=[...data.reports,...localOnly];
-        renderCalendar();return;
+        calMonthCache[key]=calReports;
+        // 表示中の機体・月が変わっていなければ再描画
+        if(document.getElementById('cal-machine').value===mid && calYM()===ym)renderCalendar();
       }
     }catch(e){console.warn('cal:',e);}
   }
-  calReports=local;
-  renderCalendar();
 }
 
 function dayStatus(r){
@@ -1201,45 +1286,80 @@ function renderCalendar(){
   const first=new Date(calYear,calMonth,1);
   const daysIn=new Date(calYear,calMonth+1,0).getDate();
   for(let i=0;i<first.getDay();i++)grid.appendChild(document.createElement('div'));
-  // 日付ごとに最新1件を選ぶ
+  // 日付ごとに全件を保持（複数対応）
   const byDay={};
   calReports.forEach(r=>{
     const d=parseInt(String(r.date).slice(8,10),10);
     if(isNaN(d))return;
-    if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
+    if(!byDay[d])byDay[d]=[];
+    byDay[d].push(r);
   });
+  Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
   for(let d=1;d<=daysIn;d++){
     const cell=document.createElement('div');
-    const r=byDay[d];
-    if(r){
-      const st=dayStatus(r);
+    const rs=byDay[d];
+    if(rs&&rs.length>0){
+      // 最も重いステータスを採用（warn > caution > ok）
+      let st='ok';
+      rs.forEach(r=>{const s=dayStatus(r);if(s==='warn')st='warn';else if(s==='caution'&&st!=='warn')st='caution';});
       cell.className='cal-cell cal-'+st;
-      const sub=st==='warn'?'備考あり':(st==='caution'?'点検未':((r.workHours!==''&&r.workHours!==undefined&&r.workHours!==null)?r.workHours+'h':'入力済'));
+      const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+      let sub=st==='warn'?'備考あり':(st==='caution'?'点検未':(totalW?totalW+'h':'入力済'));
+      if(rs.length>1)sub=`${rs.length}件 ${sub}`;
       cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${sub}</div>`;
     }else{
       cell.className='cal-cell';
       cell.innerHTML=`<div class="cal-day" style="color:#bbb;font-weight:500">${d}</div>`;
     }
-    cell.onclick=()=>openDayModal(d,r);
+    cell.onclick=()=>openDayModal(d,rs||[]);
     grid.appendChild(cell);
   }
 }
 
 // ===== 日報編集モーダル =====
 let dmCurrent=null;
-function openDayModal(day,r){
+let dmDayReports=[]; // その日の全件
+function openDayModal(day,rs){
   const mid=document.getElementById('cal-machine').value;
   document.getElementById('dm-title').textContent=`${calMonth+1}月${day}日　${mid}`;
   const form=document.getElementById('dm-form');
   const empty=document.getElementById('dm-empty');
-  if(!r){
-    form.style.display='none';empty.style.display='block';dmCurrent=null;
+  const selWrap=document.getElementById('dm-multi');
+  dmDayReports=rs||[];
+  if(!rs || rs.length===0){
+    form.style.display='none';empty.style.display='block';selWrap.innerHTML='';dmCurrent=null;
     document.getElementById('day-modal').classList.add('on');
     return;
   }
-  form.style.display='block';empty.style.display='none';
+  // 複数件がある場合: 冒頭に「誰が・何時」の一覧セレクタを表示
+  if(rs.length>1){
+    selWrap.innerHTML='<div class="fl" style="margin-bottom:6px">この日の日報 '+rs.length+'件（タップで切替）</div>'+
+      rs.map((r,i)=>{
+        const tm=r.savedAt?new Date(r.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'--:--';
+        return `<div class="dm-sel" data-i="${i}" onclick="dmSelect(${i})" style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1.5px solid #d5d5d5;border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fafafa">
+          <span style="font-weight:800;color:#185fa5;font-size:15px">${tm}</span>
+          <span style="font-weight:700;font-size:16px;flex:1">${r.operator||'（運転者未記入）'}</span>
+          <span style="font-size:13px;color:#888">${r.workHours||'—'}h</span>
+        </div>`;
+      }).join('')+'<div style="height:6px"></div>';
+  }else{
+    selWrap.innerHTML='';
+  }
+  dmSelect(rs.length-1); // 最新を初期表示
+  document.getElementById('day-modal').classList.add('on');
+}
+
+function dmSelect(i){
+  const r=dmDayReports[i];
+  if(!r)return;
   dmCurrent=r;
-  // 運転者select: マスタ + 現在値
+  // 選択中ハイライト
+  document.querySelectorAll('.dm-sel').forEach(el=>{
+    el.style.borderColor=el.dataset.i==i?'#185fa5':'#d5d5d5';
+    el.style.background=el.dataset.i==i?'#e6f1fb':'#fafafa';
+  });
+  document.getElementById('dm-form').style.display='block';
+  document.getElementById('dm-empty').style.display='none';
   const opSel=document.getElementById('dm-operator');
   opSel.innerHTML='<option value="">（空欄）</option>';
   const names=[...operators];
@@ -1252,22 +1372,17 @@ function openDayModal(day,r){
   document.getElementById('dm-whours').value=r.workHours!==undefined?r.workHours:'';
   document.getElementById('dm-floc').value=r.fuelLocation||'';
   document.getElementById('dm-famt').value=r.fuelAmount!==undefined?r.fuelAmount:'';
-  // 点検select: 済/未 + 一部の現在値
   const inspSel=document.getElementById('dm-insp');
   inspSel.innerHTML='<option value="済">済</option><option value="未">未</option>';
   if(r.inspection && r.inspection!=='済' && r.inspection!=='未')inspSel.innerHTML+=`<option value="${r.inspection}">${r.inspection}</option>`;
   inspSel.value=r.inspection||'未';
-  const g=document.getElementById('dm-grease');
-  g.className='tog '+(r.grease==='済'?'on':'off');
-  const tr=document.getElementById('dm-trans');
-  tr.className='tog '+(r.transfer==='有'?'on':'off');
+  document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
+  document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
   document.getElementById('dm-notes').value=r.notes||'';
   document.getElementById('dm-gps').value=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
-  // 旧データ(ID無し)は編集不可
   const noid=!r.id;
   document.getElementById('dm-noid').style.display=noid?'block':'none';
   document.getElementById('dm-save').style.display=noid?'none':'block';
-  document.getElementById('day-modal').classList.add('on');
 }
 function closeDayModal(){document.getElementById('day-modal').classList.remove('on');}
 
@@ -1439,5 +1554,6 @@ function showToast(msg,type=''){
 
 window.addEventListener('DOMContentLoaded',initApp);
 </script>
+</div>
 </body>
 </html>
