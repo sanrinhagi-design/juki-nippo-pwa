@@ -155,7 +155,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div class="hdr-date" id="hdr-date">読み込み中...</div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
-    <span onclick="toggleFS()" style="font-size:14px;padding:6px 12px;border-radius:9px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);cursor:pointer">⛶ 全画面</span>
     <span class="net-badge net-off" id="net-badge">圏外</span>
   </div>
 </div>
@@ -361,6 +360,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <div id="scr-dash" class="scr">
   <div class="slbl" id="dash-month"></div>
   <div class="stat-grid" id="dash-stats"></div>
+  <button class="btn btn-o" onclick="openCsvModal()" style="margin-bottom:14px">📊 CSV出力</button>
 
   <div class="slbl">機体別カレンダー</div>
   <div class="card"><div class="card-b">
@@ -515,6 +515,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       重機番号を変更すると、過去の日報・特定自主検査データとの紐付けは変更後の番号に引き継がれません（新規番号として扱われます）。拠点移動などで番号ごと変える場合はご注意ください。
     </div>
     <button class="btn btn-p" onclick="saveMachineEdit()">保存する</button>
+    <button class="btn btn-d" onclick="deleteMachineFromModal()" style="margin-top:8px">この重機を削除する</button>
+    <div style="height:8px"></div>
+  </div>
+</div>
+
+<!-- CSV出力モーダル -->
+<div class="modal-bg" id="csv-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t">CSV出力</span>
+      <span class="modal-x" onclick="closeCsvModal()">&times;</span>
+    </div>
+    <div class="fg">
+      <label class="fl">対象機体</label>
+      <select class="fc" id="csv-machine">
+        <option value="">全機体</option>
+      </select>
+    </div>
+    <div class="frow" style="margin-bottom:11px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">開始日</label>
+        <input class="fc" type="date" id="csv-from">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">終了日</label>
+        <input class="fc" type="date" id="csv-to">
+      </div>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:14px">オンライン時はサーバー上の全データ、圏外時は端末内データのみが対象になります。</div>
+    <button class="btn btn-p" onclick="exportCsv()">CSVをダウンロード</button>
     <div style="height:8px"></div>
   </div>
 </div>
@@ -641,14 +671,6 @@ function initApp(){
   window.addEventListener('offline', updateNet);
   if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e));}
   fetchRemote();
-}
-
-function toggleFS(){
-  if(!document.fullscreenElement){
-    document.documentElement.requestFullscreen().catch(()=>showToast('この端末はホーム画面に追加で全画面になります',''));
-  }else{
-    document.exitFullscreen();
-  }
 }
 
 // hdr+tabsの実測高さに.scr-fixedのtopを合わせる（フォント設定等でズレないように）
@@ -1066,7 +1088,7 @@ function renderMachines(){
     return `<div class="mrow">
       <span class="mrow-id">${m.id}</span>
       <span class="mrow-name">${nm}<br><span style="font-size:10px;color:#aaa">${tl}</span></span>
-      <div class="mrow-acts"><span class="btn btn-sm btn-o" onclick="openMachineEditModal(machines.find(x=>x.id==='${m.id}'))">編集</span><span class="btn btn-sm btn-d" onclick="deleteMachine('${m.id}')">削除</span></div>
+      <div class="mrow-acts"><span class="btn btn-sm btn-o" onclick="openMachineEditModal(machines.find(x=>x.id==='${m.id}'))">編集</span></div>
     </div>`;
   }).join('');
 }
@@ -1121,6 +1143,17 @@ function saveMachineEdit(){
 function deleteMachine(id){
   if(!confirm(`${id} を削除しますか？`))return;
   machines=machines.filter(m=>m.id!==id);saveData();renderMachines();renderYardChips();populateForms();
+  showToast(`${id} を削除しました`,'');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteMachine',machineId:id})}).catch(()=>{});
+  }
+}
+function deleteMachineFromModal(){
+  const id=document.getElementById('me-oldid').value;
+  if(!id)return;
+  if(!confirm(`${id} を削除しますか？`))return;
+  machines=machines.filter(m=>m.id!==id);saveData();renderMachines();renderYardChips();populateForms();
+  closeMachineEditModal();
   showToast(`${id} を削除しました`,'');
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
     fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteMachine',machineId:id})}).catch(()=>{});
@@ -1207,15 +1240,11 @@ function renderDash(){
   document.getElementById('dash-month').textContent=`令和${d.getFullYear()-2018}年${d.getMonth()+1}月　月次集計`;
   const mo=monthStr();
   const rpts=allReports().filter(r=>r.date&&r.date.startsWith(mo));
-  const totalH=rpts.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
   const totalL=rpts.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
   const uninsp=rpts.filter(r=>r.inspection==='未').length;
-  const actM=new Set(rpts.map(r=>r.machineId)).size;
   document.getElementById('dash-stats').innerHTML=`
-    <div class="stat-card"><div class="num">${totalH.toFixed(1)} h</div><div class="lbl">総稼働時間</div></div>
     <div class="stat-card"><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>
-    <div class="stat-card"><div class="num" style="color:${uninsp>0?'#e67e22':'#27ae60'}">${uninsp}件</div><div class="lbl">点検未実施</div></div>
-    <div class="stat-card"><div class="num">${actM}台</div><div class="lbl">稼働台数</div></div>`;
+    <div class="stat-card"><div class="num" style="color:${uninsp>0?'#e67e22':'#27ae60'}">${uninsp}件</div><div class="lbl">点検未実施</div></div>`;
 
   // 特定自主検査 期限警告
   const jiEl=document.getElementById('dash-jikensa');
@@ -1525,6 +1554,92 @@ function deleteOperator(name){
 }
 
 // ===== 月次印刷（紙フォーマット再現・機種共通） =====
+// ===== CSV出力 =====
+function openCsvModal(){
+  const sel=document.getElementById('csv-machine');
+  sel.innerHTML='<option value="">全機体</option>';
+  YARDS.forEach(y=>{
+    const inY=machines.filter(m=>m.yard===y);
+    if(inY.length===0)return;
+    let grp=`<optgroup label="${y}">`;
+    inY.forEach(m=>{
+      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+      grp+=`<option value="${m.id}">${lbl}</option>`;
+    });
+    grp+='</optgroup>';
+    sel.innerHTML+=grp;
+  });
+  const t=todayStr();
+  const firstOfMonth=t.slice(0,8)+'01';
+  document.getElementById('csv-from').value=firstOfMonth;
+  document.getElementById('csv-to').value=t;
+  document.getElementById('csv-modal').classList.add('on');
+}
+function closeCsvModal(){document.getElementById('csv-modal').classList.remove('on');}
+
+async function exportCsv(){
+  const mid=document.getElementById('csv-machine').value;
+  const from=document.getElementById('csv-from').value;
+  const to=document.getElementById('csv-to').value;
+  if(!from||!to){showToast('開始日と終了日を指定してください','err');return;}
+  if(from>to){showToast('開始日は終了日より前にしてください','err');return;}
+
+  showToast('データを集計中...','');
+  let rows=[];
+  if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    // 期間にまたがる月を全て取得
+    const months=new Set();
+    let cur=new Date(from+'T00:00:00');
+    const end=new Date(to+'T00:00:00');
+    while(cur<=end){months.add(`${cur.getFullYear()}-${pad(cur.getMonth()+1)}`);cur.setMonth(cur.getMonth()+1);}
+    try{
+      const results=await Promise.all([...months].map(ym=>
+        fetch(GAS_URL+'?action=getReports&month='+ym+(mid?'&machineId='+encodeURIComponent(mid):'')).then(r=>r.json())
+      ));
+      results.forEach(d=>{if(d.reports)rows.push(...d.reports);});
+    }catch(e){
+      showToast('サーバー取得に失敗。端末内データのみで出力します','err');
+      rows=allReports();
+    }
+  }else{
+    rows=allReports();
+  }
+
+  rows=rows.filter(r=>r.date>=from && r.date<=to);
+  if(mid)rows=rows.filter(r=>String(r.machineId)===String(mid));
+  rows.sort((a,b)=>(a.date+String(a.savedAt||'')).localeCompare(b.date+String(b.savedAt||'')));
+
+  if(rows.length===0){showToast('該当データがありません','err');return;}
+
+  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油場所','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考'];
+  const csvRows=[headers.join(',')];
+  rows.forEach(r=>{
+    const vals=[
+      r.date, r.machineId, r.yard, r.operator, r.contractor, r.location,
+      r.hourMeter, r.workHours, r.fuelLocation, r.fuelAmount,
+      r.inspection, r.grease, r.transfer, r.lat, r.lng, r.notes
+    ].map(v=>{
+      const s=(v===undefined||v===null)?'':String(v);
+      return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+    });
+    csvRows.push(vals.join(','));
+  });
+  const csvContent='\uFEFF'+csvRows.join('\r\n'); // BOM付きでExcel文字化け防止
+
+  const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const mLabel=mid?mid:'全機体';
+  a.href=url;
+  a.download=`重機日報_${mLabel}_${from}_${to}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  closeCsvModal();
+  showToast(`${rows.length}件をCSV出力しました`,'ok');
+}
+
 function printMonth(){
   const mid=document.getElementById('cal-machine').value;
   if(!mid){showToast('機体を選択してください','err');return;}
