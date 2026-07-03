@@ -173,7 +173,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="scr-fixed">
     <div class="sync-row" id="sync-row" style="display:none">
       <span>未送信: <span class="sync-cnt" id="pend-cnt">0</span>件</span>
-      <span class="sync-btn" onclick="syncNow()">今すぐ送信 →</span>
+      <span class="sync-btn" id="sync-btn" onclick="syncNow()">今すぐ送信 →</span>
     </div>
     <div class="notice n-info" id="list-net-note" style="display:none">
       <span id="list-net-txt">オンライン中：全端末の最新データを表示</span>
@@ -474,9 +474,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="trow"><span class="tlbl">回送あり</span><div class="tog off" id="dm-trans" onclick="togEl(this)"><div class="tog-k"></div></div></div>
       </div></div>
       <div class="fg"><label class="fl">備考</label><textarea class="fc" id="dm-notes" rows="2"></textarea></div>
-      <div class="fg"><label class="fl">GPS座標（記録値・変更不可）</label><input class="fc" id="dm-gps" readonly style="background:#f0f0f0"></div>
+      <div class="fg">
+        <label class="fl">GPS座標（記録値・変更不可）</label>
+        <div class="fc" id="dm-gps" style="background:#f0f0f0;display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span id="dm-gps-txt">記録なし</span>
+          <a href="#" id="dm-gps-link" target="_blank" style="display:none;color:#185fa5;font-weight:700;font-size:13px;flex-shrink:0">🗺 地図を開く</a>
+        </div>
+      </div>
       <div id="dm-noid" style="display:none;font-size:11px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:10px">旧形式のデータのため編集できません（閲覧のみ）。</div>
       <button class="btn btn-p" id="dm-save" onclick="saveDayModal()">保存する</button>
+      <button class="btn btn-d" id="dm-delete" onclick="deleteDayModal()" style="margin-top:8px">この日報を削除する</button>
     </div>
     <div style="height:10px"></div>
   </div>
@@ -873,9 +880,16 @@ function resetForm(){
 }
 
 // ===== SYNC =====
+let syncDebounce=null;
 async function autoSync(){
   if(syncBusy||pending.length===0||!navigator.onLine)return;
   if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE')return;
+  // online/syncNow/定期実行が同時発火しても1回にまとめる
+  clearTimeout(syncDebounce);
+  syncDebounce=setTimeout(()=>doSync(),150);
+}
+async function doSync(){
+  if(syncBusy||pending.length===0||!navigator.onLine)return;
   syncBusy=true;
   const batch=[...pending];
   try{
@@ -894,7 +908,22 @@ async function autoSync(){
 async function syncNow(){
   if(!navigator.onLine){showToast('圏外です。電波のある場所で再試行してください','err');return;}
   if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){showToast('GAS_URL を設定してください','err');return;}
-  showToast('送信中...','');await autoSync();
+  const btn=document.getElementById('sync-btn');
+  if(btn.dataset.busy==='1')return; // 連打防止
+  btn.dataset.busy='1';
+  const origText=btn.textContent;
+  btn.textContent='送信中...';
+  btn.style.pointerEvents='none';
+  btn.style.opacity='0.5';
+  showToast('送信中...','');
+  try{
+    await doSync();
+  }finally{
+    btn.dataset.busy='0';
+    btn.textContent=origText;
+    btn.style.pointerEvents='';
+    btn.style.opacity='';
+  }
 }
 function updateSyncRow(){
   document.getElementById('pend-cnt').textContent=pending.length;
@@ -948,6 +977,7 @@ function renderList(){
     if(!groups[r.machineId])groups[r.machineId]=[];
     groups[r.machineId].push(r);
   });
+  window.listGroups=groups; // 編集モーダルから参照するため保持
   const gkeys=Object.keys(groups);
   document.getElementById('list-count').textContent=`${tr.length}件・${gkeys.length}機体`;
 
@@ -968,6 +998,8 @@ function renderList(){
     const totalF=rs.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
     const allSynced=rs.every(r=>r.synced);
     const bdg=allSynced?'<span class="bdg bdg-ok">✓ 送信済</span>':'<span class="bdg bdg-pend">⏳ 送信待ちあり</span>';
+    const mSafe=mid.replace(/'/g,"\\'");
+    const nmSafe=(nm||'').replace(/'/g,"\\'");
     const entries=rs.map(r=>{
       const tm=r.savedAt?new Date(r.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):(r.receivedAt?String(r.receivedAt).slice(11,16):'--:--');
       const inspTxt=r.inspection==='済'?'点検済':(r.inspection==='未'?'<span style="color:#854f0b;font-weight:700">点検未</span>':r.inspection);
@@ -975,7 +1007,7 @@ function renderList(){
       const eBdg=r.synced?'<span class="bdg bdg-ok">✓</span>':'<span class="bdg bdg-pend">⏳</span>';
       const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:12px" onclick="event.stopPropagation()">地図</a>`:'';
       const noteHtml=r.notes?`<div style="margin-top:5px;font-size:13px;color:#666;background:#f8f8f8;padding:6px 9px;border-radius:6px">📝 ${r.notes}</div>`:'';
-      return `<div class="entry">
+      return `<div class="entry" onclick="event.stopPropagation();openListEntryModal('${mSafe}','${nmSafe}')" style="cursor:pointer">
         <span class="entry-time">${tm}</span>
         <div class="entry-body">
           <div class="entry-op">${r.operator||'（運転者未記入）'}</div>
@@ -1012,6 +1044,13 @@ function toggleEntries(h){
   const a=card.querySelector('.arrow');
   if(e){e.classList.toggle('open');}
   if(a){a.classList.toggle('open');}
+}
+
+// 稼働一覧のエントリタップ → カレンダーと共通の編集モーダルを開く
+function openListEntryModal(mid,nm){
+  const rs=(window.listGroups&&window.listGroups[mid])?window.listGroups[mid].slice().sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))):[];
+  const title=`${mid}　${nm}（本日）`;
+  openReportModal(title,rs);
 }
 
 // ===== 重機管理 =====
@@ -1321,7 +1360,13 @@ let dmCurrent=null;
 let dmDayReports=[]; // その日の全件
 function openDayModal(day,rs){
   const mid=document.getElementById('cal-machine').value;
-  document.getElementById('dm-title').textContent=`${calMonth+1}月${day}日　${mid}`;
+  const title=`${calMonth+1}月${day}日　${mid}`;
+  openReportModal(title,rs);
+}
+
+// 汎用版: タイトル文字列と日報配列を直接渡して開く（稼働一覧・カレンダー共通）
+function openReportModal(title,rs){
+  document.getElementById('dm-title').textContent=title;
   const form=document.getElementById('dm-form');
   const empty=document.getElementById('dm-empty');
   const selWrap=document.getElementById('dm-multi');
@@ -1379,10 +1424,14 @@ function dmSelect(i){
   document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
   document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
   document.getElementById('dm-notes').value=r.notes||'';
-  document.getElementById('dm-gps').value=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
+  document.getElementById('dm-gps-txt').textContent=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
+  const gpsLink=document.getElementById('dm-gps-link');
+  if(r.lat){gpsLink.href=`https://www.google.com/maps?q=${r.lat},${r.lng}`;gpsLink.style.display='inline';}
+  else{gpsLink.style.display='none';}
   const noid=!r.id;
   document.getElementById('dm-noid').style.display=noid?'block':'none';
   document.getElementById('dm-save').style.display=noid?'none':'block';
+  document.getElementById('dm-delete').style.display=noid?'none':'block';
 }
 function closeDayModal(){document.getElementById('day-modal').classList.remove('on');}
 
@@ -1423,7 +1472,29 @@ async function saveDayModal(){
   }catch(e){showToast('通信エラー: '+e.message,'err');}
 }
 
-// ===== 運転者マスタ管理 =====
+async function deleteDayModal(){
+  if(!dmCurrent||!dmCurrent.id){showToast('削除できないデータです','err');return;}
+  if(!navigator.onLine){showToast('削除はオンライン時のみ可能です','err');return;}
+  const tm=dmCurrent.savedAt?new Date(dmCurrent.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'';
+  if(!confirm(`${dmCurrent.operator||'（運転者未記入）'} ${tm} の日報を削除しますか？\nこの操作は取り消せません。`))return;
+  showToast('削除中...','');
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteReport',id:dmCurrent.id})});
+    const data=await res.json();
+    if(data.success){
+      const delId=dmCurrent.id;
+      pending=pending.filter(r=>r.id!==delId);
+      synced=synced.filter(r=>r.id!==delId);
+      serverToday=serverToday.filter(r=>r.id!==delId);
+      saveData();
+      closeDayModal();
+      showToast('日報を削除しました','ok');
+      loadCalMonth();refreshTodayList(false);
+    }else{
+      showToast(data.error||'削除に失敗しました','err');
+    }
+  }catch(e){showToast('通信エラー: '+e.message,'err');}
+}
 function openOpModal(){renderOps();document.getElementById('op-modal').classList.add('on');}
 function closeOpModal(){document.getElementById('op-modal').classList.remove('on');}
 function renderOps(){
