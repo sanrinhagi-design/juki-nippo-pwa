@@ -14,10 +14,6 @@
 html{font-size:17px}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#e2e2e2;color:#1a1a1a;min-height:100vh;-webkit-font-smoothing:antialiased}
 .app-shell{max-width:100%;margin:0 auto;background:#f0f0f0;min-height:100vh}
-@media(min-width:1200px){.app-shell{max-width:1400px;box-shadow:0 0 24px rgba(0,0,0,.08)}}
-/* PC: カードをグリッド表示 */
-@media(min-width:700px){#list-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}}
-@media(min-width:1100px){#list-body{grid-template-columns:1fr 1fr 1fr}}
 /* グループ表示 */
 .cnt-badge{background:#185fa5;color:#fff;font-size:14px;font-weight:800;padding:4px 12px;border-radius:12px}
 .arrow{font-size:18px;color:#999;transition:transform .2s;display:inline-block}
@@ -30,18 +26,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .entry-body{flex:1}
 .entry-op{font-size:17px;font-weight:700}
 .entry-dtl{font-size:14px;color:#777;margin-top:3px;line-height:1.5}
-.hdr{background:#1a1a2e;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.top-fixed{position:fixed;top:0;left:0;right:0;z-index:100;background:#f0f0f0}
+.hdr{background:#1a1a2e;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
 .hdr-title{font-size:20px;font-weight:700;letter-spacing:.3px}
 .hdr-date{font-size:14px;color:#c5cad6;margin-top:3px}
 .net-badge{font-size:14px;padding:5px 14px;border-radius:12px;font-weight:700;transition:.3s}
 .net-on{background:#27ae60}.net-off{background:#c0392b}
-.tabs{display:flex;background:#fff;border-bottom:1px solid #e8e8e8;position:sticky;top:52px;z-index:99;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
 .tab{flex:1 0 auto;padding:15px 10px;text-align:center;font-size:15px;color:#999;cursor:pointer;border-bottom:3px solid transparent;font-weight:600;white-space:nowrap}
 .tab.on{color:#185fa5;border-bottom-color:#185fa5;font-weight:700}
+.body-pad{padding-top:104px} /* .top-fixed の実測高さに応じてJSで上書き */
 .scr{display:none;min-height:calc(100vh - 104px)}
-.scr-fixed{padding:12px 12px 0;background:#f0f0f0;position:sticky;top:88px;z-index:50}
-.scr-scroll{padding:0 12px 12px;overflow-y:auto}
 .scr.on{display:block}
+.scr-fixed{display:none;padding:12px 12px 0;background:#f0f0f0}
+.scr-fixed.on{display:block;position:fixed;left:0;right:0;z-index:90;max-width:inherit;margin:0 auto}
+.scr-scroll{padding:0 12px 12px;overflow-y:auto}
 .card{background:#fff;border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
 .card-h{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f5f5f5}
 .card-b{padding:10px 12px}
@@ -149,6 +148,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <body>
 <div class="app-shell">
 
+<div class="top-fixed" id="top-fixed">
 <div class="hdr">
   <div>
     <div class="hdr-title">重機稼働日報</div>
@@ -166,10 +166,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="tab" onclick="showTab('jikensa')">特定自主検査</div>
   <div class="tab" onclick="showTab('dash')">集計</div>
 </div>
+</div>
+<div class="body-pad" id="body-pad"></div>
 
 <!-- ===== 稼働一覧 ===== -->
 <div id="scr-list" class="scr on">
-  <div class="scr-fixed">
+  <div class="scr-fixed on">
     <div class="sync-row" id="sync-row" style="display:none">
       <span>未送信: <span class="sync-cnt" id="pend-cnt">0</span>件</span>
       <span class="sync-btn" id="sync-btn" onclick="syncNow()">今すぐ送信 →</span>
@@ -181,7 +183,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div class="yard-chips" id="list-yards"></div>
     <div class="slbl">本日入力済みの稼働（<span id="list-count">0</span>件）</div>
   </div>
-  <div class="scr-scroll">
+  <div class="scr-scroll" id="list-scr-scroll">
     <div id="list-body"></div>
   </div>
   <div class="fab" onclick="showTab('input')">
@@ -674,11 +676,20 @@ function initApp(){
 }
 
 // hdr+tabsの実測高さに.scr-fixedのtopを合わせる（フォント設定等でズレないように）
+// .top-fixed（ヘッダー+タブ）の高さ + アクティブな.scr-fixedの高さを実測し、
+// 本体側のpadding-topと.scr-fixed自身のtop位置を揃える。
+// sticky積み重ねをやめたことで「途中で止まる」現象を回避する。
 function syncStickyOffset(){
-  const tabs=document.querySelector('.tabs');
-  if(!tabs)return;
-  const offset=tabs.offsetTop+tabs.offsetHeight;
-  document.querySelectorAll('.scr-fixed').forEach(el=>el.style.top=offset+'px');
+  const topFixed=document.getElementById('top-fixed');
+  if(!topFixed)return;
+  const headerH=topFixed.offsetHeight;
+  const activeFixed=document.querySelector('.scr-fixed.on');
+  document.querySelectorAll('.scr-fixed').forEach(el=>el.style.top=headerH+'px');
+  const fixedH=activeFixed?activeFixed.offsetHeight:0;
+  const total=headerH+fixedH;
+  const bodyPad=document.getElementById('body-pad');
+  if(bodyPad)bodyPad.style.height=headerH+'px';
+  document.querySelectorAll('.scr-scroll').forEach(el=>{el.style.paddingTop=(fixedH>0?fixedH+8:0)+'px';});
 }
 
 function setDate(){
@@ -1719,8 +1730,11 @@ th{background:#eee}
 function showTab(name){
   const tabs=['list','input','machines','jikensa','dash'];
   tabs.forEach((t,i)=>{
-    document.getElementById('scr-'+t).className='scr'+(t===name?' on':'');
+    const scr=document.getElementById('scr-'+t);
+    scr.className='scr'+(t===name?' on':'');
     document.querySelectorAll('.tab')[i].className='tab'+(t===name?' on':'');
+    const fx=scr.querySelector('.scr-fixed');
+    if(fx)fx.classList.toggle('on',t===name);
   });
   if(name==='list'){refreshTodayList(false);renderList();updateSyncRow();}
   if(name==='machines')renderMachines();
@@ -1728,6 +1742,7 @@ function showTab(name){
   if(name==='dash'){renderDash();populateCalMachine();loadCalMonth();}
   if(name==='input')updateNet();
   window.scrollTo(0,0);
+  requestAnimationFrame(syncStickyOffset);
 }
 
 // ===== TOAST =====
