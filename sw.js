@@ -2,7 +2,7 @@
 // Service Worker — キャッシュ & オフライン対応
 // ============================================================
 
-const CACHE_NAME = 'juki-nippo-v3';
+const CACHE_NAME = 'juki-nippo-v5';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
