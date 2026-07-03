@@ -15,7 +15,7 @@ html{font-size:17px}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#e2e2e2;color:#1a1a1a;min-height:100vh;-webkit-font-smoothing:antialiased}
 .app-shell{max-width:100%;margin:0 auto;background:#f0f0f0;min-height:100vh}
 /* グループ表示 */
-.cnt-badge{background:#185fa5;color:#fff;font-size:14px;font-weight:800;padding:4px 12px;border-radius:12px}
+.cnt-badge{background:#185fa5;color:#fff;font-size:15px;font-weight:800;padding:4px 12px;border-radius:12px}
 .arrow{font-size:18px;color:#999;transition:transform .2s;display:inline-block}
 .arrow.open{transform:rotate(180deg)}
 .entries{border-top:1px solid #eee;display:none}
@@ -25,12 +25,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .entry-time{font-size:16px;font-weight:800;color:#185fa5;min-width:56px}
 .entry-body{flex:1}
 .entry-op{font-size:17px;font-weight:700}
-.entry-dtl{font-size:14px;color:#777;margin-top:3px;line-height:1.5}
+.entry-dtl{font-size:15px;color:#777;margin-top:3px;line-height:1.5}
 .top-fixed{position:fixed;top:0;left:0;right:0;z-index:100;background:#f0f0f0}
 .hdr{background:#1a1a2e;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
 .hdr-title{font-size:20px;font-weight:700;letter-spacing:.3px}
-.hdr-date{font-size:14px;color:#c5cad6;margin-top:3px}
-.net-badge{font-size:14px;padding:5px 14px;border-radius:12px;font-weight:700;transition:.3s}
+.hdr-date{font-size:15px;color:#c5cad6;margin-top:3px}
+.net-badge{font-size:15px;padding:5px 14px;border-radius:12px;font-weight:700;transition:.3s}
 .net-on{background:#27ae60}.net-off{background:#c0392b}
 .tabs{display:flex;background:#fff;border-bottom:1px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
 .tab{flex:1 0 auto;padding:15px 10px;text-align:center;font-size:15px;color:#999;cursor:pointer;border-bottom:3px solid transparent;font-weight:600;white-space:nowrap}
@@ -47,8 +47,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .mname{font-size:18px;font-weight:700}
 .msub{font-size:15px;color:#777;margin-top:3px}
-.sl{font-size:13px;color:#777}.sv{font-size:17px;font-weight:700;margin-top:3px}
-.bdg{font-size:13px;padding:5px 11px;border-radius:9px;font-weight:700;white-space:nowrap}
+.sl{font-size:15px;color:#777}.sv{font-size:17px;font-weight:700;margin-top:3px}
+.bdg{font-size:15px;padding:5px 11px;border-radius:9px;font-weight:700;white-space:nowrap}
 .bdg-ok{background:#eaf3de;color:#3b6d11}
 .bdg-pend{background:#faeeda;color:#854f0b}
 .bdg-none{background:#eef0f2;color:#666}
@@ -61,7 +61,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .trow{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f5f5f5}
 .trow:last-child{border-bottom:none}
-.tlbl{font-size:14px;font-weight:500}
+.tlbl{font-size:15px;font-weight:500}
 .tog{width:46px;height:26px;border-radius:13px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
 .tog.on{background:#27ae60}.tog.off{background:#ccc}
 .tog-k{width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:2px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.25)}
@@ -72,24 +72,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .btn-d{background:#fcebeb;color:#791f1f;border:1px solid #f09595}
 .btn-o{background:#fff;color:#185fa5;border:1.5px solid #185fa5}
 .btn-g{background:#27ae60;color:#fff}
-.btn-sm{padding:9px 16px;font-size:14px;border-radius:8px;width:auto;display:inline-block}
+.btn-sm{padding:9px 16px;font-size:15px;border-radius:8px;width:auto;display:inline-block}
 .gps-box{background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:10px 12px;margin-bottom:12px;transition:.3s}
 .gps-box.ok{background:#eaf3de;border-color:#97c459}
 .gps-box.err{background:#fcebeb;border-color:#f09595}
 .gps-row{display:flex;align-items:center;gap:8px}
 .gps-st{font-size:16px;font-weight:700;color:#185fa5}
 .gps-box.ok .gps-st{color:#27ae60}.gps-box.err .gps-st{color:#c0392b}
-.gps-coord{font-size:14px;color:#185fa5;margin-top:6px;font-family:monospace;word-break:break-all}
+.gps-coord{font-size:15px;color:#185fa5;margin-top:6px;font-family:monospace;word-break:break-all}
 .gps-box.err .gps-coord{color:#c0392b}
 .notice{padding:12px 14px;border-radius:9px;font-size:15px;margin-bottom:14px;display:flex;align-items:flex-start;gap:9px;line-height:1.55}
 .n-info{background:#e6f1fb;color:#0c447c;border:1px solid #b5d4f4}
 .n-warn{background:#faeeda;color:#854f0b;border:1px solid #fac775}
 .n-ok{background:#eaf3de;color:#3b6d11;border:1px solid #97c459}
-.slbl{font-size:14px;color:#777;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;font-weight:700}
+.slbl{font-size:15px;color:#777;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;font-weight:700}
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .stat-card{background:#fff;border-radius:11px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
 .stat-card .num{font-size:28px;font-weight:800}
-.stat-card .lbl{font-size:13px;color:#777;margin-top:4px;font-weight:600}
+.stat-card .lbl{font-size:15px;color:#777;margin-top:4px;font-weight:600}
 .sync-row{display:flex;align-items:center;justify-content:space-between;background:#fff;padding:13px 16px;border-radius:10px;margin-bottom:12px;font-size:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
 .sync-cnt{color:#854f0b;font-weight:700}
 .sync-btn{color:#185fa5;font-weight:700;cursor:pointer;padding:4px 8px}
@@ -103,32 +103,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .prog-fill{height:100%;border-radius:4px;transition:width .3s}
 .card-alert{border-left:3px solid #c0392b}
 .card-alert .card-h{background:#fff5f5}
-.fab{background:#185fa5;color:#fff;border-radius:28px;padding:13px 20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(24,95,165,.35);margin-bottom:12px;transition:opacity .15s}
+.fab{background:#185fa5;color:#fff;border-radius:28px;padding:13px 20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(24,95,165,.35);margin-bottom:12px;transition:opacity .15s}
 .fab:active{opacity:.85}
-.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(26,26,26,.9);color:#fff;padding:9px 20px;border-radius:22px;font-size:13px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(26,26,26,.9);color:#fff;padding:9px 20px;border-radius:22px;font-size:15px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
 .toast.show{opacity:1}
 .toast.t-ok{background:rgba(39,174,96,.92)}
 .toast.t-err{background:rgba(192,57,43,.92)}
 .empty{text-align:center;padding:36px 20px;color:#bbb}
 .empty-ico{font-size:32px;margin-bottom:10px}
-.empty-txt{font-size:13px}
+.empty-txt{font-size:15px}
 .yard-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
-.chip{flex:0 0 auto;font-size:14px;padding:9px 16px;border-radius:18px;border:1.5px solid #d5d5d5;background:#fff;color:#555;cursor:pointer;font-weight:600;white-space:nowrap}
+.chip{flex:0 0 auto;font-size:15px;padding:9px 16px;border-radius:18px;border:1.5px solid #d5d5d5;background:#fff;color:#555;cursor:pointer;font-weight:600;white-space:nowrap}
 .chip.on{background:#185fa5;color:#fff;border-color:#185fa5}
-.cal-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;border:1px solid #eee;background:#fff}
+.cal-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:15px;border:1px solid #eee;background:#fff}
 .cal-ok{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
 .cal-caution{background:#faeeda;color:#854f0b;border-color:#fac775}
 .cal-warn{background:#fcebeb;color:#791f1f;border-color:#f09595}
 .cal-day{font-weight:700}
-.cal-sub{font-size:8px}
+.cal-sub{font-size:15px}
 /* Inspection checklist */
 .insp-group{margin-bottom:12px}
-.insp-gh{font-size:11px;font-weight:700;color:#185fa5;padding:6px 0;border-bottom:1.5px solid #e6f1fb;margin-bottom:4px}
+.insp-gh{font-size:15px;font-weight:700;color:#185fa5;padding:6px 0;border-bottom:1.5px solid #e6f1fb;margin-bottom:4px}
 .insp-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #f7f7f7}
 .insp-chk{width:24px;height:24px;border-radius:6px;border:2px solid #ccc;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
 .insp-chk.on{background:#27ae60;border-color:#27ae60}
 .insp-chk.on::after{content:'✓';color:#fff;font-size:15px;font-weight:800}
-.insp-txt{font-size:13px;color:#333;line-height:1.4}
+.insp-txt{font-size:15px;color:#333;line-height:1.4}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:flex-end;justify-content:center}
 .modal-bg.on{display:flex}
 .modal{background:#fff;width:100%;max-width:640px;margin:0 auto;border-radius:18px 18px 0 0;padding:20px;max-height:88vh;overflow-y:auto}
@@ -136,12 +136,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .modal-t{font-size:20px;font-weight:800}
 .modal-x{font-size:28px;color:#999;cursor:pointer;line-height:1;padding:4px}
 .insp-linkbar{display:flex;gap:8px;margin-bottom:12px}
-.insp-linkbar a{flex:1;text-align:center;background:#e6f1fb;color:#185fa5;padding:9px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none}
-.due-tag{font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700}
+.insp-linkbar a{flex:1;text-align:center;background:#e6f1fb;color:#185fa5;padding:9px;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none}
+.due-tag{font-size:15px;padding:2px 7px;border-radius:6px;font-weight:700}
 .due-ok{background:#eaf3de;color:#3b6d11}
 .due-soon{background:#faeeda;color:#854f0b}
 .due-over{background:#fcebeb;color:#791f1f}
-.info-line{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:12px}
+.info-line{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:15px}
 .info-line .k{color:#888}.info-line .v{font-weight:600;color:#333}
 </style>
 </head>
@@ -207,7 +207,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       </select>
     </div>
     <div class="fg">
-      <label class="fl">運転者（任意）　<span onclick="openOpModal()" style="color:#185fa5;cursor:pointer;font-size:11px;font-weight:700">👥 運転者を管理</span></label>
+      <label class="fl">運転者（任意）　<span onclick="openOpModal()" style="color:#185fa5;cursor:pointer;font-size:15px;font-weight:700">👥 運転者を管理</span></label>
       <select class="fc" id="f-operator"><option value="">選択してください（空欄可）</option></select>
     </div>
     <div class="fg">
@@ -223,16 +223,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <!-- 始業前点検 -->
   <div class="card"><div class="card-b">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <span style="font-size:13px;font-weight:700">始業前点検（日常点検）</span>
+      <span style="font-size:15px;font-weight:700">始業前点検（日常点検）</span>
       <span class="bdg bdg-none" id="insp-status">未実施</span>
     </div>
-    <div style="font-size:11px;color:#888;margin-bottom:10px" id="insp-hint">重機を選択すると点検表が表示されます</div>
+    <div style="font-size:15px;color:#888;margin-bottom:10px" id="insp-hint">重機を選択すると点検表が表示されます</div>
     <button class="btn btn-o" id="insp-open-btn" onclick="openInspModal()" style="display:none">始業前点検を開く</button>
   </div></div>
 
   <!-- GPS -->
   <div class="gps-box" id="gps-box">
-    <div style="font-size:10px;color:#888;margin-bottom:8px;font-weight:700">重機の所在確認用</div>
+    <div style="font-size:15px;color:#888;margin-bottom:8px;font-weight:700">重機の所在確認用</div>
     <div class="gps-row">
       <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       <span class="gps-st" id="gps-st">GPS取得中...</span>
@@ -241,7 +241,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div class="gps-coord" id="gps-coord">取得中...</div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
       <input type="checkbox" id="gps-skip" style="width:18px;height:18px;flex-shrink:0">
-      <span style="font-size:12px;color:#555">位置情報を記録しない</span>
+      <span style="font-size:15px;color:#555">位置情報を記録しない</span>
     </label>
   </div>
 
@@ -369,12 +369,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <select class="fc" id="cal-machine" onchange="loadCalMonth()" style="margin-bottom:10px"></select>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(-1)">‹</span>
-      <span style="font-size:13px;font-weight:700" id="cal-title"></span>
+      <span style="font-size:15px;font-weight:700" id="cal-title"></span>
       <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(1)">›</span>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:9px;color:#999;text-align:center;margin-bottom:4px"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:15px;color:#999;text-align:center;margin-bottom:4px"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px" id="cal-grid"></div>
-    <div style="font-size:10px;color:#999;margin-top:8px;line-height:1.5">緑＝入力済み／黄＝点検未実施／赤＝備考あり／白＝未入力。日付をタップで編集できます。</div>
+    <div style="font-size:15px;color:#999;margin-top:8px;line-height:1.5">緑＝入力済み／黄＝点検未実施／赤＝備考あり／白＝未入力。日付をタップで編集できます。</div>
     <button class="btn btn-o" style="margin-top:10px" onclick="printMonth()">🖨 この月の日報を印刷 / PDF保存</button>
   </div></div>
 
@@ -451,7 +451,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
     <input type="hidden" id="dm-id">
     <div id="dm-multi"></div>
-    <div id="dm-empty" style="display:none;font-size:13px;color:#888;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
+    <div id="dm-empty" style="display:none;font-size:15px;color:#888;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
     <div id="dm-form">
       <div class="fg"><label class="fl">運転者</label>
         <select class="fc" id="dm-operator"></select>
@@ -480,10 +480,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <label class="fl">GPS座標（記録値・変更不可）</label>
         <div class="fc" id="dm-gps" style="background:#f0f0f0;display:flex;align-items:center;justify-content:space-between;gap:8px">
           <span id="dm-gps-txt">記録なし</span>
-          <a href="#" id="dm-gps-link" target="_blank" style="display:none;color:#185fa5;font-weight:700;font-size:13px;flex-shrink:0">🗺 地図を開く</a>
+          <a href="#" id="dm-gps-link" target="_blank" style="display:none;color:#185fa5;font-weight:700;font-size:15px;flex-shrink:0">🗺 地図を開く</a>
         </div>
       </div>
-      <div id="dm-noid" style="display:none;font-size:11px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:10px">旧形式のデータのため編集できません（閲覧のみ）。</div>
+      <div id="dm-noid" style="display:none;font-size:15px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:10px">旧形式のデータのため編集できません（閲覧のみ）。</div>
       <button class="btn btn-p" id="dm-save" onclick="saveDayModal()">保存する</button>
       <button class="btn btn-d" id="dm-delete" onclick="deleteDayModal()" style="margin-top:8px">この日報を削除する</button>
     </div>
@@ -513,7 +513,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <option value="forklift">フォークリフト</option>
       </select>
     </div>
-    <div style="font-size:11px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:12px">
+    <div style="font-size:15px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:12px">
       重機番号を変更すると、過去の日報・特定自主検査データとの紐付けは変更後の番号に引き継がれません（新規番号として扱われます）。拠点移動などで番号ごと変える場合はご注意ください。
     </div>
     <button class="btn btn-p" onclick="saveMachineEdit()">保存する</button>
@@ -545,7 +545,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <input class="fc" type="date" id="csv-to">
       </div>
     </div>
-    <div style="font-size:11px;color:#888;margin-bottom:14px">オンライン時はサーバー上の全データ、圏外時は端末内データのみが対象になります。</div>
+    <div style="font-size:15px;color:#888;margin-bottom:14px">オンライン時はサーバー上の全データ、圏外時は端末内データのみが対象になります。</div>
     <button class="btn btn-p" onclick="exportCsv()">CSVをダウンロード</button>
     <div style="height:8px"></div>
   </div>
@@ -567,7 +567,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <button class="btn btn-p" style="width:auto;padding:10px 18px" onclick="addOperator()">追加</button>
       </div>
     </div>
-    <p style="font-size:10px;color:#999;margin-top:10px;line-height:1.5">
+    <p style="font-size:15px;color:#999;margin-top:10px;line-height:1.5">
       スプレッドシートの「運転者マスタ」シートで直接編集も可能です。変更はオンライン時に全端末へ反映されます。
     </p>
     <div style="height:10px"></div>
@@ -1038,8 +1038,8 @@ function renderList(){
       const inspTxt=r.inspection==='済'?'点検済':(r.inspection==='未'?'<span style="color:#854f0b;font-weight:700">点検未</span>':r.inspection);
       const dtl=[`稼働 ${r.workHours||'—'}h`,`アワー ${r.hourMeter||'—'}h`,(r.fuelAmount?`給油 ${r.fuelAmount}L`:'給油なし'),inspTxt].join(' ／ ');
       const eBdg=r.synced?'<span class="bdg bdg-ok">✓</span>':'<span class="bdg bdg-pend">⏳</span>';
-      const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:12px" onclick="event.stopPropagation()">地図</a>`:'';
-      const noteHtml=r.notes?`<div style="margin-top:5px;font-size:13px;color:#666;background:#f8f8f8;padding:6px 9px;border-radius:6px">📝 ${r.notes}</div>`:'';
+      const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">地図</a>`:'';
+      const noteHtml=r.notes?`<div style="margin-top:5px;font-size:15px;color:#666;background:#f8f8f8;padding:6px 9px;border-radius:6px">📝 ${r.notes}</div>`:'';
       return `<div class="entry" onclick="event.stopPropagation();openListEntryModal('${mSafe}','${nmSafe}')" style="cursor:pointer">
         <span class="entry-time">${tm}</span>
         <div class="entry-body">
@@ -1098,7 +1098,7 @@ function renderMachines(){
     const tl=TYPE_LABELS[m.type||'backhoe'];
     return `<div class="mrow">
       <span class="mrow-id">${m.id}</span>
-      <span class="mrow-name">${nm}<br><span style="font-size:10px;color:#aaa">${tl}</span></span>
+      <span class="mrow-name">${nm}<br><span style="font-size:15px;color:#aaa">${tl}</span></span>
       <div class="mrow-acts"><span class="btn btn-sm btn-o" onclick="openMachineEditModal(machines.find(x=>x.id==='${m.id}'))">編集</span></div>
     </div>`;
   }).join('');
@@ -1196,10 +1196,10 @@ function renderJikensa(){
         <div class="info-line"><span class="k">標章番号</span><span class="v">${ins.labelNo||'—'}</span></div>
         <div class="info-line"><span class="k">次回実施日</span><span class="v">${ins.nextDate||'—'}</span></div>
         <div class="info-line"><span class="k">検査業者</span><span class="v">${ins.vendor||'—'}</span></div>
-        ${ins.docUrl?`<a href="${ins.docUrl}" target="_blank" style="display:block;text-align:center;background:#e6f1fb;color:#185fa5;padding:8px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;margin-top:8px">📄 検査書類PDFを開く</a>`:''}
+        ${ins.docUrl?`<a href="${ins.docUrl}" target="_blank" style="display:block;text-align:center;background:#e6f1fb;color:#185fa5;padding:8px;border-radius:7px;font-size:15px;font-weight:700;text-decoration:none;margin-top:8px">📄 検査書類PDFを開く</a>`:''}
       `;
     }else{
-      body='<div style="font-size:12px;color:#aaa;padding:8px 0">検査記録が未登録です</div>';
+      body='<div style="font-size:15px;color:#aaa;padding:8px 0">検査記録が未登録です</div>';
     }
     return `<div class="card">
       <div class="card-h">
@@ -1269,7 +1269,7 @@ function renderDash(){
         <span class="due-tag ${x.st.cls}">${x.st.txt}</span>
       </div>
     </div>`;
-  }).join(''):'<div class="card"><div class="card-b" style="font-size:13px;color:#27ae60;font-weight:600">⬤ 30日以内の期限なし</div></div>';
+  }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ 30日以内の期限なし</div></div>';
 
   // アワー警告
   const alertEl=document.getElementById('dash-alerts');
@@ -1278,18 +1278,18 @@ function renderDash(){
   const warns=Object.entries(latest).filter(([,h])=>h%HOUR_ALERT<15).map(([id,h])=>({id,h,next:Math.ceil(h/HOUR_ALERT)*HOUR_ALERT}));
   alertEl.innerHTML=warns.length>0?warns.map(w=>{
     const m=findMachine(w.id);const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
-    return `<div class="card card-alert"><div class="card-h"><div><div class="mname" style="color:#c0392b">${w.id}　${nm}</div><div class="msub">現在: ${w.h} h</div></div><span class="bdg bdg-warn">⚠ 要点検</span></div><div class="card-b" style="font-size:12px;color:#666">${w.next}h定期点検まで あと ${w.next-w.h} h</div></div>`;
-  }).join(''):'<div class="card"><div class="card-b" style="font-size:13px;color:#27ae60;font-weight:600">⬤ アワー警告なし</div></div>';
+    return `<div class="card card-alert"><div class="card-h"><div><div class="mname" style="color:#c0392b">${w.id}　${nm}</div><div class="msub">現在: ${w.h} h</div></div><span class="bdg bdg-warn">⚠ 要点検</span></div><div class="card-b" style="font-size:15px;color:#666">${w.next}h定期点検まで あと ${w.next-w.h} h</div></div>`;
+  }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ アワー警告なし</div></div>';
 
   // 点検実施率
   const inspEl=document.getElementById('dash-insp');
   const byM={};
   rpts.forEach(r=>{if(!byM[r.machineId])byM[r.machineId]={t:0,ok:0};byM[r.machineId].t++;if(r.inspection==='済')byM[r.machineId].ok++;});
-  if(Object.keys(byM).length===0){inspEl.innerHTML='<div class="card"><div class="card-b" style="font-size:13px;color:#888">今月のデータなし</div></div>';}
+  if(Object.keys(byM).length===0){inspEl.innerHTML='<div class="card"><div class="card-b" style="font-size:15px;color:#888">今月のデータなし</div></div>';}
   else{
     inspEl.innerHTML='<div class="card">'+Object.entries(byM).map(([id,v])=>{
       const pct=Math.round(v.ok/v.t*100);const col=pct===100?'#27ae60':pct>=50?'#e67e22':'#c0392b';
-      return `<div class="mrow"><span class="mrow-id">${id}</span><div class="prog-wrap"><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div></div><span style="font-size:11px;font-weight:700;color:${col};min-width:34px;text-align:right">${v.ok}/${v.t}</span></div>`;
+      return `<div class="mrow"><span class="mrow-id">${id}</span><div class="prog-wrap"><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div></div><span style="font-size:15px;font-weight:700;color:${col};min-width:34px;text-align:right">${v.ok}/${v.t}</span></div>`;
     }).join('')+'</div>';
   }
 }
@@ -1424,7 +1424,7 @@ function openReportModal(title,rs){
         return `<div class="dm-sel" data-i="${i}" onclick="dmSelect(${i})" style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1.5px solid #d5d5d5;border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fafafa">
           <span style="font-weight:800;color:#185fa5;font-size:15px">${tm}</span>
           <span style="font-weight:700;font-size:16px;flex:1">${r.operator||'（運転者未記入）'}</span>
-          <span style="font-size:13px;color:#888">${r.workHours||'—'}h</span>
+          <span style="font-size:15px;color:#888">${r.workHours||'—'}h</span>
         </div>`;
       }).join('')+'<div style="height:6px"></div>';
   }else{
@@ -1541,7 +1541,7 @@ function renderOps(){
   document.getElementById('op-cnt').textContent=operators.length+'名';
   const el=document.getElementById('op-list');
   if(operators.length===0){el.innerHTML='<div class="empty"><div class="empty-txt">運転者が登録されていません</div></div>';return;}
-  el.innerHTML=operators.map(n=>`<div class="mrow"><span class="mrow-name" style="font-size:13px">${n}</span><span class="btn btn-sm btn-d" onclick="deleteOperator('${n}')">削除</span></div>`).join('');
+  el.innerHTML=operators.map(n=>`<div class="mrow"><span class="mrow-name" style="font-size:15px">${n}</span><span class="btn btn-sm btn-d" onclick="deleteOperator('${n}')">削除</span></div>`).join('');
 }
 function addOperator(){
   const inp=document.getElementById('op-new');
