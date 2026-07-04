@@ -307,10 +307,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
   </div></div>
 
-  <div class="fg">
-    <label class="fl">備考（故障・特記事項等）</label>
+  <div class="card"><div class="card-b">
+    <label class="fl">備考・故障報告</label>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;border:1.5px solid #185fa5;border-radius:9px;cursor:pointer;background:#e6f1fb" id="nt-biko-label">
+        <input type="radio" name="note-type" value="備考" checked style="width:18px;height:18px" onchange="updateNoteTypeUI()">
+        <span style="font-size:15px;font-weight:700;color:#185fa5">備考</span>
+      </label>
+      <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;border:1.5px solid #d5d5d5;border-radius:9px;cursor:pointer;background:#fafafa" id="nt-kosho-label">
+        <input type="radio" name="note-type" value="故障" style="width:18px;height:18px" onchange="updateNoteTypeUI()">
+        <span style="font-size:15px;font-weight:700;color:#791f1f">故障</span>
+      </label>
+    </div>
     <textarea class="fc" id="f-notes" rows="3" placeholder="任意 — 異音、部品交換、作業内容など"></textarea>
-  </div>
+    <div style="margin-top:10px">
+      <label class="fl">写真の添付（任意）</label>
+      <input type="file" id="f-photo" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelect(event)">
+      <button class="btn btn-o" type="button" onclick="document.getElementById('f-photo').click()" id="photo-btn">📷 写真を撮る / 選択する</button>
+      <div id="photo-preview" style="display:none;margin-top:10px;position:relative">
+        <img id="photo-img" style="width:100%;border-radius:9px;display:block">
+        <button type="button" onclick="clearPhoto()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:16px;padding:6px 14px;font-size:15px;cursor:pointer">✕ 削除</button>
+      </div>
+    </div>
+  </div></div>
 
   <button class="btn btn-p" onclick="submitReport()">保存する（電波回復時に自動送信）</button>
   <div style="height:20px"></div>
@@ -510,7 +529,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         </div>
         <div class="fg"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" id="dm-fuelhour" inputmode="decimal"></div>
       </div>
+      <div class="fg"><label class="fl">備考区分</label>
+        <select class="fc" id="dm-notetype"><option value="備考">備考</option><option value="故障">故障</option></select>
+      </div>
       <div class="fg"><label class="fl">備考</label><textarea class="fc" id="dm-notes" rows="2"></textarea></div>
+      <div class="fg" id="dm-photo-wrap" style="display:none">
+        <label class="fl">添付写真</label>
+        <a href="#" id="dm-photo-link" target="_blank" class="btn btn-o" style="text-decoration:none">📷 写真を開く</a>
+      </div>
       <div class="fg">
         <label class="fl">GPS座標（記録値・変更不可）</label>
         <div class="fc" id="dm-gps" style="background:#f0f0f0;display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -620,65 +646,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycby73U2vHX5Mw61BQwv-oo_I
 const HOUR_ALERT = 250;
 const YARDS = ['菊川ヤード','萩ヤード','素材部','菊川工場','燻製工場','美東工場'];
 
-const DEFAULT_MACHINES = [
-  {id:'S-2', model:'SH135', attachment:'太材割', yard:'菊川ヤード', type:'backhoe'},
-  {id:'S-4', model:'ZX135', attachment:'フォーク', yard:'菊川ヤード', type:'backhoe'},
-  {id:'S-6', model:'ZX75', attachment:'', yard:'菊川ヤード', type:'backhoe'},
-  {id:'S-7', model:'ZX75', attachment:'ウインチ付グラップル', yard:'菊川ヤード', type:'backhoe'},
-  {id:'S-8', model:'ZX50', attachment:'フォーク', yard:'菊川ヤード', type:'backhoe'},
-  {id:'S-9', model:'WA380-6', attachment:'', yard:'菊川ヤード', type:'wheel'},
-  {id:'S-10', model:'MST600', attachment:'', yard:'菊川ヤード', type:'carrier'},
-  {id:'S-11', model:'CR30', attachment:'', yard:'菊川ヤード', type:'carrier'},
-  {id:'S-13', model:'ZX135', attachment:'グラップルソー', yard:'菊川ヤード', type:'backhoe'},
-  {id:'S-14', model:'ZX135', attachment:'ウインチ付フォーク', yard:'菊川ヤード', type:'backhoe'},
-  {id:'S-15', model:'ZX135', attachment:'フォーク', yard:'菊川ヤード', type:'backhoe'},
-  {id:'H-2', model:'PC138', attachment:'グラップルソー', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-3', model:'PC78', attachment:'ウインチ付グラップル', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-5', model:'PC78', attachment:'ハーベスタ', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-7', model:'PC40', attachment:'フォーク', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-9', model:'910H', attachment:'', yard:'萩ヤード', type:'wheel'},
-  {id:'H-10', model:'MST650', attachment:'', yard:'萩ヤード', type:'carrier'},
-  {id:'H-11', model:'ZX50', attachment:'ウインチ付グラップル', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-12', model:'CG35', attachment:'', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-14', model:'ZX135', attachment:'根割機', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-15', model:'CR30', attachment:'', yard:'萩ヤード', type:'carrier'},
-  {id:'H-16', model:'ZX135', attachment:'ウインチ付グラップル', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-17', model:'315GC', attachment:'フォーク', yard:'萩ヤード', type:'backhoe'},
-  {id:'H-18', model:'ZX135', attachment:'ハーベスタ', yard:'萩ヤード', type:'backhoe'},
-  {id:'HG-1', model:'HG4000TXⅡ', attachment:'ホリゾンタルグラインダー', yard:'萩ヤード', type:'crusher'},
-  {id:'SS-1', model:'ZX135', attachment:'フォーク', yard:'素材部', type:'backhoe'},
-  {id:'SS-2', model:'MST600', attachment:'', yard:'素材部', type:'carrier'},
-  {id:'SS-5', model:'SH75', attachment:'グラップルソー', yard:'素材部', type:'backhoe'},
-  {id:'SS-6', model:'U55', attachment:'グラップル', yard:'素材部', type:'backhoe'},
-  {id:'SS-7', model:'ZX75', attachment:'フォーク', yard:'素材部', type:'backhoe'},
-  {id:'SS-8', model:'PC78', attachment:'ハーベスタ', yard:'素材部', type:'backhoe'},
-  {id:'SS-9', model:'MST600', attachment:'', yard:'素材部', type:'carrier'},
-  {id:'SS-10', model:'MST300', attachment:'', yard:'素材部', type:'carrier'},
-  {id:'SS-11', model:'PC78', attachment:'ウインチ付グラップル', yard:'素材部', type:'backhoe'},
-  {id:'SS-12', model:'PC55', attachment:'ウインチ付グラップル', yard:'素材部', type:'backhoe'},
-  {id:'SS-13', model:'PC78', attachment:'グラップルソー', yard:'素材部', type:'backhoe'},
-  {id:'SS-14', model:'315-07', attachment:'フェラバンチャ', yard:'素材部', type:'backhoe'},
-  {id:'SS-15', model:'U-4E', attachment:'', yard:'素材部', type:'backhoe'},
-  {id:'K-1', model:'ZX135', attachment:'グラップルソー', yard:'菊川工場', type:'backhoe'},
-  {id:'K-2', model:'SH135', attachment:'グラップルソー', yard:'菊川工場', type:'backhoe'},
-  {id:'K-4', model:'WA100-3', attachment:'', yard:'菊川工場', type:'wheel'},
-  {id:'K-6', model:'WA30', attachment:'', yard:'菊川工場', type:'wheel'},
-  {id:'K-7', model:'WR12', attachment:'', yard:'菊川工場', type:'wheel'},
-  {id:'K-8', model:'ZX55', attachment:'ウインチ付グラップル', yard:'菊川工場', type:'backhoe'},
-  {id:'KK-1', model:'ZX75', attachment:'グラップル', yard:'燻製工場', type:'backhoe'},
-  {id:'KK-2', model:'FD30', attachment:'', yard:'燻製工場', type:'forklift'},
-  {id:'KK-3', model:'ZX75', attachment:'ドリル', yard:'燻製工場', type:'backhoe'},
-  {id:'KK-4', model:'FH40', attachment:'', yard:'燻製工場', type:'forklift'},
-  {id:'KK-5', model:'WA30', attachment:'', yard:'燻製工場', type:'wheel'},
-  {id:'M-1', model:'ZX135', attachment:'グラップルソー', yard:'美東工場', type:'backhoe'},
-  {id:'M-2', model:'ZX135', attachment:'グラップルソー', yard:'美東工場', type:'backhoe'},
-  {id:'M-3', model:'PC40', attachment:'フォーク', yard:'美東工場', type:'backhoe'},
-  {id:'M-4', model:'WA100-3', attachment:'', yard:'美東工場', type:'wheel'},
-  {id:'M-5', model:'WA100-7', attachment:'', yard:'美東工場', type:'wheel'},
-  {id:'M-6', model:'312C', attachment:'ハーベスタ', yard:'美東工場', type:'backhoe'},
-  {id:'M-7', model:'315-07', attachment:'グラップルソー', yard:'美東工場', type:'backhoe'},
-  {id:'M-8', model:'PC35', attachment:'フォーク', yard:'美東工場', type:'backhoe'},
-];
+// 重機マスタはスプレッドシート「重機マスタ」シートを参照（ハードコード廃止）
 
 const INSPECTION_DATA = {"wheel": {"name": "タイヤショベル", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前後進、ターン）"], ["走行作業装置", "ブレーキのきき具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "タイヤの空気圧"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "carrier": {"name": "不整地運搬車", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "タイヤ、クローラーの摩耗、亀裂破損、空気圧"], ["走行作業装置", "トランスミッションのオイル量、もれ"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "操向クラッチのきき具合"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "荷台ダンプシリンダーの作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["走行作業装置", "荷台の開閉、ロック装置の作動"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "前照灯の作動状態"], ["電装品", "方向指示器の作動状態"], ["電装品", "各モニターランプの作動状態"], ["安全装置", "警報機の作動状態"], ["安全装置", "ミラーの損傷"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "backhoe": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "forklift": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "crusher": {"name": "破砕機（HG4000TXⅡ）", "items": [["始業点検", "LCDディスプレイの確認（稼働時間、警告・指示表示の有無）"], ["始業点検", "エンジンオイルレベルの点検（ADDとFULLの間）"], ["始業点検", "作動油量の点検（サイトゲージ半分以上）"], ["始業点検", "冷却水量の点検（ラジエータサイトゲージ内）"], ["始業点検", "燃料の水抜き（きれいな燃料が出るまで排出）"], ["始業点検", "エアクリーナのフィルタ詰まり表示器の点検（赤表示時はエレメント交換）"], ["始業点検", "冷却装置の点検・清掃（チップ・ダストの除去）"], ["始業点検", "フィードテーブルドライブチェーンの点検・注油（たるみ16mm以内）"], ["始業点検", "フィードテーブル、排出コンベヤの点検"], ["始業点検", "トラックの張りの点検・調整"], ["始業点検", "ボルト・ナットの緩み点検（緩み・脱落無きこと）"], ["始業点検（午前・午後 各1回）", "ナイフの点検（過度の摩耗・亀裂・ひずみ無きこと）"], ["始業点検（午前・午後 各1回）", "ナイフ取付ボルトの緩み点検"], ["始業点検（午前・午後 各1回）", "カウンターナイフ、シムの点検"], ["始業点検（午前・午後 各1回）", "スクリーン部の点検（詰まり・摩耗・破損・ダスト無きこと）"], ["作業終了後", "フィードテーブルの給脂"], ["作業終了後", "排出コンベヤの給脂（極圧グリース）"], ["作業終了後", "カッタドラムカバーピンの給脂"], ["作業終了後", "フィードローラの給脂（極圧グリース）"], ["作業終了後", "排出コンベヤフラッシングの清掃"], ["作業終了後", "機械各部の清掃（破砕チップ・可燃物の除去）"], ["作業終了後", "燃料の補給（燃料タンク容量852L）"]]}};
 
@@ -751,7 +719,7 @@ function updateNet(){
 
 // ===== DATA =====
 function loadData(){
-  machines=JSON.parse(localStorage.getItem('machines')||'null')||DEFAULT_MACHINES;
+  machines=JSON.parse(localStorage.getItem('machines')||'null')||[];
   operators=JSON.parse(localStorage.getItem('operators')||'null')||DEFAULT_OPERATORS;
   pending=JSON.parse(localStorage.getItem('pending')||'[]');
   synced=JSON.parse(localStorage.getItem('synced')||'[]');
@@ -817,7 +785,11 @@ async function refreshTodayList(showMsg){
 // ===== FORMS =====
 function populateForms(){
   const ms=document.getElementById('f-machine');
-  ms.innerHTML='<option value="">選択してください</option>';
+  if(machines.length===0){
+    ms.innerHTML='<option value="">'+(navigator.onLine?'重機マスタを読込中...':'圏外: 重機マスタ未取得')+'</option>';
+  }else{
+    ms.innerHTML='<option value="">選択してください</option>';
+  }
   YARDS.forEach(y=>{
     const inY=machines.filter(m=>m.yard===y);
     if(inY.length===0)return;
@@ -972,6 +944,53 @@ function saveInspModal(){
 // ===== 入力・送信 =====
 function togEl(el){el.classList.toggle('on');el.classList.toggle('off');}
 
+// ===== 写真添付・備考区分 =====
+let photoData=null; // 圧縮済みJPEG dataURL
+
+function updateNoteTypeUI(){
+  const isBiko=document.querySelector('input[name="note-type"]:checked').value==='備考';
+  const biko=document.getElementById('nt-biko-label');
+  const kosho=document.getElementById('nt-kosho-label');
+  biko.style.borderColor=isBiko?'#185fa5':'#d5d5d5';
+  biko.style.background=isBiko?'#e6f1fb':'#fafafa';
+  kosho.style.borderColor=isBiko?'#d5d5d5':'#c0392b';
+  kosho.style.background=isBiko?'#fafafa':'#fcebeb';
+}
+
+function handlePhotoSelect(e){
+  const f=e.target.files[0];
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      // 最大1024pxに縮小・JPEG60%圧縮（localStorage容量とGAS POST負荷の対策）
+      const max=1024;
+      let w=img.width,h=img.height;
+      if(w>max||h>max){
+        if(w>h){h=Math.round(h*max/w);w=max;}
+        else{w=Math.round(w*max/h);h=max;}
+      }
+      const cv=document.createElement('canvas');
+      cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      photoData=cv.toDataURL('image/jpeg',0.6);
+      document.getElementById('photo-img').src=photoData;
+      document.getElementById('photo-preview').style.display='block';
+      document.getElementById('photo-btn').textContent='📷 写真を撮り直す';
+    };
+    img.src=ev.target.result;
+  };
+  rd.readAsDataURL(f);
+}
+
+function clearPhoto(){
+  photoData=null;
+  document.getElementById('f-photo').value='';
+  document.getElementById('photo-preview').style.display='none';
+  document.getElementById('photo-btn').textContent='📷 写真を撮る / 選択する';
+}
+
 function submitReport(){
   const machineId=document.getElementById('f-machine').value;
   const operator=document.getElementById('f-operator').value;
@@ -995,6 +1014,8 @@ function submitReport(){
     grease:document.getElementById('tog-grease').classList.contains('on')?'済':'未',
     transfer:document.getElementById('tog-trans').classList.contains('on')?'有':'無',
     notes:document.getElementById('f-notes').value.trim(),
+    noteType:document.querySelector('input[name="note-type"]:checked').value,
+    photo:photoData||'',
     bit:document.getElementById('f-bit').value,
     bolt:document.getElementById('f-bolt').value,
     nut:document.getElementById('f-nut').value,
@@ -1002,7 +1023,15 @@ function submitReport(){
     lat:skipGps?'':(gpsLat||''), lng:skipGps?'':(gpsLng||''), accuracy:skipGps?'':(gpsAcc||''),
     savedAt:new Date().toISOString(), synced:false, deviceId:getDeviceId()
   };
-  pending.push(report);saveData();updateSyncRow();
+  try{
+    pending.push(report);saveData();
+  }catch(e){
+    // 写真で容量超過した場合は写真なしで保存
+    report.photo='';
+    try{saveData();}catch(e2){pending.pop();showToast('端末の保存容量が不足しています','err');return;}
+    showToast('容量不足のため写真は保存できませんでした（本文は保存済）','err');
+  }
+  updateSyncRow();
   showToast('日報を保存しました','ok');resetForm();
   if(navigator.onLine)autoSync();
 }
@@ -1011,6 +1040,9 @@ function resetForm(){
   ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes','f-bit','f-bolt','f-nut','f-fuelhour'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('crusher-fields').style.display='none';
   prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
+  clearPhoto();
+  document.querySelector('input[name="note-type"][value="備考"]').checked=true;
+  updateNoteTypeUI();
   ['tog-grease','tog-trans'].forEach(id=>{const t=document.getElementById(id);t.classList.remove('on');t.classList.add('off');});
   document.getElementById('gps-skip').checked=false;
   curInspChecks={};curInspType=null;
@@ -1038,7 +1070,7 @@ async function doSync(){
     const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'batchAddReports',reports:batch})});
     const data=await res.json();
     if(data.success||data.count>=0){
-      batch.forEach(r=>r.synced=true);
+      batch.forEach(r=>{r.synced=true;r.photo='';}); // 送信済み写真は端末から破棄（DriveにURL保存済み）
       synced=[...synced,...batch];
       const ids=new Set(batch.map(r=>r.id));
       pending=pending.filter(r=>!ids.has(r.id));
@@ -1148,7 +1180,9 @@ function renderList(){
       const dtl=[`稼働 ${r.workHours||'—'}h`,`アワー ${r.hourMeter||'—'}h`,(r.fuelAmount?`給油 ${r.fuelAmount}L`:'給油なし'),inspTxt].join(' ／ ');
       const eBdg=r.synced?'<span class="bdg bdg-ok">✓</span>':'<span class="bdg bdg-pend">⏳</span>';
       const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">地図</a>`:'';
-      const noteHtml=r.notes?`<div style="margin-top:5px;font-size:15px;color:#666;background:#f8f8f8;padding:6px 9px;border-radius:6px">📝 ${r.notes}</div>`:'';
+      const photoLink=r.photoUrl?` <a href="${r.photoUrl}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">📷 写真</a>`:'';
+      const isFault=r.noteType==='故障';
+      const noteHtml=r.notes?`<div style="margin-top:5px;font-size:15px;color:${isFault?'#791f1f':'#666'};background:${isFault?'#fcebeb':'#f8f8f8'};padding:6px 9px;border-radius:6px">${isFault?'⚠ 故障: ':'📝 '}${r.notes}${photoLink}</div>`:(r.photoUrl?`<div style="margin-top:5px;font-size:15px">${photoLink}</div>`:'');
       return `<div class="entry" onclick="event.stopPropagation();openListEntryModal('${mSafe}','${nmSafe}')" style="cursor:pointer">
         <span class="entry-time">${tm}</span>
         <div class="entry-body">
@@ -1573,6 +1607,10 @@ function dmSelect(i){
   document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
   document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
   document.getElementById('dm-notes').value=r.notes||'';
+  document.getElementById('dm-notetype').value=(r.noteType==='故障')?'故障':'備考';
+  const pw=document.getElementById('dm-photo-wrap');
+  if(r.photoUrl){pw.style.display='block';document.getElementById('dm-photo-link').href=r.photoUrl;}
+  else{pw.style.display='none';}
   // 破砕機フィールド（対象機体のタイプで表示切替）
   const dmM=findMachine(r.machineId);
   const isCrusher=dmM&&dmM.type==='crusher';
@@ -1608,6 +1646,7 @@ async function saveDayModal(){
     grease:document.getElementById('dm-grease').classList.contains('on')?'済':'未',
     transfer:document.getElementById('dm-trans').classList.contains('on')?'有':'無',
     notes:document.getElementById('dm-notes').value.trim(),
+    noteType:document.getElementById('dm-notetype').value,
     bit:document.getElementById('dm-bit').value,
     bolt:document.getElementById('dm-bolt').value,
     nut:document.getElementById('dm-nut').value,
@@ -1743,13 +1782,13 @@ async function exportCsv(){
 
   if(rows.length===0){showToast('該当データがありません','err');return;}
 
-  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油場所','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
+  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油場所','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考区分','備考','写真URL','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
   const csvRows=[headers.join(',')];
   rows.forEach(r=>{
     const vals=[
       r.date, r.machineId, r.yard, r.operator, r.contractor, r.location,
       r.hourMeter, r.workHours, r.fuelLocation, r.fuelAmount,
-      r.inspection, r.grease, r.transfer, r.lat, r.lng, r.notes,
+      r.inspection, r.grease, r.transfer, r.lat, r.lng, r.noteType, r.notes, r.photoUrl,
       r.bit, r.bolt, r.nut, r.fuelHour
     ].map(v=>{
       const s=(v===undefined||v===null)?'':String(v);
