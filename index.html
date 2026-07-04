@@ -250,10 +250,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <div class="fg" style="margin-bottom:0">
         <label class="fl">アワーメータ終了 (h)</label>
         <input class="fc" type="number" id="f-hmeter" placeholder="例: 2847" inputmode="decimal">
+        <div id="prev-hmeter" style="font-size:15px;color:#888;margin-top:5px">前回終了: —</div>
       </div>
       <div class="fg" style="margin-bottom:0">
         <label class="fl">稼働時間 (h)</label>
         <input class="fc" type="number" id="f-whours" placeholder="例: 7.5" step="0.5" inputmode="decimal">
+        <div style="font-size:15px;color:#888;margin-top:5px" id="whours-hint">前回との差から自動計算されます</div>
       </div>
     </div>
     <div class="frow" style="margin-bottom:0">
@@ -268,6 +270,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <label class="fl">給油量 (L)</label>
         <input class="fc" type="number" id="f-famt" placeholder="例: 45" inputmode="decimal">
       </div>
+    </div>
+  </div></div>
+
+  <!-- 破砕機専用フィールド（機種タイプ=破砕機のときのみ表示） -->
+  <div class="card" id="crusher-fields" style="display:none"><div class="card-b">
+    <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#185fa5">破砕機 部品・消耗品交換</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:11px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">ビット (個)</label>
+        <input class="fc" type="number" id="f-bit" placeholder="0" inputmode="numeric">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">ボルト (個)</label>
+        <input class="fc" type="number" id="f-bolt" placeholder="0" inputmode="numeric">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">ナット (個)</label>
+        <input class="fc" type="number" id="f-nut" placeholder="0" inputmode="numeric">
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:0">
+      <label class="fl">給油時アワメータ (h)</label>
+      <input class="fc" type="number" id="f-fuelhour" placeholder="例: 4262" inputmode="decimal">
     </div>
   </div></div>
 
@@ -329,6 +354,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <option value="wheel">タイヤショベル</option>
         <option value="carrier">不整地運搬車</option>
         <option value="forklift">フォークリフト</option>
+        <option value="crusher">破砕機</option>
       </select>
     </div>
     <button class="btn btn-p" onclick="addMachine()">追加する</button>
@@ -475,6 +501,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="trow"><span class="tlbl">グリス充填実施</span><div class="tog off" id="dm-grease" onclick="togEl(this)"><div class="tog-k"></div></div></div>
         <div class="trow"><span class="tlbl">回送あり</span><div class="tog off" id="dm-trans" onclick="togEl(this)"><div class="tog-k"></div></div></div>
       </div></div>
+      <div id="dm-crusher" style="display:none">
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px;color:#185fa5">破砕機 部品・消耗品交換</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0"><label class="fl">ビット</label><input class="fc" type="number" id="dm-bit" inputmode="numeric"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ボルト</label><input class="fc" type="number" id="dm-bolt" inputmode="numeric"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ナット</label><input class="fc" type="number" id="dm-nut" inputmode="numeric"></div>
+        </div>
+        <div class="fg"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" id="dm-fuelhour" inputmode="decimal"></div>
+      </div>
       <div class="fg"><label class="fl">備考</label><textarea class="fc" id="dm-notes" rows="2"></textarea></div>
       <div class="fg">
         <label class="fl">GPS座標（記録値・変更不可）</label>
@@ -511,6 +546,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <option value="wheel">タイヤショベル</option>
         <option value="carrier">不整地運搬車</option>
         <option value="forklift">フォークリフト</option>
+        <option value="crusher">破砕機</option>
       </select>
     </div>
     <div style="font-size:15px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:12px">
@@ -609,6 +645,7 @@ const DEFAULT_MACHINES = [
   {id:'H-16', model:'ZX135', attachment:'ウインチ付グラップル', yard:'萩ヤード', type:'backhoe'},
   {id:'H-17', model:'315GC', attachment:'フォーク', yard:'萩ヤード', type:'backhoe'},
   {id:'H-18', model:'ZX135', attachment:'ハーベスタ', yard:'萩ヤード', type:'backhoe'},
+  {id:'HG-1', model:'HG4000TXⅡ', attachment:'ホリゾンタルグラインダー', yard:'萩ヤード', type:'crusher'},
   {id:'SS-1', model:'ZX135', attachment:'フォーク', yard:'素材部', type:'backhoe'},
   {id:'SS-2', model:'MST600', attachment:'', yard:'素材部', type:'carrier'},
   {id:'SS-5', model:'SH75', attachment:'グラップルソー', yard:'素材部', type:'backhoe'},
@@ -643,17 +680,18 @@ const DEFAULT_MACHINES = [
   {id:'M-8', model:'PC35', attachment:'フォーク', yard:'美東工場', type:'backhoe'},
 ];
 
-const INSPECTION_DATA = {"wheel": {"name": "タイヤショベル", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前後進、ターン）"], ["走行作業装置", "ブレーキのきき具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "タイヤの空気圧"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "carrier": {"name": "不整地運搬車", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "タイヤ、クローラーの摩耗、亀裂破損、空気圧"], ["走行作業装置", "トランスミッションのオイル量、もれ"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "操向クラッチのきき具合"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "荷台ダンプシリンダーの作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["走行作業装置", "荷台の開閉、ロック装置の作動"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "前照灯の作動状態"], ["電装品", "方向指示器の作動状態"], ["電装品", "各モニターランプの作動状態"], ["安全装置", "警報機の作動状態"], ["安全装置", "ミラーの損傷"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "backhoe": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "forklift": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}};
+const INSPECTION_DATA = {"wheel": {"name": "タイヤショベル", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前後進、ターン）"], ["走行作業装置", "ブレーキのきき具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "タイヤの空気圧"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "carrier": {"name": "不整地運搬車", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "タイヤ、クローラーの摩耗、亀裂破損、空気圧"], ["走行作業装置", "トランスミッションのオイル量、もれ"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "操向クラッチのきき具合"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "荷台ダンプシリンダーの作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["走行作業装置", "荷台の開閉、ロック装置の作動"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "前照灯の作動状態"], ["電装品", "方向指示器の作動状態"], ["電装品", "各モニターランプの作動状態"], ["安全装置", "警報機の作動状態"], ["安全装置", "ミラーの損傷"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "backhoe": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "forklift": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "crusher": {"name": "破砕機（HG4000TXⅡ）", "items": [["始業点検", "LCDディスプレイの確認（稼働時間、警告・指示表示の有無）"], ["始業点検", "エンジンオイルレベルの点検（ADDとFULLの間）"], ["始業点検", "作動油量の点検（サイトゲージ半分以上）"], ["始業点検", "冷却水量の点検（ラジエータサイトゲージ内）"], ["始業点検", "燃料の水抜き（きれいな燃料が出るまで排出）"], ["始業点検", "エアクリーナのフィルタ詰まり表示器の点検（赤表示時はエレメント交換）"], ["始業点検", "冷却装置の点検・清掃（チップ・ダストの除去）"], ["始業点検", "フィードテーブルドライブチェーンの点検・注油（たるみ16mm以内）"], ["始業点検", "フィードテーブル、排出コンベヤの点検"], ["始業点検", "トラックの張りの点検・調整"], ["始業点検", "ボルト・ナットの緩み点検（緩み・脱落無きこと）"], ["始業点検（午前・午後 各1回）", "ナイフの点検（過度の摩耗・亀裂・ひずみ無きこと）"], ["始業点検（午前・午後 各1回）", "ナイフ取付ボルトの緩み点検"], ["始業点検（午前・午後 各1回）", "カウンターナイフ、シムの点検"], ["始業点検（午前・午後 各1回）", "スクリーン部の点検（詰まり・摩耗・破損・ダスト無きこと）"], ["作業終了後", "フィードテーブルの給脂"], ["作業終了後", "排出コンベヤの給脂（極圧グリース）"], ["作業終了後", "カッタドラムカバーピンの給脂"], ["作業終了後", "フィードローラの給脂（極圧グリース）"], ["作業終了後", "排出コンベヤフラッシングの清掃"], ["作業終了後", "機械各部の清掃（破砕チップ・可燃物の除去）"], ["作業終了後", "燃料の補給（燃料タンク容量852L）"]]}};
 
 const INSPECTION_PDF = {
   wheel:    'https://drive.google.com/file/d/1tFms0qV2M3rVf2f1sFvQNGRC3a_cSUWS/view?usp=drive_link',
   carrier:  'https://drive.google.com/file/d/1yHgzzPiUJitZVaANYVsdAmEQiI2E3Y8i/view?usp=drive_link',
   backhoe:  'https://drive.google.com/file/d/1FGC3xv6tD_789XvWuNEtbXFuORk8yL4i/view?usp=drive_link',
-  forklift: 'https://drive.google.com/file/d/1FGC3xv6tD_789XvWuNEtbXFuORk8yL4i/view?usp=drive_link'
+  forklift: 'https://drive.google.com/file/d/1FGC3xv6tD_789XvWuNEtbXFuORk8yL4i/view?usp=drive_link',
+  crusher:  'https://drive.google.com/file/d/1CIlz7oGWIKQiOqzc5wPzre9n_yv2B-_N/view?usp=drive_link'
 };
 
 const DEFAULT_OPERATORS = ['山田','田中','佐藤','鈴木','高橋','伊藤','渡辺'];
-const TYPE_LABELS = {wheel:'タイヤショベル', carrier:'不整地運搬車', backhoe:'バックホウ系', forklift:'フォークリフト'};
+const TYPE_LABELS = {wheel:'タイヤショベル', carrier:'不整地運搬車', backhoe:'バックホウ系', forklift:'フォークリフト', crusher:'破砕機'};
 
 // ===== STATE =====
 let machines=[], operators=[], pending=[], synced=[], inspections=[];
@@ -669,6 +707,7 @@ function initApp(){
   getGPS(); updateSyncRow();
   syncStickyOffset();
   window.addEventListener('resize', syncStickyOffset);
+  document.getElementById('f-hmeter').addEventListener('input', calcWorkHours);
   window.addEventListener('online', ()=>{updateNet();autoSync();refreshTodayList(false);});
   window.addEventListener('offline', updateNet);
   if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e));}
@@ -806,10 +845,74 @@ function onMachineChange(){
   const st=document.getElementById('insp-status');
   curInspChecks={};
   st.textContent='未実施';st.className='bdg bdg-none';
-  if(!m){hint.textContent='重機を選択すると点検表が表示されます';btn.style.display='none';curInspType=null;return;}
+  document.getElementById('crusher-fields').style.display=(m&&m.type==='crusher')?'block':'none';
+  if(!m){
+    hint.textContent='重機を選択すると点検表が表示されます';btn.style.display='none';curInspType=null;
+    prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
+    return;
+  }
   curInspType=m.type||'backhoe';
   hint.textContent=`点検表: ${INSPECTION_DATA[curInspType].name}（${INSPECTION_DATA[curInspType].items.length}項目）`;
   btn.style.display='block';
+  updatePrevHour(id);
+}
+
+// 前回アワーメータの取得と表示（④仕様）
+let prevHour=null;
+async function updatePrevHour(mid){
+  prevHour=null;
+  const el=document.getElementById('prev-hmeter');
+  el.textContent='前回終了: 取得中...';
+  // ① 端末内 + 本日サーバーデータから最新値を探す
+  const pool=[...allReports(),...serverToday].filter(r=>r.machineId===mid);
+  let best=null;
+  pool.forEach(r=>{
+    const h=parseFloat(r.hourMeter);
+    if(isNaN(h))return;
+    const key=String(r.date)+String(r.savedAt||'');
+    if(!best||key>best.key)best={key,h,date:r.date};
+  });
+  // ② オンラインなら今月+先月のサーバーデータからも探す（より確実）
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    try{
+      const d=new Date();
+      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results=await Promise.all([thisM,prevM].map(ym=>
+        fetch(GAS_URL+'?action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid)).then(r=>r.json()).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd=>{
+        (dd.reports||[]).forEach(r=>{
+          const h=parseFloat(r.hourMeter);
+          if(isNaN(h))return;
+          const key=String(r.date)+String(r.savedAt||'');
+          if(!best||key>best.key)best={key,h,date:r.date};
+        });
+      });
+    }catch(e){}
+  }
+  // 選択機体が変わっていたら破棄
+  if(document.getElementById('f-machine').value!==mid)return;
+  if(best){
+    prevHour=best.h;
+    const dd=String(best.date);
+    el.textContent=`前回終了: ${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    calcWorkHours();
+  }else{
+    el.textContent='前回終了: 記録なし';
+  }
+}
+
+// アワーメータ入力 → 稼働時間を自動計算（手動修正可）
+function calcWorkHours(){
+  if(prevHour===null)return;
+  const cur=parseFloat(document.getElementById('f-hmeter').value);
+  if(isNaN(cur))return;
+  const diff=Math.round((cur-prevHour)*10)/10;
+  if(diff>=0&&diff<48){ // 異常値（負数・48h超）は自動入力しない
+    document.getElementById('f-whours').value=diff;
+  }
 }
 
 // ===== GPS =====
@@ -892,6 +995,10 @@ function submitReport(){
     grease:document.getElementById('tog-grease').classList.contains('on')?'済':'未',
     transfer:document.getElementById('tog-trans').classList.contains('on')?'有':'無',
     notes:document.getElementById('f-notes').value.trim(),
+    bit:document.getElementById('f-bit').value,
+    bolt:document.getElementById('f-bolt').value,
+    nut:document.getElementById('f-nut').value,
+    fuelHour:document.getElementById('f-fuelhour').value,
     lat:skipGps?'':(gpsLat||''), lng:skipGps?'':(gpsLng||''), accuracy:skipGps?'':(gpsAcc||''),
     savedAt:new Date().toISOString(), synced:false, deviceId:getDeviceId()
   };
@@ -901,7 +1008,9 @@ function submitReport(){
 }
 
 function resetForm(){
-  ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes'].forEach(id=>document.getElementById(id).value='');
+  ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes','f-bit','f-bolt','f-nut','f-fuelhour'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('crusher-fields').style.display='none';
+  prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
   ['tog-grease','tog-trans'].forEach(id=>{const t=document.getElementById(id);t.classList.remove('on');t.classList.add('off');});
   document.getElementById('gps-skip').checked=false;
   curInspChecks={};curInspType=null;
@@ -1464,6 +1573,14 @@ function dmSelect(i){
   document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
   document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
   document.getElementById('dm-notes').value=r.notes||'';
+  // 破砕機フィールド（対象機体のタイプで表示切替）
+  const dmM=findMachine(r.machineId);
+  const isCrusher=dmM&&dmM.type==='crusher';
+  document.getElementById('dm-crusher').style.display=isCrusher?'block':'none';
+  document.getElementById('dm-bit').value=r.bit!==undefined?r.bit:'';
+  document.getElementById('dm-bolt').value=r.bolt!==undefined?r.bolt:'';
+  document.getElementById('dm-nut').value=r.nut!==undefined?r.nut:'';
+  document.getElementById('dm-fuelhour').value=r.fuelHour!==undefined?r.fuelHour:'';
   document.getElementById('dm-gps-txt').textContent=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
   const gpsLink=document.getElementById('dm-gps-link');
   if(r.lat){gpsLink.href=`https://www.google.com/maps?q=${r.lat},${r.lng}`;gpsLink.style.display='inline';}
@@ -1490,7 +1607,11 @@ async function saveDayModal(){
     inspection:document.getElementById('dm-insp').value,
     grease:document.getElementById('dm-grease').classList.contains('on')?'済':'未',
     transfer:document.getElementById('dm-trans').classList.contains('on')?'有':'無',
-    notes:document.getElementById('dm-notes').value.trim()
+    notes:document.getElementById('dm-notes').value.trim(),
+    bit:document.getElementById('dm-bit').value,
+    bolt:document.getElementById('dm-bolt').value,
+    nut:document.getElementById('dm-nut').value,
+    fuelHour:document.getElementById('dm-fuelhour').value
   };
   showToast('保存中...','');
   try{
@@ -1622,13 +1743,14 @@ async function exportCsv(){
 
   if(rows.length===0){showToast('該当データがありません','err');return;}
 
-  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油場所','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考'];
+  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油場所','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
   const csvRows=[headers.join(',')];
   rows.forEach(r=>{
     const vals=[
       r.date, r.machineId, r.yard, r.operator, r.contractor, r.location,
       r.hourMeter, r.workHours, r.fuelLocation, r.fuelAmount,
-      r.inspection, r.grease, r.transfer, r.lat, r.lng, r.notes
+      r.inspection, r.grease, r.transfer, r.lat, r.lng, r.notes,
+      r.bit, r.bolt, r.nut, r.fuelHour
     ].map(v=>{
       const s=(v===undefined||v===null)?'':String(v);
       return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
@@ -1655,6 +1777,92 @@ function printMonth(){
   const mid=document.getElementById('cal-machine').value;
   if(!mid){showToast('機体を選択してください','err');return;}
   const m=findMachine(mid);
+  if(m&&m.type==='crusher'){printCrusherMonth(mid,m);return;}
+  printStandardMonth(mid,m);
+}
+
+// 破砕機専用テンプレート（破砕機日報.xlsx準拠: 部品交換・給油時アワメータ列）
+function printCrusherMonth(mid,m){
+  const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+  const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  const byDay={};
+  calReports.forEach(r=>{
+    const d=parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d))return;
+    if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
+  });
+  // 月初アワー = 最初の報告の（終了 − 稼働）から逆算
+  let monthStart='';
+  const firstDay=Object.keys(byDay).map(Number).sort((a,b)=>a-b)[0];
+  if(firstDay){
+    const fr=byDay[firstDay];
+    const h=parseFloat(fr.hourMeter), w=parseFloat(fr.workHours);
+    if(!isNaN(h)&&!isNaN(w))monthStart=Math.round((h-w)*10)/10;
+    else if(!isNaN(h))monthStart='';
+  }
+  const notes=[];
+  let monthlyChecked=false;
+  Object.entries(byDay).forEach(([d,r])=>{
+    if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
+    if(r.inspection==='済')monthlyChecked=true;
+  });
+  const mkRows=(from,to,padTo)=>{
+    let h='';
+    for(let d=from;d<=to;d++){
+      const r=byDay[d];
+      if(r){
+        h+=`<tr><td>${d}</td><td>${r.hourMeter!==''&&r.hourMeter!==undefined?r.hourMeter:''}</td><td>${r.workHours!==''&&r.workHours!==undefined?r.workHours:''}</td><td>${r.bit||''}</td><td>${r.bolt||''}</td><td>${r.nut||''}</td><td>${r.fuelAmount||''}</td><td>${r.fuelHour||''}</td><td>${r.inspection==='済'?'☑':'☐'}</td></tr>`;
+      }else{
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>☐</td></tr>`;
+      }
+    }
+    for(let i=(to-from+1);i<padTo;i++){
+      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    }
+    return h;
+  };
+  const tableHead=`<tr><th style="width:6%">日</th><th style="width:12%">終了</th><th style="width:9%">稼働</th><th style="width:8%">ﾋﾞｯﾄ</th><th style="width:8%">ﾎﾞﾙﾄ</th><th style="width:8%">ﾅｯﾄ</th><th style="width:11%">給油量</th><th style="width:13%">給油時ｱﾜ</th><th style="width:6%">点検</th></tr>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
+<style>
+@page{size:A4 portrait;margin:10mm}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0}
+.head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2mm}
+.title{font-size:14px;font-weight:700}
+.mstart{font-size:10px;margin-bottom:2mm}
+.cols{display:flex;gap:4mm}
+.col{flex:1}
+table{width:100%;border-collapse:collapse;font-size:7.5px}
+th,td{border:1px solid #333;padding:2px 2px;text-align:center;height:14px}
+th{background:#eee}
+.foot{margin-top:4mm;font-size:9px}
+.notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
+@media print{.noprint{display:none}}
+.noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
+</style></head><body>
+<button class="noprint" onclick="window.print()">🖨 印刷する</button>
+<div class="head">
+  <span class="title">運転日報　破砕機 ${mid}（${nm}）</span>
+  <span>令和${calYear-2018}年${calMonth+1}月</span>
+</div>
+<div class="mstart">月初アワメータ: ${monthStart!==''?monthStart+' h':'＿＿＿＿＿'}</div>
+<div class="cols">
+  <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
+  <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
+</div>
+<div class="foot">
+  <div>備考（故障・注意事項等）　※燃費目安 1H/約60L</div>
+  <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
+  <div style="margin-top:3mm">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
+  <div style="margin-top:2mm;font-size:8px;color:#555">※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+</div>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(!w){showToast('ポップアップがブロックされました。許可してください','err');return;}
+  w.document.write(html);
+  w.document.close();
+}
+
+function printStandardMonth(mid,m){
   const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
   const daysIn=new Date(calYear,calMonth+1,0).getDate();
   const byDay={};
