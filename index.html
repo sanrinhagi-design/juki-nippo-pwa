@@ -115,6 +115,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .yard-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
 .chip{flex:0 0 auto;font-size:15px;padding:9px 16px;border-radius:18px;border:1.5px solid #d5d5d5;background:#fff;color:#555;cursor:pointer;font-weight:600;white-space:nowrap}
 .chip.on{background:#185fa5;color:#fff;border-color:#185fa5}
+.nt-opt{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;border:1.5px solid #d5d5d5;border-radius:9px;cursor:pointer;background:#fafafa}
+.nt-opt span{font-size:15px;font-weight:700;color:#555}
+.nt-opt.on-biko{border-color:#185fa5;background:#e6f1fb}
+.nt-opt.on-biko span{color:#185fa5}
+.nt-opt.on-kosho{border-color:#c0392b;background:#fcebeb}
+.nt-opt.on-kosho span{color:#791f1f}
 .cal-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:15px;border:1px solid #eee;background:#fff}
 .cal-ok{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
 .cal-caution{background:#faeeda;color:#854f0b;border-color:#fac775}
@@ -200,6 +206,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   </div>
 
   <div class="card"><div class="card-b">
+    <div class="fg">
+      <label class="fl">日付 <span style="color:#c0392b">*</span></label>
+      <input class="fc" type="date" id="f-date">
+    </div>
     <div class="fg">
       <label class="fl">重機番号 <span style="color:#c0392b">*</span></label>
       <select class="fc" id="f-machine" onchange="onMachineChange()">
@@ -309,15 +319,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <div class="card"><div class="card-b">
     <label class="fl">備考・故障報告</label>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;border:1.5px solid #185fa5;border-radius:9px;cursor:pointer;background:#e6f1fb" id="nt-biko-label">
-        <input type="radio" name="note-type" value="備考" checked style="width:18px;height:18px" onchange="updateNoteTypeUI()">
-        <span style="font-size:15px;font-weight:700;color:#185fa5">備考</span>
-      </label>
-      <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;border:1.5px solid #d5d5d5;border-radius:9px;cursor:pointer;background:#fafafa" id="nt-kosho-label">
-        <input type="radio" name="note-type" value="故障" style="width:18px;height:18px" onchange="updateNoteTypeUI()">
-        <span style="font-size:15px;font-weight:700;color:#791f1f">故障</span>
-      </label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px" id="nt-group">
+      <label class="nt-opt" data-v="備考"><input type="radio" name="note-type" value="備考" style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>備考</span></label>
+      <label class="nt-opt" data-v="故障"><input type="radio" name="note-type" value="故障" style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>故障</span></label>
+      <label class="nt-opt" data-v="備考と故障"><input type="radio" name="note-type" value="備考と故障" style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>備考と故障</span></label>
+      <label class="nt-opt" data-v="選んでいない"><input type="radio" name="note-type" value="" checked style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>選んでいない</span></label>
     </div>
     <textarea class="fc" id="f-notes" rows="3" placeholder="任意 — 異音、部品交換、作業内容など"></textarea>
     <div style="margin-top:10px">
@@ -530,7 +536,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="fg"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" id="dm-fuelhour" inputmode="decimal"></div>
       </div>
       <div class="fg"><label class="fl">備考区分</label>
-        <select class="fc" id="dm-notetype"><option value="備考">備考</option><option value="故障">故障</option></select>
+        <select class="fc" id="dm-notetype"><option value="">選んでいない</option><option value="備考">備考</option><option value="故障">故障</option><option value="備考と故障">備考と故障</option></select>
       </div>
       <div class="fg"><label class="fl">備考</label><textarea class="fc" id="dm-notes" rows="2"></textarea></div>
       <div class="fg" id="dm-photo-wrap" style="display:none">
@@ -676,6 +682,8 @@ function initApp(){
   syncStickyOffset();
   window.addEventListener('resize', syncStickyOffset);
   document.getElementById('f-hmeter').addEventListener('input', calcWorkHours);
+  document.getElementById('f-date').value=todayStr();
+  document.getElementById('f-date').addEventListener('change',()=>{const mid=document.getElementById('f-machine').value;if(mid)updatePrevHour(mid);});
   window.addEventListener('online', ()=>{updateNet();autoSync();refreshTodayList(false);});
   window.addEventListener('offline', updateNet);
   if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e));}
@@ -829,42 +837,36 @@ function onMachineChange(){
   updatePrevHour(id);
 }
 
-// 前回アワーメータの取得と表示（④仕様）
+// 前回アワーメータの取得と表示（④仕様）— 選択日より前の最新値を採用
 let prevHour=null;
 async function updatePrevHour(mid){
   prevHour=null;
   const el=document.getElementById('prev-hmeter');
   el.textContent='前回終了: 取得中...';
-  // ① 端末内 + 本日サーバーデータから最新値を探す
-  const pool=[...allReports(),...serverToday].filter(r=>r.machineId===mid);
-  let best=null;
-  pool.forEach(r=>{
+  const selDate=document.getElementById('f-date').value||todayStr();
+  const consider=(r,best)=>{
     const h=parseFloat(r.hourMeter);
-    if(isNaN(h))return;
+    if(isNaN(h))return best;
+    if(String(r.date)>selDate)return best; // 選択日より後は無視
+    // 同日は保存時刻が選択日入力より前とは限らないため、選択日より前の日付を優先
     const key=String(r.date)+String(r.savedAt||'');
-    if(!best||key>best.key)best={key,h,date:r.date};
-  });
-  // ② オンラインなら今月+先月のサーバーデータからも探す（より確実）
+    if(!best||key>best.key)return {key,h,date:r.date};
+    return best;
+  };
+  let best=null;
+  [...allReports(),...serverToday].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
     try{
-      const d=new Date();
+      const d=new Date(selDate+'T00:00:00');
       const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
       const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
       const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
       const results=await Promise.all([thisM,prevM].map(ym=>
         fetch(GAS_URL+'?action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid)).then(r=>r.json()).catch(()=>({reports:[]}))
       ));
-      results.forEach(dd=>{
-        (dd.reports||[]).forEach(r=>{
-          const h=parseFloat(r.hourMeter);
-          if(isNaN(h))return;
-          const key=String(r.date)+String(r.savedAt||'');
-          if(!best||key>best.key)best={key,h,date:r.date};
-        });
-      });
+      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
     }catch(e){}
   }
-  // 選択機体が変わっていたら破棄
   if(document.getElementById('f-machine').value!==mid)return;
   if(best){
     prevHour=best.h;
@@ -948,13 +950,17 @@ function togEl(el){el.classList.toggle('on');el.classList.toggle('off');}
 let photoData=null; // 圧縮済みJPEG dataURL
 
 function updateNoteTypeUI(){
-  const isBiko=document.querySelector('input[name="note-type"]:checked').value==='備考';
-  const biko=document.getElementById('nt-biko-label');
-  const kosho=document.getElementById('nt-kosho-label');
-  biko.style.borderColor=isBiko?'#185fa5':'#d5d5d5';
-  biko.style.background=isBiko?'#e6f1fb':'#fafafa';
-  kosho.style.borderColor=isBiko?'#d5d5d5':'#c0392b';
-  kosho.style.background=isBiko?'#fafafa':'#fcebeb';
+  const val=document.querySelector('input[name="note-type"]:checked').value;
+  document.querySelectorAll('.nt-opt').forEach(el=>{
+    el.classList.remove('on-biko','on-kosho');
+    const v=el.dataset.v;
+    if(el.querySelector('input').value===val){
+      if(v==='故障')el.classList.add('on-kosho');
+      else if(v==='備考と故障')el.classList.add('on-kosho');
+      else if(v==='備考')el.classList.add('on-biko');
+      // 「選んでいない」はハイライトなし
+    }
+  });
 }
 
 function handlePhotoSelect(e){
@@ -1005,7 +1011,7 @@ function submitReport(){
 
   const report={
     id:Date.now().toString()+Math.random().toString(36).slice(2,6),
-    date:todayStr(), machineId, yard:m?m.yard:'', operator, contractor, location,
+    date:document.getElementById('f-date').value||todayStr(), machineId, yard:m?m.yard:'', operator, contractor, location,
     hourMeter:document.getElementById('f-hmeter').value,
     workHours:document.getElementById('f-whours').value,
     fuelLocation:document.getElementById('f-floc').value,
@@ -1038,10 +1044,11 @@ function submitReport(){
 
 function resetForm(){
   ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes','f-bit','f-bolt','f-nut','f-fuelhour'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-date').value=todayStr();
   document.getElementById('crusher-fields').style.display='none';
   prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
   clearPhoto();
-  document.querySelector('input[name="note-type"][value="備考"]').checked=true;
+  document.querySelector('input[name="note-type"][value=""]').checked=true;
   updateNoteTypeUI();
   ['tog-grease','tog-trans'].forEach(id=>{const t=document.getElementById(id);t.classList.remove('on');t.classList.add('off');});
   document.getElementById('gps-skip').checked=false;
@@ -1181,8 +1188,9 @@ function renderList(){
       const eBdg=r.synced?'<span class="bdg bdg-ok">✓</span>':'<span class="bdg bdg-pend">⏳</span>';
       const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">地図</a>`:'';
       const photoLink=r.photoUrl?` <a href="${r.photoUrl}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">📷 写真</a>`:'';
-      const isFault=r.noteType==='故障';
-      const noteHtml=r.notes?`<div style="margin-top:5px;font-size:15px;color:${isFault?'#791f1f':'#666'};background:${isFault?'#fcebeb':'#f8f8f8'};padding:6px 9px;border-radius:6px">${isFault?'⚠ 故障: ':'📝 '}${r.notes}${photoLink}</div>`:(r.photoUrl?`<div style="margin-top:5px;font-size:15px">${photoLink}</div>`:'');
+      const isFault=(r.noteType==='故障'||r.noteType==='備考と故障');
+      const ntPrefix=isFault?'⚠ 故障: ':(r.noteType==='備考'?'📝 ':'');
+      const noteHtml=r.notes?`<div style="margin-top:5px;font-size:15px;color:${isFault?'#791f1f':'#666'};background:${isFault?'#fcebeb':'#f8f8f8'};padding:6px 9px;border-radius:6px">${ntPrefix}${r.notes}${photoLink}</div>`:(r.photoUrl?`<div style="margin-top:5px;font-size:15px">${photoLink}</div>`:'');
       return `<div class="entry" onclick="event.stopPropagation();openListEntryModal('${mSafe}','${nmSafe}')" style="cursor:pointer">
         <span class="entry-time">${tm}</span>
         <div class="entry-body">
@@ -1607,7 +1615,7 @@ function dmSelect(i){
   document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
   document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
   document.getElementById('dm-notes').value=r.notes||'';
-  document.getElementById('dm-notetype').value=(r.noteType==='故障')?'故障':'備考';
+  document.getElementById('dm-notetype').value=r.noteType||'';
   const pw=document.getElementById('dm-photo-wrap');
   if(r.photoUrl){pw.style.display='block';document.getElementById('dm-photo-link').href=r.photoUrl;}
   else{pw.style.display='none';}
