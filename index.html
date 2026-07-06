@@ -419,6 +419,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <div class="slbl">機体別カレンダー</div>
   <div class="card"><div class="card-b">
+    <div class="yard-chips" id="cal-yards"></div>
     <select class="fc" id="cal-machine" onchange="loadCalMonth()" style="margin-bottom:10px"></select>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(-1)">‹</span>
@@ -682,6 +683,25 @@ function gasGet(qs){ return GAS_URL+'?token='+encodeURIComponent(APP_TOKEN)+'&'+
 function gasBody(obj){ return JSON.stringify(Object.assign({token:APP_TOKEN}, obj)); }
 
 // ===== INIT =====
+// ===== 実疎通確認（navigator.onLineはWi-Fi接続の有無のみでネット到達性は保証しないため）=====
+let realOnline=false;
+async function checkRealConnectivity(){
+  if(!navigator.onLine){realOnline=false;updateNet();return false;}
+  if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){realOnline=true;updateNet();return true;}
+  try{
+    const ctrl=new AbortController();
+    const timeout=setTimeout(()=>ctrl.abort(),8000);
+    const res=await fetch(gasGet('action=ping'),{signal:ctrl.signal});
+    clearTimeout(timeout);
+    const data=await res.json();
+    realOnline = !!data.ok;
+  }catch(e){
+    realOnline=false;
+  }
+  updateNet();
+  return realOnline;
+}
+
 function initApp(){
   loadData();
   setDate(); updateNet(); populateForms();
@@ -692,8 +712,18 @@ function initApp(){
   document.getElementById('f-hmeter').addEventListener('input', calcWorkHours);
   document.getElementById('f-date').value=todayStr();
   document.getElementById('f-date').addEventListener('change',()=>{const mid=document.getElementById('f-machine').value;if(mid)updatePrevHour(mid);});
-  window.addEventListener('online', ()=>{updateNet();autoSync();refreshTodayList(false);});
-  window.addEventListener('offline', updateNet);
+  window.addEventListener('online', async ()=>{
+    await checkRealConnectivity();
+    if(realOnline){autoSync();refreshTodayList(false);}
+  });
+  window.addEventListener('offline', ()=>{realOnline=false;updateNet();});
+  // Wi-Fi等には繋がっているが実際には送信先に届いていない状態を定期的に再チェック
+  setInterval(async ()=>{
+    if(navigator.onLine && !realOnline){
+      await checkRealConnectivity();
+      if(realOnline){autoSync();refreshTodayList(false);}
+    }
+  }, 30000);
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').then(reg=>{
       reg.update();
@@ -709,7 +739,7 @@ function initApp(){
       });
     }).catch(e=>console.warn('SW:',e));
   }
-  fetchRemote();
+  checkRealConnectivity().then(()=>{fetchRemote();});
 }
 
 // hdr+tabsの実測高さに.scr-fixedのtopを合わせる（フォント設定等でズレないように）
@@ -736,10 +766,15 @@ function setDate(){
 
 function updateNet(){
   const b=document.getElementById('net-badge'), t=document.getElementById('inp-notice-txt');
-  if(navigator.onLine){
+  if(realOnline){
     b.textContent='オンライン';b.className='net-badge net-on';
     t.textContent='オンライン中 — データはリアルタイムでスプレッドシートに送信されます。';
     document.getElementById('inp-notice').className='notice n-ok';
+  }else if(navigator.onLine){
+    // Wi-Fi等のリンクはあるが実際の送信先に届いていない状態
+    b.textContent='通信不安定';b.className='net-badge net-off';
+    t.textContent='ネットワークには接続していますが送信先に届きません。端末に保存します。';
+    document.getElementById('inp-notice').className='notice n-warn';
   }else{
     b.textContent='圏外';b.className='net-badge net-off';
     t.textContent='圏外のため端末に保存します。電波回復時に自動送信されます。';
@@ -1084,14 +1119,14 @@ function resetForm(){
 // ===== SYNC =====
 let syncDebounce=null;
 async function autoSync(){
-  if(syncBusy||pending.length===0||!navigator.onLine)return;
+  if(syncBusy||pending.length===0||!realOnline)return;
   if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE')return;
   // online/syncNow/定期実行が同時発火しても1回にまとめる
   clearTimeout(syncDebounce);
   syncDebounce=setTimeout(()=>doSync(),150);
 }
 async function doSync(){
-  if(syncBusy||pending.length===0||!navigator.onLine)return;
+  if(syncBusy||pending.length===0||!realOnline)return;
   syncBusy=true;
   const batch=[...pending];
   try{
@@ -1108,7 +1143,9 @@ async function doSync(){
   }catch(e){console.warn('Sync:',e);}finally{syncBusy=false;}
 }
 async function syncNow(){
-  if(!navigator.onLine){showToast('圏外です。電波のある場所で再試行してください','err');return;}
+  showToast('接続確認中...','');
+  await checkRealConnectivity();
+  if(!realOnline){showToast('サーバーに接続できません。電波状況をご確認ください','err');return;}
   if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){showToast('GAS_URL を設定してください','err');return;}
   const btn=document.getElementById('sync-btn');
   if(btn.dataset.busy==='1')return; // 連打防止
@@ -1468,13 +1505,36 @@ function renderDash(){
 
 // ===== 機体別カレンダー =====
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth(); // 0-indexed
-let calReports=[]; // 選択機体・選択月の日報
+let calReports=[]; // 選択スコープ・選択月の日報
+let calScope='all'; // 'all' | 拠点名 | 機体ID（デフォルトは全体）
 
 function calYM(){return `${calYear}-${pad(calMonth+1)}`;}
+
+function renderCalYardChips(){
+  let h=`<div class="chip ${calScope==='all'?'on':''}" onclick="setCalScope('all')">全体</div>`;
+  YARDS.forEach(y=>{
+    const n=machines.filter(m=>m.yard===y).length;
+    if(n>0)h+=`<div class="chip ${calScope===y?'on':''}" onclick="setCalScope('${y}')">${y}</div>`;
+  });
+  document.getElementById('cal-yards').innerHTML=h;
+}
+function setCalScope(scope){
+  calScope=scope;
+  renderCalYardChips();
+  populateCalMachine();
+  loadCalMonth();
+}
 
 function populateCalMachine(){
   const sel=document.getElementById('cal-machine');
   const cur=sel.value;
+  if(calScope==='all'||YARDS.includes(calScope)){
+    // 全体 or 拠点選択時は機体プルダウンを隠す（拠点内の全機体をまとめて集計）
+    sel.style.display='none';
+    sel.innerHTML='';
+    return;
+  }
+  sel.style.display='block';
   sel.innerHTML='';
   YARDS.forEach(y=>{
     const inY=machines.filter(m=>m.yard===y);
@@ -1497,17 +1557,41 @@ function calNav(dir){
   loadCalMonth();
 }
 
-let calMonthCache={}; // 'H-17|2026-06' → reports（セッション内キャッシュ）
+let calMonthCache={}; // 'H-17|2026-06' → reports（セッション内キャッシュ、機体単位のみ）
 async function loadCalMonth(){
+  const ym=calYM();
+
+  // 全体 or 拠点モード：対象機体をまとめて集計
+  if(calScope==='all'||YARDS.includes(calScope)){
+    const targetIds = calScope==='all' ? machines.map(m=>m.id) : machines.filter(m=>m.yard===calScope).map(m=>m.id);
+    const idSet=new Set(targetIds);
+    const local=allReports().filter(r=>idSet.has(r.machineId) && String(r.date).startsWith(ym));
+    calReports=local;
+    renderCalendar();
+    if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+      try{
+        const res=await fetch(gasGet('action=getReports&month='+ym));
+        const data=await res.json();
+        if(data.reports){
+          const filtered=data.reports.filter(r=>idSet.has(r.machineId));
+          const sids=new Set(filtered.map(r=>r.id).filter(Boolean));
+          const localOnly=local.filter(r=>!sids.has(r.id));
+          calReports=[...filtered,...localOnly];
+          // 表示中のスコープ・月が変わっていなければ再描画
+          if((calScope==='all'||YARDS.includes(calScope)) && calYM()===ym)renderCalendar();
+        }
+      }catch(e){console.warn('cal:',e);}
+    }
+    return;
+  }
+
+  // 機体単位モード（従来ロジック）
   const mid=document.getElementById('cal-machine').value;
   if(!mid){renderCalendar();return;}
-  const ym=calYM();
   const key=mid+'|'+ym;
-  // ① まず手元にあるもので即描画（0秒表示）
   const local=allReports().filter(r=>r.machineId===mid && String(r.date).startsWith(ym));
   calReports=calMonthCache[key]?calMonthCache[key]:local;
   renderCalendar();
-  // ② 裏で最新を取得して静かに差し替え
   if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
     try{
       const res=await fetch(gasGet('action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid)));
@@ -1517,7 +1601,6 @@ async function loadCalMonth(){
         const localOnly=local.filter(r=>!sids.has(r.id));
         calReports=[...data.reports,...localOnly];
         calMonthCache[key]=calReports;
-        // 表示中の機体・月が変わっていなければ再描画
         if(document.getElementById('cal-machine').value===mid && calYM()===ym)renderCalendar();
       }
     }catch(e){console.warn('cal:',e);}
@@ -1546,6 +1629,7 @@ function renderCalendar(){
     byDay[d].push(r);
   });
   Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
+  const isMultiScope = calScope==='all'||YARDS.includes(calScope);
   for(let d=1;d<=daysIn;d++){
     const cell=document.createElement('div');
     const rs=byDay[d];
@@ -1554,15 +1638,27 @@ function renderCalendar(){
       let st='ok';
       rs.forEach(r=>{const s=dayStatus(r);if(s==='warn')st='warn';else if(s==='caution'&&st!=='warn')st='caution';});
       cell.className='cal-cell cal-'+st;
-      const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
-      let sub=st==='warn'?'備考あり':(st==='caution'?'点検未':(totalW?totalW+'h':'入力済'));
-      if(rs.length>1)sub=`${rs.length}件 ${sub}`;
-      cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${sub}</div>`;
+      if(isMultiScope){
+        // 全体/拠点モード：入力済み機体数のみ表示（タップで機体一覧へ）
+        const machineCount=new Set(rs.map(r=>r.machineId)).size;
+        cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${machineCount}機体入力済み</div>`;
+      }else{
+        const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+        let sub=st==='warn'?'備考あり':(st==='caution'?'点検未':(totalW?totalW+'h':'入力済'));
+        if(rs.length>1)sub=`${rs.length}件 ${sub}`;
+        cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${sub}</div>`;
+      }
     }else{
       cell.className='cal-cell';
       cell.innerHTML=`<div class="cal-day" style="color:#bbb;font-weight:500">${d}</div>`;
     }
-    cell.onclick=()=>openDayModal(d,rs||[]);
+    cell.onclick=()=>{
+      if(isMultiScope){
+        openDayMultiMachineModal(d,rs||[]);
+      }else{
+        openDayModal(d,rs||[]);
+      }
+    };
     grid.appendChild(cell);
   }
 }
@@ -1574,6 +1670,38 @@ function openDayModal(day,rs){
   const mid=document.getElementById('cal-machine').value;
   const title=`${calMonth+1}月${day}日　${mid}`;
   openReportModal(title,rs);
+}
+
+// 全体/拠点モード用: 日付タップ時に機体一覧を挟んでから個別モーダルへ
+function openDayMultiMachineModal(day,rs){
+  if(!rs||rs.length===0){openReportModal(`${calMonth+1}月${day}日`,[]);return;}
+  const byMachine={};
+  rs.forEach(r=>{if(!byMachine[r.machineId])byMachine[r.machineId]=[];byMachine[r.machineId].push(r);});
+  const mids=Object.keys(byMachine);
+  if(mids.length===1){
+    // 1機体のみなら通常モーダルへ直接遷移
+    openReportModal(`${calMonth+1}月${day}日　${mids[0]}`,byMachine[mids[0]]);
+    return;
+  }
+  window.__dmDayMachines=byMachine;
+  const listHtml=mids.map(mid=>{
+    const m=findMachine(mid);
+    const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+    const cnt=byMachine[mid].length;
+    const midSafe=mid.replace(/'/g,"\\'");
+    return `<div class="mrow" style="cursor:pointer" onclick="openDayModalFromList('${midSafe}',${day})">
+      <span class="mrow-id">${mid}</span><span class="mrow-name">${nm}</span><span class="bdg bdg-blue">${cnt}件</span>
+    </div>`;
+  }).join('');
+  document.getElementById('dm-title').textContent=`${calMonth+1}月${day}日　${mids.length}機体入力済み`;
+  document.getElementById('dm-form').style.display='none';
+  document.getElementById('dm-empty').style.display='none';
+  document.getElementById('dm-multi').innerHTML=`<div class="card">${listHtml}</div>`;
+  document.getElementById('day-modal').classList.add('on');
+}
+function openDayModalFromList(mid,day){
+  const rs=(window.__dmDayMachines&&window.__dmDayMachines[mid])||[];
+  openReportModal(`${calMonth+1}月${day}日　${mid}`,rs);
 }
 
 // 汎用版: タイトル文字列と日報配列を直接渡して開く（稼働一覧・カレンダー共通）
@@ -2015,7 +2143,7 @@ function showTab(name){
   if(name==='list'){refreshTodayList(false);renderList();updateSyncRow();}
   if(name==='machines')renderMachines();
   if(name==='jikensa')renderJikensa();
-  if(name==='dash'){renderDash();populateCalMachine();loadCalMonth();}
+  if(name==='dash'){renderDash();renderCalYardChips();populateCalMachine();loadCalMonth();}
   if(name==='input')updateNet();
   window.scrollTo(0,0);
   requestAnimationFrame(syncStickyOffset);
