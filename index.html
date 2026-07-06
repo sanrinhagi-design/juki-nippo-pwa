@@ -652,7 +652,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 // CONFIG — GASデプロイ後に GAS_URL を変更してください
 // ================================================================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycby73U2vHX5Mw61BQwv-oo_INW38BHrGzn2YfmVvrOY8--Cvl8gzxweKiKNrfORupYG5aw/exec';
-const APP_TOKEN = 'sanyochip-juki-2026-8f3k';
+const APP_TOKEN = 'sanyochip-juki-2026-8f3k'; // GAS側 コード.gs の APP_TOKEN と同じ文字列にする
 const HOUR_ALERT = 250;
 const YARDS = ['菊川ヤード','萩ヤード','素材部','菊川工場','燻製工場','美東工場'];
 
@@ -677,6 +677,10 @@ let gpsLat=null, gpsLng=null, gpsAcc=null, syncBusy=false;
 let listYard='', mYard='', jiYard='';
 let curInspType=null, curInspChecks={};
 
+// ===== トークン付きURL/ボディ生成ヘルパー =====
+function gasGet(qs){ return GAS_URL+'?token='+encodeURIComponent(APP_TOKEN)+'&'+qs; }
+function gasBody(obj){ return JSON.stringify(Object.assign({token:APP_TOKEN}, obj)); }
+
 // ===== INIT =====
 function initApp(){
   loadData();
@@ -691,20 +695,20 @@ function initApp(){
   window.addEventListener('online', ()=>{updateNet();autoSync();refreshTodayList(false);});
   window.addEventListener('offline', updateNet);
   if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').then(reg=>{
-    reg.update(); // 起動のたびに新SWがあるか確認
-    reg.addEventListener('updatefound',()=>{
-      const nw=reg.installing;
-      if(!nw)return;
-      nw.addEventListener('statechange',()=>{
-        if(nw.state==='installed' && navigator.serviceWorker.controller){
-          showToast('新バージョンがあります。再読み込みします');
-          setTimeout(()=>location.reload(),1500);
-        }
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      reg.update();
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        if(!nw)return;
+        nw.addEventListener('statechange',()=>{
+          if(nw.state==='installed' && navigator.serviceWorker.controller){
+            showToast('新バージョンがあります。再読み込みします');
+            setTimeout(()=>location.reload(),1500);
+          }
+        });
       });
-    });
-  }).catch(e=>console.warn('SW:',e));
-}
+    }).catch(e=>console.warn('SW:',e));
+  }
   fetchRemote();
 }
 
@@ -770,7 +774,7 @@ function findMachine(id){return machines.find(m=>m.id===id);}
 async function fetchRemote(){
   if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE') return;
   // 4本のAPIを並列取得（直列比で約1/3〜1/4の時間）
-  const get=a=>fetch(GAS_URL+'?token='+APP_TOKEN+'&action='+a).then(r=>r.json());
+  const get=a=>fetch(gasGet('action='+a)).then(r=>r.json());
   const [mR,oR,iR,tR]=await Promise.allSettled([
     get('getMachines'), get('getOperators'), get('getInspections'),
     get('getReports&month='+monthStr())
@@ -797,7 +801,7 @@ let serverToday=[];
 async function refreshTodayList(showMsg){
   if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){renderList();return;}
   try{
-    const res=await fetch(GAS_URL+'?token='+APP_TOKEN+'&action=getReports&month='+monthStr());
+    const res=await fetch(gasGet('action=getReports&month='+monthStr()));
     const data=await res.json();
     if(data.reports){
       const t=todayStr();
@@ -880,7 +884,7 @@ async function updatePrevHour(mid){
       const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
       const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
       const results=await Promise.all([thisM,prevM].map(ym=>
-        fetch(GAS_URL+'?token='+APP_TOKEN+'&action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid)).then(r=>r.json()).catch(()=>({reports:[]}))
+        fetch(gasGet('action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid))).then(r=>r.json()).catch(()=>({reports:[]}))
       ));
       results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
     }catch(e){}
@@ -1001,7 +1005,6 @@ function handlePhotoSelect(e){
       photoData=cv.toDataURL('image/jpeg',0.6);
       document.getElementById('photo-img').src=photoData;
       document.getElementById('photo-preview').style.display='block';
-      document.getElementById('photo-btn').textContent='📷 写真を撮り直す';
     };
     img.src=ev.target.result;
   };
@@ -1010,9 +1013,9 @@ function handlePhotoSelect(e){
 
 function clearPhoto(){
   photoData=null;
-  document.getElementById('f-photo').value='';
+  document.getElementById('f-photo-cam').value='';
+  document.getElementById('f-photo-lib').value='';
   document.getElementById('photo-preview').style.display='none';
-  document.getElementById('photo-btn').textContent='📷 写真を撮る / 選択する';
 }
 
 function submitReport(){
@@ -1092,7 +1095,7 @@ async function doSync(){
   syncBusy=true;
   const batch=[...pending];
   try{
-    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'batchAddReports',reports:batch})});
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'batchAddReports',reports:batch})});
     const data=await res.json();
     if(data.success||data.count>=0){
       batch.forEach(r=>{r.synced=true;r.photo='';}); // 送信済み写真は端末から破棄（DriveにURL保存済み）
@@ -1285,7 +1288,7 @@ function addMachine(){
   ['nm-id','nm-model','nm-att'].forEach(i=>document.getElementById(i).value='');
   showToast(`${id} を追加しました`,'ok');
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
-    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addMachine',machine:m})}).catch(()=>{});
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'addMachine',machine:m})}).catch(()=>{});
   }
 }
 function openMachineEditModal(m){
@@ -1316,7 +1319,7 @@ function saveMachineEdit(){
   closeMachineEditModal();
   showToast(`${id} を更新しました`,'ok');
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
-    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'editMachine',machine:{oldId,id,model,attachment,yard,type}})}).catch(()=>{});
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'editMachine',machine:{oldId,id,model,attachment,yard,type}})}).catch(()=>{});
   }
 }
 
@@ -1325,7 +1328,7 @@ function deleteMachine(id){
   machines=machines.filter(m=>m.id!==id);saveData();renderMachines();renderYardChips();populateForms();
   showToast(`${id} を削除しました`,'');
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
-    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteMachine',machineId:id})}).catch(()=>{});
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteMachine',machineId:id})}).catch(()=>{});
   }
 }
 function deleteMachineFromModal(){
@@ -1336,7 +1339,7 @@ function deleteMachineFromModal(){
   closeMachineEditModal();
   showToast(`${id} を削除しました`,'');
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
-    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteMachine',machineId:id})}).catch(()=>{});
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteMachine',machineId:id})}).catch(()=>{});
   }
 }
 
@@ -1410,7 +1413,7 @@ function saveJiModal(){
   saveData();closeJiModal();renderJikensa();renderDash();
   showToast(`${mid} の検査記録を保存`,'ok');
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
-    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'saveInspection',inspection:ins})}).catch(()=>{});
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'saveInspection',inspection:ins})}).catch(()=>{});
   }
 }
 
@@ -1507,7 +1510,7 @@ async function loadCalMonth(){
   // ② 裏で最新を取得して静かに差し替え
   if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
     try{
-      const res=await fetch(GAS_URL+'?&token=action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid));
+      const res=await fetch(gasGet('action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid)));
       const data=await res.json();
       if(data.reports){
         const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
@@ -1635,15 +1638,8 @@ function dmSelect(i){
   document.getElementById('dm-notes').value=r.notes||'';
   document.getElementById('dm-notetype').value=r.noteType||'';
   const pw=document.getElementById('dm-photo-wrap');
-  if(r.photoUrl){
-    pw.style.display='block';
-    document.getElementById('dm-photo-link').href=r.photoUrl;
-    // Google DriveのURLからファイルIDを抽出しサムネイルAPIで表示
-    const fid=(r.photoUrl.match(/[-\w]{25,}/)||[])[0];
-    document.getElementById('dm-photo-img').src=fid?('https://drive.google.com/thumbnail?id='+fid+'&sz=w800'):'';
-  }else{
-    pw.style.display='none';
-  }
+  if(r.photoUrl){pw.style.display='block';document.getElementById('dm-photo-link').href=r.photoUrl;}
+  else{pw.style.display='none';}
   // 破砕機フィールド（対象機体のタイプで表示切替）
   const dmM=findMachine(r.machineId);
   const isCrusher=dmM&&dmM.type==='crusher';
@@ -1687,7 +1683,7 @@ async function saveDayModal(){
   };
   showToast('保存中...','');
   try{
-    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'editReport',report:upd})});
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'editReport',report:upd})});
     const data=await res.json();
     if(data.success){
       // ローカルコピーも更新
@@ -1712,7 +1708,7 @@ async function deleteDayModal(){
   if(!confirm(`${dmCurrent.operator||'（運転者未記入）'} ${tm} の日報を削除しますか？\nこの操作は取り消せません。`))return;
   showToast('削除中...','');
   try{
-    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteReport',id:dmCurrent.id})});
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteReport',id:dmCurrent.id})});
     const data=await res.json();
     if(data.success){
       const delId=dmCurrent.id;
@@ -1745,7 +1741,7 @@ function addOperator(){
   inp.value='';
   showToast(name+' を追加しました','ok');
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
-    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addOperator',name})}).catch(()=>{});
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'addOperator',name})}).catch(()=>{});
   }
 }
 function deleteOperator(name){
@@ -1753,7 +1749,7 @@ function deleteOperator(name){
   operators=operators.filter(n=>n!==name);saveData();populateForms();renderOps();
   showToast(name+' を削除しました','');
   if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
-    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteOperator',name})}).catch(()=>{});
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteOperator',name})}).catch(()=>{});
   }
 }
 
@@ -1798,7 +1794,7 @@ async function exportCsv(){
     while(cur<=end){months.add(`${cur.getFullYear()}-${pad(cur.getMonth()+1)}`);cur.setMonth(cur.getMonth()+1);}
     try{
       const results=await Promise.all([...months].map(ym=>
-        fetch(GAS_URL+'?&token=action=getReports&month='+ym+(mid?'&machineId='+encodeURIComponent(mid):'')).then(r=>r.json())
+        fetch(gasGet('action=getReports&month='+ym+(mid?'&machineId='+encodeURIComponent(mid):''))).then(r=>r.json())
       ));
       results.forEach(d=>{if(d.reports)rows.push(...d.reports);});
     }catch(e){
