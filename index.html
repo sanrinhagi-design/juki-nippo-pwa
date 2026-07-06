@@ -543,7 +543,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <div class="fg"><label class="fl">備考</label><textarea class="fc" id="dm-notes" rows="2"></textarea></div>
       <div class="fg" id="dm-photo-wrap" style="display:none">
         <label class="fl">添付写真</label>
-        <a href="#" id="dm-photo-link" target="_blank" class="btn btn-o" style="text-decoration:none">📷 写真を開く</a>
+        <img id="dm-photo-img" style="width:100%;border-radius:9px;display:block;margin-bottom:8px;cursor:pointer" onclick="window.open(document.getElementById('dm-photo-link').href,'_blank')">
+        <a href="#" id="dm-photo-link" target="_blank" class="btn btn-o" style="text-decoration:none">📷 写真を開く（原寸）</a>
       </div>
       <div class="fg">
         <label class="fl">GPS座標（記録値・変更不可）</label>
@@ -1633,8 +1634,15 @@ function dmSelect(i){
   document.getElementById('dm-notes').value=r.notes||'';
   document.getElementById('dm-notetype').value=r.noteType||'';
   const pw=document.getElementById('dm-photo-wrap');
-  if(r.photoUrl){pw.style.display='block';document.getElementById('dm-photo-link').href=r.photoUrl;}
-  else{pw.style.display='none';}
+  if(r.photoUrl){
+    pw.style.display='block';
+    document.getElementById('dm-photo-link').href=r.photoUrl;
+    // Google DriveのURLからファイルIDを抽出しサムネイルAPIで表示
+    const fid=(r.photoUrl.match(/[-\w]{25,}/)||[])[0];
+    document.getElementById('dm-photo-img').src=fid?('https://drive.google.com/thumbnail?id='+fid+'&sz=w800'):'';
+  }else{
+    pw.style.display='none';
+  }
   // 破砕機フィールド（対象機体のタイプで表示切替）
   const dmM=findMachine(r.machineId);
   const isCrusher=dmM&&dmM.type==='crusher';
