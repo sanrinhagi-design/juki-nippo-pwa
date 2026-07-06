@@ -328,8 +328,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <textarea class="fc" id="f-notes" rows="3" placeholder="任意 — 異音、部品交換、作業内容など"></textarea>
     <div style="margin-top:10px">
       <label class="fl">写真の添付（任意）</label>
-      <input type="file" id="f-photo" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelect(event)">
-      <button class="btn btn-o" type="button" onclick="document.getElementById('f-photo').click()" id="photo-btn">📷 写真を撮る / 選択する</button>
+      <input type="file" id="f-photo-cam" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelect(event)">
+      <input type="file" id="f-photo-lib" accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
+      <button class="btn btn-o" type="button" onclick="document.getElementById('f-photo-cam').click()">📷 撮影</button>
+      <button class="btn btn-o" type="button" onclick="document.getElementById('f-photo-lib').click()">🖼 ギャラリーから選択</button>
       <div id="photo-preview" style="display:none;margin-top:10px;position:relative">
         <img id="photo-img" style="width:100%;border-radius:9px;display:block">
         <button type="button" onclick="clearPhoto()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:16px;padding:6px 14px;font-size:15px;cursor:pointer">✕ 削除</button>
