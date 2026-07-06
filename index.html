@@ -652,6 +652,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 // CONFIG — GASデプロイ後に GAS_URL を変更してください
 // ================================================================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycby73U2vHX5Mw61BQwv-oo_INW38BHrGzn2YfmVvrOY8--Cvl8gzxweKiKNrfORupYG5aw/exec';
+const APP_TOKEN = 'sanyochip-juki-2026-8f3k';
 const HOUR_ALERT = 250;
 const YARDS = ['菊川ヤード','萩ヤード','素材部','菊川工場','燻製工場','美東工場'];
 
@@ -769,7 +770,7 @@ function findMachine(id){return machines.find(m=>m.id===id);}
 async function fetchRemote(){
   if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE') return;
   // 4本のAPIを並列取得（直列比で約1/3〜1/4の時間）
-  const get=a=>fetch(GAS_URL+'?action='+a).then(r=>r.json());
+  const get=a=>fetch(GAS_URL+'?token='+APP_TOKEN+'&action='+a).then(r=>r.json());
   const [mR,oR,iR,tR]=await Promise.allSettled([
     get('getMachines'), get('getOperators'), get('getInspections'),
     get('getReports&month='+monthStr())
@@ -796,7 +797,7 @@ let serverToday=[];
 async function refreshTodayList(showMsg){
   if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){renderList();return;}
   try{
-    const res=await fetch(GAS_URL+'?action=getReports&month='+monthStr());
+    const res=await fetch(GAS_URL+'?token='+APP_TOKEN+'&action=getReports&month='+monthStr());
     const data=await res.json();
     if(data.reports){
       const t=todayStr();
@@ -879,7 +880,7 @@ async function updatePrevHour(mid){
       const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
       const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
       const results=await Promise.all([thisM,prevM].map(ym=>
-        fetch(GAS_URL+'?action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid)).then(r=>r.json()).catch(()=>({reports:[]}))
+        fetch(GAS_URL+'?token='+APP_TOKEN+'&action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid)).then(r=>r.json()).catch(()=>({reports:[]}))
       ));
       results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
     }catch(e){}
@@ -1506,7 +1507,7 @@ async function loadCalMonth(){
   // ② 裏で最新を取得して静かに差し替え
   if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
     try{
-      const res=await fetch(GAS_URL+'?action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid));
+      const res=await fetch(GAS_URL+'?&token=action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid));
       const data=await res.json();
       if(data.reports){
         const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
@@ -1797,7 +1798,7 @@ async function exportCsv(){
     while(cur<=end){months.add(`${cur.getFullYear()}-${pad(cur.getMonth()+1)}`);cur.setMonth(cur.getMonth()+1);}
     try{
       const results=await Promise.all([...months].map(ym=>
-        fetch(GAS_URL+'?action=getReports&month='+ym+(mid?'&machineId='+encodeURIComponent(mid):'')).then(r=>r.json())
+        fetch(GAS_URL+'?&token=action=getReports&month='+ym+(mid?'&machineId='+encodeURIComponent(mid):'')).then(r=>r.json())
       ));
       results.forEach(d=>{if(d.reports)rows.push(...d.reports);});
     }catch(e){
