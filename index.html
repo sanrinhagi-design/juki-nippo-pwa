@@ -688,7 +688,21 @@ function initApp(){
   document.getElementById('f-date').addEventListener('change',()=>{const mid=document.getElementById('f-machine').value;if(mid)updatePrevHour(mid);});
   window.addEventListener('online', ()=>{updateNet();autoSync();refreshTodayList(false);});
   window.addEventListener('offline', updateNet);
-  if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e));}
+  if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    reg.update(); // 起動のたびに新SWがあるか確認
+    reg.addEventListener('updatefound',()=>{
+      const nw=reg.installing;
+      if(!nw)return;
+      nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed' && navigator.serviceWorker.controller){
+          showToast('新バージョンがあります。再読み込みします');
+          setTimeout(()=>location.reload(),1500);
+        }
+      });
+    });
+  }).catch(e=>console.warn('SW:',e));
+}
   fetchRemote();
 }
 
