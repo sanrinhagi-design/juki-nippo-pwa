@@ -14,7 +14,6 @@
 html{font-size:17px}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#e2e2e2;color:#1a1a1a;min-height:100vh;-webkit-font-smoothing:antialiased}
 .app-shell{max-width:100%;margin:0 auto;background:#f0f0f0;min-height:100vh}
-/* グループ表示 */
 .cnt-badge{background:#185fa5;color:#fff;font-size:15px;font-weight:800;padding:4px 12px;border-radius:12px}
 .arrow{font-size:18px;color:#999;transition:transform .2s;display:inline-block}
 .arrow.open{transform:rotate(180deg)}
@@ -35,7 +34,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .tabs{display:flex;background:#fff;border-bottom:1px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
 .tab{flex:1 0 auto;padding:15px 10px;text-align:center;font-size:15px;color:#999;cursor:pointer;border-bottom:3px solid transparent;font-weight:600;white-space:nowrap}
 .tab.on{color:#185fa5;border-bottom-color:#185fa5;font-weight:700}
-.body-pad{padding-top:104px} /* .top-fixed の実測高さに応じてJSで上書き */
+.body-pad{padding-top:104px}
 .scr{display:none;min-height:calc(100vh - 104px)}
 .scr.on{display:block}
 .scr-fixed{display:none;padding:12px 12px 0;background:#f0f0f0}
@@ -127,7 +126,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .cal-warn{background:#fcebeb;color:#791f1f;border-color:#f09595}
 .cal-day{font-weight:700}
 .cal-sub{font-size:15px}
-/* Inspection checklist */
 .insp-group{margin-bottom:12px}
 .insp-gh{font-size:15px;font-weight:700;color:#185fa5;padding:6px 0;border-bottom:1.5px solid #e6f1fb;margin-bottom:4px}
 .insp-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #f7f7f7}
@@ -657,8 +655,6 @@ const APP_TOKEN = 'sanyochip-juki-2026-8f3k'; // GAS側 コード.gs の APP_TOK
 const HOUR_ALERT = 250;
 const YARDS = ['菊川ヤード','萩ヤード','素材部','菊川工場','燻製工場','美東工場'];
 
-// 重機マスタはスプレッドシート「重機マスタ」シートを参照（ハードコード廃止）
-
 const INSPECTION_DATA = {"wheel": {"name": "タイヤショベル", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前後進、ターン）"], ["走行作業装置", "ブレーキのきき具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "タイヤの空気圧"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "carrier": {"name": "不整地運搬車", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "タイヤ、クローラーの摩耗、亀裂破損、空気圧"], ["走行作業装置", "トランスミッションのオイル量、もれ"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "操向クラッチのきき具合"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "荷台ダンプシリンダーの作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["走行作業装置", "荷台の開閉、ロック装置の作動"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "前照灯の作動状態"], ["電装品", "方向指示器の作動状態"], ["電装品", "各モニターランプの作動状態"], ["安全装置", "警報機の作動状態"], ["安全装置", "ミラーの損傷"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "backhoe": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "forklift": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "crusher": {"name": "破砕機（HG4000TXⅡ）", "items": [["始業点検", "LCDディスプレイの確認（稼働時間、警告・指示表示の有無）"], ["始業点検", "エンジンオイルレベルの点検（ADDとFULLの間）"], ["始業点検", "作動油量の点検（サイトゲージ半分以上）"], ["始業点検", "冷却水量の点検（ラジエータサイトゲージ内）"], ["始業点検", "燃料の水抜き（きれいな燃料が出るまで排出）"], ["始業点検", "エアクリーナのフィルタ詰まり表示器の点検（赤表示時はエレメント交換）"], ["始業点検", "冷却装置の点検・清掃（チップ・ダストの除去）"], ["始業点検", "フィードテーブルドライブチェーンの点検・注油（たるみ16mm以内）"], ["始業点検", "フィードテーブル、排出コンベヤの点検"], ["始業点検", "トラックの張りの点検・調整"], ["始業点検", "ボルト・ナットの緩み点検（緩み・脱落無きこと）"], ["始業点検（午前・午後 各1回）", "ナイフの点検（過度の摩耗・亀裂・ひずみ無きこと）"], ["始業点検（午前・午後 各1回）", "ナイフ取付ボルトの緩み点検"], ["始業点検（午前・午後 各1回）", "カウンターナイフ、シムの点検"], ["始業点検（午前・午後 各1回）", "スクリーン部の点検（詰まり・摩耗・破損・ダスト無きこと）"], ["作業終了後", "フィードテーブルの給脂"], ["作業終了後", "排出コンベヤの給脂（極圧グリース）"], ["作業終了後", "カッタドラムカバーピンの給脂"], ["作業終了後", "フィードローラの給脂（極圧グリース）"], ["作業終了後", "排出コンベヤフラッシングの清掃"], ["作業終了後", "機械各部の清掃（破砕チップ・可燃物の除去）"], ["作業終了後", "燃料の補給（燃料タンク容量852L）"]]}};
 
 const INSPECTION_PDF = {
@@ -678,12 +674,9 @@ let gpsLat=null, gpsLng=null, gpsAcc=null, syncBusy=false;
 let listYard='', mYard='', jiYard='';
 let curInspType=null, curInspChecks={};
 
-// ===== トークン付きURL/ボディ生成ヘルパー =====
 function gasGet(qs){ return GAS_URL+'?token='+encodeURIComponent(APP_TOKEN)+'&'+qs; }
 function gasBody(obj){ return JSON.stringify(Object.assign({token:APP_TOKEN}, obj)); }
 
-// ===== INIT =====
-// ===== 実疎通確認（navigator.onLineはWi-Fi接続の有無のみでネット到達性は保証しないため）=====
 let realOnline=false;
 async function checkRealConnectivity(){
   if(!navigator.onLine){realOnline=false;updateNet();return false;}
@@ -717,7 +710,6 @@ function initApp(){
     if(realOnline){autoSync();refreshTodayList(false);}
   });
   window.addEventListener('offline', ()=>{realOnline=false;updateNet();});
-  // Wi-Fi等には繋がっているが実際には送信先に届いていない状態を定期的に再チェック
   setInterval(async ()=>{
     if(navigator.onLine && !realOnline){
       await checkRealConnectivity();
@@ -742,10 +734,6 @@ function initApp(){
   checkRealConnectivity().then(()=>{fetchRemote();});
 }
 
-// hdr+tabsの実測高さに.scr-fixedのtopを合わせる（フォント設定等でズレないように）
-// .top-fixed（ヘッダー+タブ）の高さ + アクティブな.scr-fixedの高さを実測し、
-// 本体側のpadding-topと.scr-fixed自身のtop位置を揃える。
-// sticky積み重ねをやめたことで「途中で止まる」現象を回避する。
 function syncStickyOffset(){
   const topFixed=document.getElementById('top-fixed');
   if(!topFixed)return;
@@ -771,7 +759,6 @@ function updateNet(){
     t.textContent='オンライン中 — データはリアルタイムでスプレッドシートに送信されます。';
     document.getElementById('inp-notice').className='notice n-ok';
   }else if(navigator.onLine){
-    // Wi-Fi等のリンクはあるが実際の送信先に届いていない状態
     b.textContent='通信不安定';b.className='net-badge net-off';
     t.textContent='ネットワークには接続していますが送信先に届きません。端末に保存します。';
     document.getElementById('inp-notice').className='notice n-warn';
@@ -782,7 +769,6 @@ function updateNet(){
   }
 }
 
-// ===== DATA =====
 function loadData(){
   machines=JSON.parse(localStorage.getItem('machines')||'null')||[];
   operators=JSON.parse(localStorage.getItem('operators')||'null')||DEFAULT_OPERATORS;
@@ -805,10 +791,8 @@ function allReports(){return [...pending,...synced];}
 function todayReports(){const t=todayStr();return allReports().filter(r=>r.date===t);}
 function findMachine(id){return machines.find(m=>m.id===id);}
 
-// リモートから最新データ取得（オンライン時）
 async function fetchRemote(){
   if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE') return;
-  // 4本のAPIを並列取得（直列比で約1/3〜1/4の時間）
   const get=a=>fetch(gasGet('action='+a)).then(r=>r.json());
   const [mR,oR,iR,tR]=await Promise.allSettled([
     get('getMachines'), get('getOperators'), get('getInspections'),
@@ -831,7 +815,6 @@ async function fetchRemote(){
   saveData();
 }
 
-// 本日の全端末データを取得（稼働一覧のオンライン参照）
 let serverToday=[];
 async function refreshTodayList(showMsg){
   if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){renderList();return;}
@@ -847,7 +830,6 @@ async function refreshTodayList(showMsg){
   }catch(e){console.warn('refreshToday:',e);if(showMsg)showToast('更新に失敗しました','err');}
 }
 
-// ===== FORMS =====
 function populateForms(){
   const ms=document.getElementById('f-machine');
   if(machines.length===0){
@@ -894,7 +876,6 @@ function onMachineChange(){
   updatePrevHour(id);
 }
 
-// 前回アワーメータの取得と表示（④仕様）— 選択日より前の最新値を採用
 let prevHour=null;
 async function updatePrevHour(mid){
   prevHour=null;
@@ -904,8 +885,7 @@ async function updatePrevHour(mid){
   const consider=(r,best)=>{
     const h=parseFloat(r.hourMeter);
     if(isNaN(h))return best;
-    if(String(r.date)>selDate)return best; // 選択日より後は無視
-    // 同日は保存時刻が選択日入力より前とは限らないため、選択日より前の日付を優先
+    if(String(r.date)>selDate)return best;
     const key=String(r.date)+String(r.savedAt||'');
     if(!best||key>best.key)return {key,h,date:r.date};
     return best;
@@ -935,18 +915,16 @@ async function updatePrevHour(mid){
   }
 }
 
-// アワーメータ入力 → 稼働時間を自動計算（手動修正可）
 function calcWorkHours(){
   if(prevHour===null)return;
   const cur=parseFloat(document.getElementById('f-hmeter').value);
   if(isNaN(cur))return;
   const diff=Math.round((cur-prevHour)*10)/10;
-  if(diff>=0&&diff<48){ // 異常値（負数・48h超）は自動入力しない
+  if(diff>=0&&diff<48){
     document.getElementById('f-whours').value=diff;
   }
 }
 
-// ===== GPS =====
 function getGPS(){
   const box=document.getElementById('gps-box'),st=document.getElementById('gps-st'),coord=document.getElementById('gps-coord');
   box.className='gps-box';st.textContent='GPS取得中...';coord.textContent='取得中...';
@@ -964,7 +942,6 @@ function getGPS(){
   );
 }
 
-// ===== 始業前点検モーダル =====
 function openInspModal(){
   if(!curInspType)return;
   const data=INSPECTION_DATA[curInspType];
@@ -1000,11 +977,9 @@ function saveInspModal(){
   showToast(`点検 ${done}/${total}項目を記録`,'ok');
 }
 
-// ===== 入力・送信 =====
 function togEl(el){el.classList.toggle('on');el.classList.toggle('off');}
 
-// ===== 写真添付・備考区分 =====
-let photoData=null; // 圧縮済みJPEG dataURL
+let photoData=null;
 
 function updateNoteTypeUI(){
   const val=document.querySelector('input[name="note-type"]:checked').value;
@@ -1015,7 +990,6 @@ function updateNoteTypeUI(){
       if(v==='故障')el.classList.add('on-kosho');
       else if(v==='備考と故障')el.classList.add('on-kosho');
       else if(v==='備考')el.classList.add('on-biko');
-      // 「選んでいない」はハイライトなし
     }
   });
 }
@@ -1027,7 +1001,6 @@ function handlePhotoSelect(e){
   rd.onload=ev=>{
     const img=new Image();
     img.onload=()=>{
-      // 最大1024pxに縮小・JPEG60%圧縮（localStorage容量とGAS POST負荷の対策）
       const max=1024;
       let w=img.width,h=img.height;
       if(w>max||h>max){
@@ -1062,7 +1035,9 @@ function submitReport(){
   const m=findMachine(machineId);
   const inspTotal=curInspType?INSPECTION_DATA[curInspType].items.length:0;
   const inspDone=Object.values(curInspChecks).filter(Boolean).length;
-  const inspStatus=inspDone===0?'未':(inspDone===inspTotal?'済':`一部(${inspDone}/${inspTotal})`);
+  // 稼働時間・アワーメータが未入力＝燃料補給のみの入力とみなし、点検を「対象外」とする
+  const hasWork = document.getElementById('f-whours').value !== '' || document.getElementById('f-hmeter').value !== '';
+  const inspStatus = !hasWork ? '対象外' : (inspDone===0?'未':(inspDone===inspTotal?'済':`一部(${inspDone}/${inspTotal})`));
   const skipGps=document.getElementById('gps-skip').checked;
 
   const report={
@@ -1088,7 +1063,6 @@ function submitReport(){
   try{
     pending.push(report);saveData();
   }catch(e){
-    // 写真で容量超過した場合は写真なしで保存
     report.photo='';
     try{saveData();}catch(e2){pending.pop();showToast('端末の保存容量が不足しています','err');return;}
     showToast('容量不足のため写真は保存できませんでした（本文は保存済）','err');
@@ -1116,12 +1090,10 @@ function resetForm(){
   gpsLat=null;gpsLng=null;gpsAcc=null;getGPS();
 }
 
-// ===== SYNC =====
 let syncDebounce=null;
 async function autoSync(){
   if(syncBusy||pending.length===0||!realOnline)return;
   if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE')return;
-  // online/syncNow/定期実行が同時発火しても1回にまとめる
   clearTimeout(syncDebounce);
   syncDebounce=setTimeout(()=>doSync(),150);
 }
@@ -1133,7 +1105,7 @@ async function doSync(){
     const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'batchAddReports',reports:batch})});
     const data=await res.json();
     if(data.success||data.count>=0){
-      batch.forEach(r=>{r.synced=true;r.photo='';}); // 送信済み写真は端末から破棄（DriveにURL保存済み）
+      batch.forEach(r=>{r.synced=true;r.photo='';});
       synced=[...synced,...batch];
       const ids=new Set(batch.map(r=>r.id));
       pending=pending.filter(r=>!ids.has(r.id));
@@ -1148,7 +1120,7 @@ async function syncNow(){
   if(!realOnline){showToast('サーバーに接続できません。電波状況をご確認ください','err');return;}
   if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){showToast('GAS_URL を設定してください','err');return;}
   const btn=document.getElementById('sync-btn');
-  if(btn.dataset.busy==='1')return; // 連打防止
+  if(btn.dataset.busy==='1')return;
   btn.dataset.busy='1';
   const origText=btn.textContent;
   btn.textContent='送信中...';
@@ -1169,7 +1141,6 @@ function updateSyncRow(){
   document.getElementById('sync-row').style.display=pending.length>0?'flex':'none';
 }
 
-// ===== 拠点チップ =====
 function renderYardChips(){
   const mk=(cur,cb)=>{
     let h=`<div class="chip ${cur===''?'on':''}" onclick="${cb}('')">全拠点</div>`;
@@ -1187,7 +1158,6 @@ function setListYard(y){listYard=y;renderYardChips();renderList();}
 function setMYard(y){mYard=y;renderYardChips();renderMachines();}
 function setJiYard(y){jiYard=y;renderYardChips();renderJikensa();}
 
-// ===== 稼働一覧 =====
 function renderList(){
   const el=document.getElementById('list-body');
   const note=document.getElementById('list-net-note');
@@ -1210,13 +1180,12 @@ function renderList(){
   }
   if(listYard)tr=tr.filter(r=>r.yard===listYard);
 
-  // 機体ごとにグループ化
   const groups={};
   tr.forEach(r=>{
     if(!groups[r.machineId])groups[r.machineId]=[];
     groups[r.machineId].push(r);
   });
-  window.listGroups=groups; // 編集モーダルから参照するため保持
+  window.listGroups=groups;
   const gkeys=Object.keys(groups);
   document.getElementById('list-count').textContent=`${tr.length}件・${gkeys.length}機体`;
 
@@ -1231,7 +1200,6 @@ function renderList(){
     const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
     const yard=rs[0].yard||'';
     const multi=rs.length>1;
-    // 合計・最終値
     const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
     const lastH=rs.reduce((mx,r)=>{const v=parseFloat(r.hourMeter);return isNaN(v)?mx:Math.max(mx,v);},NaN);
     const totalF=rs.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
@@ -1241,7 +1209,7 @@ function renderList(){
     const nmSafe=(nm||'').replace(/'/g,"\\'");
     const entries=rs.map(r=>{
       const tm=r.savedAt?new Date(r.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):(r.receivedAt?String(r.receivedAt).slice(11,16):'--:--');
-      const inspTxt=r.inspection==='済'?'点検済':(r.inspection==='未'?'<span style="color:#854f0b;font-weight:700">点検未</span>':r.inspection);
+      const inspTxt=r.inspection==='済'?'点検済':(r.inspection==='未'?'<span style="color:#854f0b;font-weight:700">点検未</span>':(r.inspection==='対象外'?'<span style="color:#999">点検対象外（給油のみ）</span>':r.inspection));
       const dtl=[`稼働 ${r.workHours||'—'}h`,`アワー ${r.hourMeter||'—'}h`,(r.fuelAmount?`給油 ${r.fuelAmount}L`:'給油なし'),inspTxt].join(' ／ ');
       const eBdg=r.synced?'<span class="bdg bdg-ok">✓</span>':'<span class="bdg bdg-pend">⏳</span>';
       const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">地図</a>`:'';
@@ -1288,14 +1256,12 @@ function toggleEntries(h){
   if(a){a.classList.toggle('open');}
 }
 
-// 稼働一覧のエントリタップ → カレンダーと共通の編集モーダルを開く
 function openListEntryModal(mid,nm){
   const rs=(window.listGroups&&window.listGroups[mid])?window.listGroups[mid].slice().sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))):[];
   const title=`${mid}　${nm}（本日）`;
   openReportModal(title,rs);
 }
 
-// ===== 重機管理 =====
 function renderMachines(){
   let ms=machines;
   if(mYard)ms=ms.filter(m=>m.yard===mYard);
@@ -1380,7 +1346,6 @@ function deleteMachineFromModal(){
   }
 }
 
-// ===== 特定自主検査 =====
 function jiStatus(nextDate){
   if(!nextDate)return {cls:'',txt:'未設定',days:null};
   const days=Math.ceil((new Date(nextDate)-new Date())/(1000*60*60*24));
@@ -1454,7 +1419,6 @@ function saveJiModal(){
   }
 }
 
-// ===== 集計ダッシュボード =====
 function renderDash(){
   const d=new Date();
   document.getElementById('dash-month').textContent=`令和${d.getFullYear()-2018}年${d.getMonth()+1}月　月次集計`;
@@ -1466,7 +1430,6 @@ function renderDash(){
     <div class="stat-card"><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>
     <div class="stat-card"><div class="num" style="color:${uninsp>0?'#e67e22':'#27ae60'}">${uninsp}件</div><div class="lbl">点検未実施</div></div>`;
 
-  // 特定自主検査 期限警告
   const jiEl=document.getElementById('dash-jikensa');
   const due=inspections.map(ins=>({ins,st:jiStatus(ins.nextDate)})).filter(x=>x.st.days!==null&&x.st.days<=30).sort((a,b)=>a.st.days-b.st.days);
   jiEl.innerHTML=due.length>0?due.map(x=>{
@@ -1480,7 +1443,6 @@ function renderDash(){
     </div>`;
   }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ 30日以内の期限なし</div></div>';
 
-  // アワー警告
   const alertEl=document.getElementById('dash-alerts');
   const latest={};
   rpts.forEach(r=>{const h=parseFloat(r.hourMeter);if(!isNaN(h)&&(!latest[r.machineId]||h>latest[r.machineId]))latest[r.machineId]=h;});
@@ -1490,10 +1452,12 @@ function renderDash(){
     return `<div class="card card-alert"><div class="card-h"><div><div class="mname" style="color:#c0392b">${w.id}　${nm}</div><div class="msub">現在: ${w.h} h</div></div><span class="bdg bdg-warn">⚠ 要点検</span></div><div class="card-b" style="font-size:15px;color:#666">${w.next}h定期点検まで あと ${w.next-w.h} h</div></div>`;
   }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ アワー警告なし</div></div>';
 
-  // 点検実施率
   const inspEl=document.getElementById('dash-insp');
   const byM={};
-  rpts.forEach(r=>{if(!byM[r.machineId])byM[r.machineId]={t:0,ok:0};byM[r.machineId].t++;if(r.inspection==='済')byM[r.machineId].ok++;});
+  rpts.forEach(r=>{
+    if(r.inspection==='対象外')return; // 燃料のみ入力は集計対象外
+    if(!byM[r.machineId])byM[r.machineId]={t:0,ok:0};byM[r.machineId].t++;if(r.inspection==='済')byM[r.machineId].ok++;
+  });
   if(Object.keys(byM).length===0){inspEl.innerHTML='<div class="card"><div class="card-b" style="font-size:15px;color:#888">今月のデータなし</div></div>';}
   else{
     inspEl.innerHTML='<div class="card">'+Object.entries(byM).map(([id,v])=>{
@@ -1503,11 +1467,10 @@ function renderDash(){
   }
 }
 
-// ===== 機体別カレンダー =====
-let calYear=new Date().getFullYear(), calMonth=new Date().getMonth(); // 0-indexed
-let calReports=[]; // 選択スコープ・選択月の日報
-let calScope='all'; // 'all' | 拠点名（デフォルトは全体）
-let calMachineId=''; // 拠点内で機体チップを絞り込んだ場合の機体ID（空なら拠点/全体集計）
+let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
+let calReports=[];
+let calScope='all';
+let calMachineId='';
 
 function calYM(){return `${calYear}-${pad(calMonth+1)}`;}
 
@@ -1521,13 +1484,12 @@ function renderCalYardChips(){
 }
 function setCalScope(scope){
   calScope=scope;
-  calMachineId=''; // 拠点/全体切替時は機体絞り込みをリセット
+  calMachineId='';
   renderCalYardChips();
   renderCalMachineChips();
   loadCalMonth();
 }
 
-// 拠点タップ時のみ、その拠点内の機体チップを下段に展開する
 function renderCalMachineChips(){
   const wrap=document.getElementById('cal-machine-chips');
   if(calScope==='all'){
@@ -1562,11 +1524,10 @@ function calNav(dir){
   loadCalMonth();
 }
 
-let calMonthCache={}; // 'H-17|2026-06' → reports（セッション内キャッシュ、機体単位のみ）
+let calMonthCache={};
 async function loadCalMonth(){
   const ym=calYM();
 
-  // 機体チップで絞り込んでいる場合：機体単位モード
   if(calMachineId){
     const mid=calMachineId;
     const key=mid+'|'+ym;
@@ -1589,7 +1550,6 @@ async function loadCalMonth(){
     return;
   }
 
-  // 全体 or 拠点全体モード：対象機体をまとめて集計
   const targetIds = calScope==='all' ? machines.map(m=>m.id) : machines.filter(m=>m.yard===calScope).map(m=>m.id);
   const idSet=new Set(targetIds);
   const local=allReports().filter(r=>idSet.has(r.machineId) && String(r.date).startsWith(ym));
@@ -1604,7 +1564,6 @@ async function loadCalMonth(){
         const sids=new Set(filtered.map(r=>r.id).filter(Boolean));
         const localOnly=local.filter(r=>!sids.has(r.id));
         calReports=[...filtered,...localOnly];
-        // 表示中のスコープ・月が変わっていなければ再描画
         if(!calMachineId && calYM()===ym)renderCalendar();
       }
     }catch(e){console.warn('cal:',e);}
@@ -1613,7 +1572,7 @@ async function loadCalMonth(){
 
 function dayStatus(r){
   if(r.notes && String(r.notes).trim()!=='')return 'warn';    // 赤: 備考あり
-  if(r.inspection==='未')return 'caution';                    // 黄: 点検未
+  if(r.inspection==='未')return 'caution';                    // 黄: 点検未（対象外は含めない）
   return 'ok';                                                 // 緑
 }
 
@@ -1624,7 +1583,6 @@ function renderCalendar(){
   const first=new Date(calYear,calMonth,1);
   const daysIn=new Date(calYear,calMonth+1,0).getDate();
   for(let i=0;i<first.getDay();i++)grid.appendChild(document.createElement('div'));
-  // 日付ごとに全件を保持（複数対応）
   const byDay={};
   calReports.forEach(r=>{
     const d=parseInt(String(r.date).slice(8,10),10);
@@ -1638,12 +1596,10 @@ function renderCalendar(){
     const cell=document.createElement('div');
     const rs=byDay[d];
     if(rs&&rs.length>0){
-      // 最も重いステータスを採用（warn > caution > ok）
       let st='ok';
       rs.forEach(r=>{const s=dayStatus(r);if(s==='warn')st='warn';else if(s==='caution'&&st!=='warn')st='caution';});
       cell.className='cal-cell cal-'+st;
       if(isMultiScope){
-        // 全体/拠点モード：入力済み機体数のみ表示（タップで機体一覧へ）
         const machineCount=new Set(rs.map(r=>r.machineId)).size;
         cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${machineCount}機体入力済み</div>`;
       }else{
@@ -1667,23 +1623,20 @@ function renderCalendar(){
   }
 }
 
-// ===== 日報編集モーダル =====
 let dmCurrent=null;
-let dmDayReports=[]; // その日の全件
+let dmDayReports=[];
 function openDayModal(day,rs){
   const mid=calMachineId;
   const title=`${calMonth+1}月${day}日　${mid}`;
   openReportModal(title,rs);
 }
 
-// 全体/拠点モード用: 日付タップ時に機体一覧を挟んでから個別モーダルへ
 function openDayMultiMachineModal(day,rs){
   if(!rs||rs.length===0){openReportModal(`${calMonth+1}月${day}日`,[]);return;}
   const byMachine={};
   rs.forEach(r=>{if(!byMachine[r.machineId])byMachine[r.machineId]=[];byMachine[r.machineId].push(r);});
   const mids=Object.keys(byMachine);
   if(mids.length===1){
-    // 1機体のみなら通常モーダルへ直接遷移
     openReportModal(`${calMonth+1}月${day}日　${mids[0]}`,byMachine[mids[0]]);
     return;
   }
@@ -1708,7 +1661,6 @@ function openDayModalFromList(mid,day){
   openReportModal(`${calMonth+1}月${day}日　${mid}`,rs);
 }
 
-// 汎用版: タイトル文字列と日報配列を直接渡して開く（稼働一覧・カレンダー共通）
 function openReportModal(title,rs){
   document.getElementById('dm-title').textContent=title;
   const form=document.getElementById('dm-form');
@@ -1720,7 +1672,6 @@ function openReportModal(title,rs){
     document.getElementById('day-modal').classList.add('on');
     return;
   }
-  // 複数件がある場合: 冒頭に「誰が・何時」の一覧セレクタを表示
   if(rs.length>1){
     selWrap.innerHTML='<div class="fl" style="margin-bottom:6px">この日の日報 '+rs.length+'件（タップで切替）</div>'+
       rs.map((r,i)=>{
@@ -1734,7 +1685,7 @@ function openReportModal(title,rs){
   }else{
     selWrap.innerHTML='';
   }
-  dmSelect(rs.length-1); // 最新を初期表示
+  dmSelect(rs.length-1);
   document.getElementById('day-modal').classList.add('on');
 }
 
@@ -1742,7 +1693,6 @@ function dmSelect(i){
   const r=dmDayReports[i];
   if(!r)return;
   dmCurrent=r;
-  // 選択中ハイライト
   document.querySelectorAll('.dm-sel').forEach(el=>{
     el.style.borderColor=el.dataset.i==i?'#185fa5':'#d5d5d5';
     el.style.background=el.dataset.i==i?'#e6f1fb':'#fafafa';
@@ -1762,8 +1712,8 @@ function dmSelect(i){
   document.getElementById('dm-floc').value=r.fuelLocation||'';
   document.getElementById('dm-famt').value=r.fuelAmount!==undefined?r.fuelAmount:'';
   const inspSel=document.getElementById('dm-insp');
-  inspSel.innerHTML='<option value="済">済</option><option value="未">未</option>';
-  if(r.inspection && r.inspection!=='済' && r.inspection!=='未')inspSel.innerHTML+=`<option value="${r.inspection}">${r.inspection}</option>`;
+  inspSel.innerHTML='<option value="済">済</option><option value="未">未</option><option value="対象外">対象外（給油のみ）</option>';
+  if(r.inspection && !['済','未','対象外'].includes(r.inspection))inspSel.innerHTML+=`<option value="${r.inspection}">${r.inspection}</option>`;
   inspSel.value=r.inspection||'未';
   document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
   document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
@@ -1772,7 +1722,6 @@ function dmSelect(i){
   const pw=document.getElementById('dm-photo-wrap');
   if(r.photoUrl){pw.style.display='block';document.getElementById('dm-photo-link').href=r.photoUrl;}
   else{pw.style.display='none';}
-  // 破砕機フィールド（対象機体のタイプで表示切替）
   const dmM=findMachine(r.machineId);
   const isCrusher=dmM&&dmM.type==='crusher';
   document.getElementById('dm-crusher').style.display=isCrusher?'block':'none';
@@ -1818,7 +1767,6 @@ async function saveDayModal(){
     const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'editReport',report:upd})});
     const data=await res.json();
     if(data.success){
-      // ローカルコピーも更新
       [pending,synced].forEach(arr=>{
         const idx=arr.findIndex(r=>r.id===upd.id);
         if(idx>=0)Object.assign(arr[idx],upd);
@@ -1885,8 +1833,6 @@ function deleteOperator(name){
   }
 }
 
-// ===== 月次印刷（紙フォーマット再現・機種共通） =====
-// ===== CSV出力 =====
 function openCsvModal(){
   const sel=document.getElementById('csv-machine');
   sel.innerHTML='<option value="">全機体</option>';
@@ -1919,7 +1865,6 @@ async function exportCsv(){
   showToast('データを集計中...','');
   let rows=[];
   if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
-    // 期間にまたがる月を全て取得
     const months=new Set();
     let cur=new Date(from+'T00:00:00');
     const end=new Date(to+'T00:00:00');
@@ -1957,7 +1902,7 @@ async function exportCsv(){
     });
     csvRows.push(vals.join(','));
   });
-  const csvContent='\uFEFF'+csvRows.join('\r\n'); // BOM付きでExcel文字化け防止
+  const csvContent='\uFEFF'+csvRows.join('\r\n');
 
   const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
@@ -1981,7 +1926,6 @@ function printMonth(){
   printStandardMonth(mid,m);
 }
 
-// 破砕機専用テンプレート（破砕機日報.xlsx準拠: 部品交換・給油時アワメータ列）
 function printCrusherMonth(mid,m){
   const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
   const daysIn=new Date(calYear,calMonth+1,0).getDate();
@@ -1991,7 +1935,6 @@ function printCrusherMonth(mid,m){
     if(isNaN(d))return;
     if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
   });
-  // 月初アワー = 最初の報告の（終了 − 稼働）から逆算
   let monthStart='';
   const firstDay=Object.keys(byDay).map(Number).sort((a,b)=>a-b)[0];
   if(firstDay){
@@ -2134,7 +2077,6 @@ th{background:#eee}
   w.document.close();
 }
 
-// ===== NAV =====
 function showTab(name){
   const tabs=['list','input','machines','jikensa','dash'];
   tabs.forEach((t,i)=>{
@@ -2153,7 +2095,6 @@ function showTab(name){
   requestAnimationFrame(syncStickyOffset);
 }
 
-// ===== TOAST =====
 let _tt;
 function showToast(msg,type=''){
   const el=document.getElementById('toast');
