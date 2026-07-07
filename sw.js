@@ -1,17 +1,14 @@
 // ============================================================
 // Service Worker — キャッシュ & オフライン対応
 // ============================================================
-
-const CACHE_NAME = 'juki-nippo-v13';
+const CACHE_NAME = 'juki-nippo-v14';
 const ASSETS = ['./index.html', './manifest.json'];
-
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(c => c.addAll(ASSETS))
   );
   self.skipWaiting();
 });
-
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -20,12 +17,10 @@ self.addEventListener('activate', e => {
   );
   self.clients.claim();
 });
-
 self.addEventListener('fetch', e => {
   // GAS API リクエストはキャッシュしない
   if (e.request.url.includes('script.google.com')) return;
   if (e.request.method !== 'GET') return;
-
   // index.html等のナビゲーションはネットワーク優先（圏外時のみキャッシュ）
   const isNav = e.request.mode === 'navigate' || e.request.url.endsWith('index.html') || e.request.url.endsWith('/');
   if (isNav) {
@@ -38,7 +33,6 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
@@ -51,7 +45,6 @@ self.addEventListener('fetch', e => {
     })
   );
 });
-
 // メインスレッドからのメッセージ受信（オプション）
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
