@@ -270,11 +270,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
     <div class="frow" style="margin-bottom:0">
       <div class="fg" style="margin-bottom:0">
-        <label class="fl">給油場所</label>
-        <select class="fc" id="f-floc">
-          <option value="">なし</option><option value="事務所">事務所</option>
-          <option value="現場">現場</option><option value="その他">その他</option>
-        </select>
+        <label class="fl">給油元</label>
+        <input class="fc" type="text" id="f-floc" list="dl-floc" placeholder="例: 事務所" autocomplete="off">
+        <datalist id="dl-floc">
+          <option value="事務所"></option>
+          <option value="現場"></option>
+          <option value="その他"></option>
+        </datalist>
       </div>
       <div class="fg" style="margin-bottom:0">
         <label class="fl">給油量 (L)</label>
@@ -518,8 +520,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="fg" style="margin-bottom:0"><label class="fl">稼働時間(h)</label><input class="fc" type="number" id="dm-whours" step="0.5" inputmode="decimal"></div>
       </div>
       <div class="frow" style="margin-bottom:11px">
-        <div class="fg" style="margin-bottom:0"><label class="fl">給油場所</label>
-          <select class="fc" id="dm-floc"><option value="">なし</option><option value="事務所">事務所</option><option value="現場">現場</option><option value="その他">その他</option></select>
+        <div class="fg" style="margin-bottom:0"><label class="fl">給油元</label>
+          <input class="fc" type="text" id="dm-floc" list="dl-floc" autocomplete="off">
         </div>
         <div class="fg" style="margin-bottom:0"><label class="fl">給油量(L)</label><input class="fc" type="number" id="dm-famt" inputmode="decimal"></div>
       </div>
@@ -812,8 +814,10 @@ function buildSuggestList(reports,field){
 function renderSuggestLists(reports){
   const cList=buildSuggestList(reports,'contractor');
   const lList=buildSuggestList(reports,'location');
+  const fList=buildSuggestList(reports,'fuelLocation');
   mergeIntoDatalist('dl-contractor',cList);
   mergeIntoDatalist('dl-location',lList);
+  mergeIntoDatalist('dl-floc',fList);
 }
 function mergeIntoDatalist(id,newValues){
   const dl=document.getElementById(id);
@@ -2035,7 +2039,7 @@ async function exportCsv(){
 
   if(rows.length===0){showToast('該当データがありません','err');return;}
 
-  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油場所','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考区分','備考','写真URL','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
+  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油元','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考区分','備考','写真URL','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
   const csvRows=[headers.join(',')];
   rows.forEach(r=>{
     const vals=[
