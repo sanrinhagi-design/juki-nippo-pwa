@@ -220,11 +220,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
     <div class="fg">
       <label class="fl">元請（任意）</label>
-      <input class="fc" type="text" id="f-contractor" placeholder="例: 〇〇林業">
+      <input class="fc" type="text" id="f-contractor" list="dl-contractor" placeholder="例: 〇〇林業" autocomplete="off">
+      <datalist id="dl-contractor"></datalist>
     </div>
     <div class="fg" style="margin-bottom:0">
       <label class="fl">現場名（任意）</label>
-      <input class="fc" type="text" id="f-location" placeholder="例: 深山林道 3工区">
+      <input class="fc" type="text" id="f-location" list="dl-location" placeholder="例: 深山林道 3工区" autocomplete="off">
+      <datalist id="dl-location"></datalist>
     </div>
   </div></div>
 
@@ -708,7 +710,7 @@ function initApp(){
   document.getElementById('f-date').addEventListener('change',()=>{const mid=document.getElementById('f-machine').value;if(mid)updatePrevHour(mid);});
   window.addEventListener('online', async ()=>{
     await checkRealConnectivity();
-    if(realOnline){autoSync();refreshTodayList(false);}
+    if(realOnline){autoSync();refreshTodayList(false);refreshSuggestLists();}
   });
   window.addEventListener('offline', ()=>{realOnline=false;updateNet();});
   setInterval(async ()=>{
@@ -732,7 +734,7 @@ function initApp(){
       });
     }).catch(e=>console.warn('SW:',e));
   }
-  checkRealConnectivity().then(()=>{fetchRemote();});
+  checkRealConnectivity().then(()=>{fetchRemote();refreshSuggestLists();});
 }
 
 function syncStickyOffset(){
@@ -791,6 +793,58 @@ function getDeviceId(){let id=localStorage.getItem('deviceId');if(!id){id='dev-'
 function allReports(){return [...pending,...synced];}
 function todayReports(){const t=todayStr();return allReports().filter(r=>r.date===t);}
 function findMachine(id){return machines.find(m=>m.id===id);}
+
+// ===== 元請・現場名サジェスト（直近1ヶ月・全端末共通） =====
+function daysAgoStr(n){
+  const d=new Date();d.setDate(d.getDate()-n);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function buildSuggestList(reports,field){
+  const since=daysAgoStr(30);
+  const seen={}; // 値 → 最新date（重複除去しつつ新しい順に並べるため）
+  reports.forEach(r=>{
+    const v=(r[field]||'').trim();
+    if(!v||String(r.date)<since)return;
+    if(!seen[v]||String(r.date)>seen[v])seen[v]=String(r.date);
+  });
+  return Object.keys(seen).sort((a,b)=>seen[b].localeCompare(seen[a]));
+}
+function renderSuggestLists(reports){
+  const cList=buildSuggestList(reports,'contractor');
+  const lList=buildSuggestList(reports,'location');
+  mergeIntoDatalist('dl-contractor',cList);
+  mergeIntoDatalist('dl-location',lList);
+}
+function mergeIntoDatalist(id,newValues){
+  const dl=document.getElementById(id);
+  const existing=Array.from(dl.options).map(o=>o.value);
+  const merged=[...new Set([...newValues,...existing])]; // 新しい候補を優先しつつ既存も保持
+  dl.innerHTML=merged.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">`).join('');
+}
+async function refreshSuggestLists(){
+  if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){
+    // オフライン時は端末内データのみでフォールバック
+    renderSuggestLists(allReports());
+    return;
+  }
+  try{
+    const d=new Date();
+    const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+    const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+    const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+    const results=await Promise.all([thisM,prevM].map(ym=>
+      fetch(gasGet('action=getReports&month='+ym)).then(r=>r.json()).catch(()=>({reports:[]}))
+    ));
+    const merged=[];
+    results.forEach(dd=>{if(dd.reports)merged.push(...dd.reports);});
+    // 端末内の未送信分も候補に含める（他端末に送信済みの類似表記との重複はbuildSuggestListのvalueベースで自然に吸収）
+    merged.push(...allReports());
+    renderSuggestLists(merged);
+  }catch(e){
+    console.warn('suggest:',e);
+    renderSuggestLists(allReports());
+  }
+}
 
 async function fetchRemote(){
   if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE') return;
@@ -1070,6 +1124,7 @@ function submitReport(){
   }
   updateSyncRow();
   showToast('日報を保存しました','ok');resetForm();
+  renderSuggestLists([...allReports()]); // オフライン時も含め今回の入力値を即座に候補へ反映
   if(navigator.onLine)autoSync();
 }
 
@@ -1113,6 +1168,7 @@ async function doSync(){
       saveData();updateSyncRow();renderList();
       if(batch.length>0)showToast(`${batch.length}件を送信しました`,'ok');
       refreshDashMonth();
+      refreshSuggestLists();
     }
   }catch(e){console.warn('Sync:',e);}finally{syncBusy=false;}
 }
