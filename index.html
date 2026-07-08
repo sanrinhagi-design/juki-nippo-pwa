@@ -1112,6 +1112,7 @@ async function doSync(){
       pending=pending.filter(r=>!ids.has(r.id));
       saveData();updateSyncRow();renderList();
       if(batch.length>0)showToast(`${batch.length}件を送信しました`,'ok');
+      refreshDashMonth();
     }
   }catch(e){console.warn('Sync:',e);}finally{syncBusy=false;}
 }
@@ -1420,11 +1421,35 @@ function saveJiModal(){
   }
 }
 
+let dashServerReports=null; // 集計タブ用: サーバーから取得した当月の全日報（オンライン時のみ）
+function dashSourceReports(){
+  const mo=monthStr();
+  if(dashServerReports && dashServerReports.month===mo){
+    // サーバー全件 + 端末内のみでまだサーバー未反映の分（同一idは除外）
+    const sids=new Set(dashServerReports.reports.map(r=>r.id).filter(Boolean));
+    const localOnly=allReports().filter(r=>r.date&&r.date.startsWith(mo) && !sids.has(r.id));
+    return [...dashServerReports.reports,...localOnly];
+  }
+  return allReports().filter(r=>r.date&&r.date.startsWith(mo));
+}
+
+async function refreshDashMonth(){
+  if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE')return;
+  const mo=monthStr();
+  try{
+    const res=await fetch(gasGet('action=getReports&month='+mo));
+    const data=await res.json();
+    if(data.reports){
+      dashServerReports={month:mo, reports:data.reports};
+      if(document.getElementById('scr-dash').classList.contains('on'))renderDash();
+    }
+  }catch(e){console.warn('dashMonth:',e);}
+}
+
 function renderDash(){
   const d=new Date();
   document.getElementById('dash-month').textContent=`令和${d.getFullYear()-2018}年${d.getMonth()+1}月　月次集計`;
-  const mo=monthStr();
-  const rpts=allReports().filter(r=>r.date&&r.date.startsWith(mo));
+  const rpts=dashSourceReports();
   const totalL=rpts.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
   const uninsp=rpts.filter(r=>r.inspection==='未').length;
 
@@ -1840,7 +1865,7 @@ async function saveDayModal(){
       saveData();
       closeDayModal();
       showToast('日報を更新しました','ok');
-      loadCalMonth();refreshTodayList(false);
+      loadCalMonth();refreshTodayList(false);refreshDashMonth();
     }else{
       showToast(data.error||'更新に失敗しました','err');
     }
@@ -1864,7 +1889,7 @@ async function deleteDayModal(){
       saveData();
       closeDayModal();
       showToast('日報を削除しました','ok');
-      loadCalMonth();refreshTodayList(false);
+      loadCalMonth();refreshTodayList(false);refreshDashMonth();
     }else{
       showToast(data.error||'削除に失敗しました','err');
     }
@@ -2155,7 +2180,7 @@ function showTab(name){
   if(name==='list'){refreshTodayList(false);renderList();updateSyncRow();}
   if(name==='machines')renderMachines();
   if(name==='jikensa')renderJikensa();
-  if(name==='dash'){renderDash();renderCalYardChips();renderCalMachineChips();loadCalMonth();}
+  if(name==='dash'){renderDash();renderCalYardChips();renderCalMachineChips();loadCalMonth();refreshDashMonth();}
   if(name==='input')updateNet();
   window.scrollTo(0,0);
   requestAnimationFrame(syncStickyOffset);
