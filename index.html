@@ -435,9 +435,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <div class="slbl" style="margin-top:4px">アワーメーター警告</div>
   <div id="dash-alerts"></div>
-
-  <div class="slbl" style="margin-top:4px">始業前点検 実施率（今月）</div>
-  <div id="dash-insp"></div>
   <div style="height:20px"></div>
 </div>
 
@@ -505,6 +502,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div id="dm-multi"></div>
     <div id="dm-empty" style="display:none;font-size:15px;color:#888;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
     <div id="dm-form">
+      <div class="frow" style="margin-bottom:11px">
+        <div class="fg" style="margin-bottom:0"><label class="fl">日付</label><input class="fc" type="date" id="dm-date"></div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">重機番号</label><select class="fc" id="dm-machine"></select></div>
+      </div>
       <div class="fg"><label class="fl">運転者</label>
         <select class="fc" id="dm-operator"></select>
       </div>
@@ -1426,9 +1427,51 @@ function renderDash(){
   const rpts=allReports().filter(r=>r.date&&r.date.startsWith(mo));
   const totalL=rpts.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
   const uninsp=rpts.filter(r=>r.inspection==='未').length;
+
+  // 総給油量の機体別内訳
+  const fuelByM={};
+  rpts.forEach(r=>{
+    const amt=parseFloat(r.fuelAmount)||0;
+    if(amt<=0)return;
+    if(!fuelByM[r.machineId])fuelByM[r.machineId]=0;
+    fuelByM[r.machineId]+=amt;
+  });
+  const fuelDetailHtml=Object.keys(fuelByM).length===0
+    ? '<div style="font-size:15px;color:#888;padding:8px 4px">今月の給油記録なし</div>'
+    : Object.entries(fuelByM).sort((a,b)=>b[1]-a[1]).map(([id,l])=>
+        `<div class="mrow"><span class="mrow-id">${id}</span><span class="mrow-name" style="font-size:15px">${Math.round(l*10)/10} L</span></div>`
+      ).join('');
+
+  // 点検未実施の機体別内訳（対象外は集計から除外）
+  const inspByM={};
+  rpts.forEach(r=>{
+    if(r.inspection==='対象外')return;
+    if(!inspByM[r.machineId])inspByM[r.machineId]={t:0,ok:0};
+    inspByM[r.machineId].t++;
+    if(r.inspection==='済')inspByM[r.machineId].ok++;
+  });
+  const inspDetailHtml=Object.keys(inspByM).length===0
+    ? '<div style="font-size:15px;color:#888;padding:8px 4px">今月のデータなし</div>'
+    : Object.entries(inspByM).map(([id,v])=>{
+        const pct=Math.round(v.ok/v.t*100);const col=pct===100?'#27ae60':pct>=50?'#e67e22':'#c0392b';
+        return `<div class="mrow"><span class="mrow-id">${id}</span><div class="prog-wrap"><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div></div><span style="font-size:15px;font-weight:700;color:${col};min-width:34px;text-align:right">${v.ok}/${v.t}</span></div>`;
+      }).join('');
+
   document.getElementById('dash-stats').innerHTML=`
-    <div class="stat-card"><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>
-    <div class="stat-card"><div class="num" style="color:${uninsp>0?'#e67e22':'#27ae60'}">${uninsp}件</div><div class="lbl">点検未実施</div></div>`;
+    <div class="stat-card" style="cursor:pointer" onclick="toggleStatDetail('fuel')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>
+        <span class="arrow" id="stat-arrow-fuel">▾</span>
+      </div>
+    </div>
+    <div class="stat-card" style="cursor:pointer" onclick="toggleStatDetail('insp')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="num" style="color:${uninsp>0?'#e67e22':'#27ae60'}">${uninsp}件</div><div class="lbl">点検未実施</div></div>
+        <span class="arrow" id="stat-arrow-insp">▾</span>
+      </div>
+    </div>
+    <div class="card" id="stat-detail-fuel" style="display:none;grid-column:1/-1">${fuelDetailHtml}</div>
+    <div class="card" id="stat-detail-insp" style="display:none;grid-column:1/-1">${inspDetailHtml}</div>`;
 
   const jiEl=document.getElementById('dash-jikensa');
   const due=inspections.map(ins=>({ins,st:jiStatus(ins.nextDate)})).filter(x=>x.st.days!==null&&x.st.days<=30).sort((a,b)=>a.st.days-b.st.days);
@@ -1451,20 +1494,15 @@ function renderDash(){
     const m=findMachine(w.id);const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
     return `<div class="card card-alert"><div class="card-h"><div><div class="mname" style="color:#c0392b">${w.id}　${nm}</div><div class="msub">現在: ${w.h} h</div></div><span class="bdg bdg-warn">⚠ 要点検</span></div><div class="card-b" style="font-size:15px;color:#666">${w.next}h定期点検まで あと ${w.next-w.h} h</div></div>`;
   }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ アワー警告なし</div></div>';
+}
 
-  const inspEl=document.getElementById('dash-insp');
-  const byM={};
-  rpts.forEach(r=>{
-    if(r.inspection==='対象外')return; // 燃料のみ入力は集計対象外
-    if(!byM[r.machineId])byM[r.machineId]={t:0,ok:0};byM[r.machineId].t++;if(r.inspection==='済')byM[r.machineId].ok++;
-  });
-  if(Object.keys(byM).length===0){inspEl.innerHTML='<div class="card"><div class="card-b" style="font-size:15px;color:#888">今月のデータなし</div></div>';}
-  else{
-    inspEl.innerHTML='<div class="card">'+Object.entries(byM).map(([id,v])=>{
-      const pct=Math.round(v.ok/v.t*100);const col=pct===100?'#27ae60':pct>=50?'#e67e22':'#c0392b';
-      return `<div class="mrow"><span class="mrow-id">${id}</span><div class="prog-wrap"><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div></div><span style="font-size:15px;font-weight:700;color:${col};min-width:34px;text-align:right">${v.ok}/${v.t}</span></div>`;
-    }).join('')+'</div>';
-  }
+function toggleStatDetail(key){
+  const el=document.getElementById('stat-detail-'+key);
+  const arrow=document.getElementById('stat-arrow-'+key);
+  if(!el)return;
+  const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  if(arrow)arrow.classList.toggle('open',!open);
 }
 
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
@@ -1699,6 +1737,24 @@ function dmSelect(i){
   });
   document.getElementById('dm-form').style.display='block';
   document.getElementById('dm-empty').style.display='none';
+  document.getElementById('dm-date').value=r.date||'';
+  const mSel=document.getElementById('dm-machine');
+  mSel.innerHTML='';
+  YARDS.forEach(y=>{
+    const inY=machines.filter(m=>m.yard===y);
+    if(inY.length===0)return;
+    let grp=`<optgroup label="${y}">`;
+    inY.forEach(m=>{
+      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+      grp+=`<option value="${m.id}">${lbl}</option>`;
+    });
+    grp+='</optgroup>';
+    mSel.innerHTML+=grp;
+  });
+  if(r.machineId && !machines.some(m=>m.id===r.machineId)){
+    mSel.innerHTML=`<option value="${r.machineId}">${r.machineId}（マスタ未登録）</option>`+mSel.innerHTML;
+  }
+  mSel.value=r.machineId||'';
   const opSel=document.getElementById('dm-operator');
   opSel.innerHTML='<option value="">（空欄）</option>';
   const names=[...operators];
@@ -1743,8 +1799,16 @@ function closeDayModal(){document.getElementById('day-modal').classList.remove('
 async function saveDayModal(){
   if(!dmCurrent||!dmCurrent.id){showToast('編集できないデータです','err');return;}
   if(!navigator.onLine){showToast('編集はオンライン時のみ可能です','err');return;}
+  const newDate=document.getElementById('dm-date').value;
+  const newMachine=document.getElementById('dm-machine').value;
+  if(!newDate){showToast('日付を入力してください','err');return;}
+  if(!newMachine){showToast('重機番号を選択してください','err');return;}
+  const moved = (newDate!==dmCurrent.date) || (newMachine!==dmCurrent.machineId);
+  if(moved && !confirm(`日付/重機番号を変更します。\n${dmCurrent.date} ${dmCurrent.machineId} → ${newDate} ${newMachine}\nよろしいですか？`))return;
   const upd={
     id:dmCurrent.id,
+    date:newDate,
+    machineId:newMachine,
     operator:document.getElementById('dm-operator').value,
     contractor:document.getElementById('dm-contractor').value.trim(),
     location:document.getElementById('dm-location').value.trim(),
@@ -1767,10 +1831,12 @@ async function saveDayModal(){
     const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'editReport',report:upd})});
     const data=await res.json();
     if(data.success){
+      const newYard=(findMachine(newMachine)||{}).yard||'';
       [pending,synced].forEach(arr=>{
         const idx=arr.findIndex(r=>r.id===upd.id);
-        if(idx>=0)Object.assign(arr[idx],upd);
+        if(idx>=0)Object.assign(arr[idx],upd,{yard:newYard});
       });
+      serverToday=serverToday.map(r=>r.id===upd.id?Object.assign({},r,upd,{yard:newYard}):r);
       saveData();
       closeDayModal();
       showToast('日報を更新しました','ok');
