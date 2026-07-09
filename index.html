@@ -1664,9 +1664,13 @@ async function loadCalMonth(){
         if(data.reports){
           const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
           const localOnly=local.filter(r=>!sids.has(r.id));
-          calReports=[...data.reports,...localOnly];
-          calMonthCache[key]=calReports;
-          if(calMachineId===mid && calYM()===ym)renderCalendar();
+          const merged=[...data.reports,...localOnly];
+          calMonthCache[key]=merged;
+          // 別の機体/月に切り替わっていたら、この古いレスポンスでcalReportsを汚染しない
+          if(calMachineId===mid && calYM()===ym){
+            calReports=merged;
+            renderCalendar();
+          }
         }
       }catch(e){console.warn('cal:',e);}
     }
@@ -1686,8 +1690,11 @@ async function loadCalMonth(){
         const filtered=data.reports.filter(r=>idSet.has(r.machineId));
         const sids=new Set(filtered.map(r=>r.id).filter(Boolean));
         const localOnly=local.filter(r=>!sids.has(r.id));
-        calReports=[...filtered,...localOnly];
-        if(!calMachineId && calYM()===ym)renderCalendar();
+        // scope/月が切り替わっていたら、この古いレスポンスでcalReportsを汚染しない
+        if(!calMachineId && calYM()===ym){
+          calReports=[...filtered,...localOnly];
+          renderCalendar();
+        }
       }
     }catch(e){console.warn('cal:',e);}
   }
@@ -2159,36 +2166,60 @@ th{background:#eee}
 function printStandardMonth(mid,m){
   const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
   const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  // その日の全件を保持（従来は最新1件のみだったため、複数入力時に給油量等が欠落していた）
   const byDay={};
   calReports.forEach(r=>{
     const d=parseInt(String(r.date).slice(8,10),10);
     if(isNaN(d))return;
-    if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
+    if(!byDay[d])byDay[d]=[];
+    byDay[d].push(r);
   });
+  Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
+
   const notes=[];
   let monthlyChecked=false;
-  Object.entries(byDay).forEach(([d,r])=>{
-    if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
-    if(r.inspection==='済')monthlyChecked=true;
+  Object.entries(byDay).forEach(([d,arr])=>{
+    arr.forEach(r=>{
+      if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
+      if(r.inspection==='済')monthlyChecked=true;
+    });
   });
+
   const mkRows=(from,to,padTo)=>{
     let h='';
     for(let d=from;d<=to;d++){
-      const r=byDay[d];
-      if(r){
-        const loc=[r.contractor,r.location,r.operator].filter(Boolean).join(' / ');
-        const fuel=[r.fuelLocation,(r.fuelAmount!==''&&r.fuelAmount!==undefined&&r.fuelAmount!==null)?r.fuelAmount+'L':''].filter(Boolean).join(' ');
-        h+=`<tr><td>${d}</td><td>${r.hourMeter!==''&&r.hourMeter!==undefined?r.hourMeter:''}</td><td>${r.workHours!==''&&r.workHours!==undefined?r.workHours:''}</td><td class="tl">${loc}</td><td>${fuel}</td><td>${r.inspection==='済'?'☑':'☐'}</td><td>${r.transfer==='有'?'☑':'☐'}</td></tr>`;
+      const arr=byDay[d];
+      if(arr&&arr.length>0){
+        // アワメータ: 最新（savedAtが最も新しい）値を採用
+        let hm=''; for(const r of arr){const v=parseFloat(r.hourMeter);if(!isNaN(v))hm=v;}
+        // 稼働時間: 合算
+        const totalW=arr.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+        // 現場名ごとに、その現場での最後の運転者を対応付け
+        const byLoc={}; // 現場名 → 最後のレコード
+        arr.forEach(r=>{
+          const locKey=r.location||'';
+          byLoc[locKey]=r; // 配列はsavedAt昇順なので、後勝ちで最後の人になる
+        });
+        const locEntries=Object.entries(byLoc);
+        const locText=locEntries.map(([loc,r])=>[r.contractor,loc].filter(Boolean).join(' ')).filter(Boolean).join(' / ')||'';
+        const opText=locEntries.map(([,r])=>r.operator).filter(Boolean).join('・');
+        // 給油: 合算＋給油元を列挙
+        const totalFuel=arr.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
+        const fuelLocs=[...new Set(arr.map(r=>r.fuelLocation).filter(Boolean))].join('/');
+        const fuel=[fuelLocs,(totalFuel>0?(Math.round(totalFuel*10)/10)+'L':'')].filter(Boolean).join(' ');
+        const inspOk=arr.some(r=>r.inspection==='済');
+        const transOk=arr.some(r=>r.transfer==='有');
+        h+=`<tr><td>${d}</td><td>${hm}</td><td>${totalW||''}</td><td class="tl">${locText}</td><td class="tl">${opText}</td><td>${fuel}</td><td>${inspOk?'☑':'☐'}</td><td>${transOk?'☑':'☐'}</td></tr>`;
       }else{
-        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td>☐</td><td>☐</td></tr>`;
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td></td><td>☐</td><td>☐</td></tr>`;
       }
     }
     for(let i=(to-from+1);i<padTo;i++){
-      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
     }
     return h;
   };
-  const tableHead=`<tr><th style="width:7%">日</th><th style="width:13%">ｱﾜﾒｰﾀ</th><th style="width:10%">稼働h</th><th>現場名/運転者</th><th style="width:16%">給油</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
+  const tableHead=`<tr><th style="width:6%">日</th><th style="width:11%">ｱﾜﾒｰﾀ</th><th style="width:8%">稼働h</th><th style="width:24%">現場名</th><th style="width:13%">運転者</th><th style="width:14%">給油</th><th style="width:6%">点検</th><th style="width:6%">回送</th></tr>`;
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
 <style>
 @page{size:A4 portrait;margin:10mm}
