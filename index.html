@@ -2229,36 +2229,35 @@ function printStandardMonth(mid,m){
     }
     return h;
   };
-  const tableHead=`<tr><th style="width:6%">日</th><th style="width:13%">ｱﾜﾒｰﾀ<br>／稼働h</th><th style="width:24%">元請<br>／現場名</th><th style="width:13%">運転者</th><th style="width:16%">給油元<br>／給油量</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
+  const tableHead=`<tr><th style="width:6%">日</th><th style="width:13%">ｱﾜﾒｰﾀ<br>稼働h</th><th style="width:24%">元請<br>現場名</th><th style="width:13%">運転者</th><th style="width:16%">給油元<br>給油量</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
 <style>
 @page{size:A4 portrait;margin:4mm}
-body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0;width:100%;height:100%}
-.head{display:flex;flex-direction:column;align-items:center;margin-bottom:2mm}
-.title{font-size:14px;font-weight:700}
-.machine-name{font-size:26px;font-weight:900;margin:1mm 0}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:10px;margin:0;width:100%;height:100%}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}
+.title{font-size:20px;font-weight:800}
+.machine-name{font-size:15px;font-weight:700;margin-left:2mm}
 .ym{font-size:16px;font-weight:700;color:#444}
 .cols{display:flex;gap:3mm}
 .col{flex:1}
-table{width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed}
-th,td{border:1px solid #333;padding:5px 4px;text-align:center;height:38px}
-td.stack{height:auto;min-height:46px}
-th{background:#eee;line-height:1.3;padding:4px 2px}
+table{width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed}
+th,td{border:1px solid #333;padding:3px 4px;text-align:center;height:28px}
+td.stack{height:auto;min-height:34px}
+th{background:#eee;line-height:1.25;padding:3px 2px;font-size:8.5px}
 .tl{text-align:left}
-.stack{padding:1px 3px;line-height:1.25}
+.stack{padding:1px 3px;line-height:1.2}
 .stack div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stack .sub{color:#555;font-size:8px;border-top:1px dotted #ccc;margin-top:2px;padding-top:2px}
+.stack .sub{color:#555;font-size:8.5px;border-top:1px dotted #ccc;margin-top:1px;padding-top:1px}
 .stack.tl div{text-align:left}
-.chk{font-size:16px;font-weight:700}
-.foot{margin-top:2mm;font-size:11px}
-.notes{border:1px solid #333;padding:2mm;min-height:10mm;margin-top:1mm}
+.chk{font-size:14px;font-weight:700}
+.foot{margin-top:1.5mm;font-size:11px}
+.notes{border:1px solid #333;padding:1.5mm;min-height:8mm;margin-top:1mm}
 @media print{.noprint{display:none}}
 .noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
 </style></head><body>
 <button class="noprint" onclick="window.print()">🖨 印刷する</button>
 <div class="head">
-  <span class="title">運転日報</span>
-  <span class="machine-name">${mid}（${nm}）</span>
+  <span><span class="title">運転日報</span><span class="machine-name">${mid}（${nm}）</span></span>
   <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
 </div>
 <div class="cols">
