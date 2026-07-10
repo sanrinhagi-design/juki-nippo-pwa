@@ -2201,8 +2201,8 @@ function printStandardMonth(mid,m){
           byLoc[locKey]=r; // 配列はsavedAt昇順なので、後勝ちで最後の人になる
         });
         const locEntries=Object.entries(byLoc);
-        const locText=locEntries.map(([loc,r])=>[r.contractor,loc].filter(Boolean).join(' ')).filter(Boolean).join(' / ')||'';
-        const opText=locEntries.map(([,r])=>r.operator).filter(Boolean).join('・');
+        const contractorText=[...new Set(locEntries.map(([,r])=>r.contractor).filter(Boolean))].join('/');
+        const locOpText=locEntries.map(([loc,r])=>[loc,r.operator].filter(Boolean).join(' ')).filter(Boolean).join(' / ')||'';
         // 給油: 合算＋給油元を列挙
         const totalFuel=arr.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
         const fuelLocs=[...new Set(arr.map(r=>r.fuelLocation).filter(Boolean))].join('/');
@@ -2212,7 +2212,7 @@ function printStandardMonth(mid,m){
         h+=`<tr>
           <td>${d}</td>
           <td class="stack"><div>${hm}</div><div class="sub">${totalW||''}</div></td>
-          <td class="stack tl"><div>${locText}</div><div class="sub">${opText}</div></td>
+          <td class="stack tl"><div>${contractorText}</div><div class="sub">${locOpText}</div></td>
           <td class="stack"><div>${fuelLocs}</div><div class="sub">${fuelAmtText}</div></td>
           <td>${inspOk?'☑':'☐'}</td>
           <td>${transOk?'☑':'☐'}</td>
@@ -2226,7 +2226,7 @@ function printStandardMonth(mid,m){
     }
     return h;
   };
-  const tableHead=`<tr><th style="width:7%">日</th><th style="width:15%">ｱﾜﾒｰﾀ／稼働h</th><th style="width:34%">現場名／運転者</th><th style="width:20%">給油元／給油量</th><th style="width:8%">点検</th><th style="width:8%">回送</th></tr>`;
+  const tableHead=`<tr><th style="width:7%">日</th><th style="width:15%">ｱﾜﾒｰﾀ／稼働h</th><th style="width:34%">元請／現場名・運転者</th><th style="width:20%">給油元／給油量</th><th style="width:8%">点検</th><th style="width:8%">回送</th></tr>`;
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
 <style>
 @page{size:A4 portrait;margin:10mm}
