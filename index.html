@@ -120,7 +120,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .nt-opt.on-biko span{color:#185fa5}
 .nt-opt.on-kosho{border-color:#c0392b;background:#fcebeb}
 .nt-opt.on-kosho span{color:#791f1f}
-.cal-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:15px;border:1px solid #eee;background:#fff}
+.cal-cell{aspect-ratio:0.85;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:15px;border:1px solid #eee;background:#fff}
 .cal-ok{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
 .cal-caution{background:#faeeda;color:#854f0b;border-color:#fac775}
 .cal-warn{background:#fcebeb;color:#791f1f;border-color:#f09595}
@@ -423,10 +423,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="card"><div class="card-b">
     <div class="yard-chips" id="cal-yards"></div>
     <div class="yard-chips" id="cal-machine-chips" style="display:none"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(-1)">‹</span>
-      <span style="font-size:15px;font-weight:700" id="cal-title"></span>
-      <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(1)">›</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:28px;color:#185fa5;cursor:pointer;padding:6px 20px;font-weight:700;line-height:1" onclick="calNav(-1)">‹</span>
+      <span style="font-size:22px;font-weight:800" id="cal-title"></span>
+      <span style="font-size:28px;color:#185fa5;cursor:pointer;padding:6px 20px;font-weight:700;line-height:1" onclick="calNav(1)">›</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:15px;color:#999;text-align:center;margin-bottom:4px"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px" id="cal-grid"></div>
@@ -2127,8 +2127,9 @@ function printCrusherMonth(mid,m){
 <style>
 @page{size:A4 portrait;margin:10mm}
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0}
-.head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2mm}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}
 .title{font-size:14px;font-weight:700}
+.ym{font-size:20px;font-weight:800}
 .mstart{font-size:10px;margin-bottom:2mm}
 .cols{display:flex;gap:4mm}
 .col{flex:1}
@@ -2143,7 +2144,7 @@ th{background:#eee}
 <button class="noprint" onclick="window.print()">🖨 印刷する</button>
 <div class="head">
   <span class="title">運転日報　破砕機 ${mid}（${nm}）</span>
-  <span>令和${calYear-2018}年${calMonth+1}月</span>
+  <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
 </div>
 <div class="mstart">月初アワメータ: ${monthStart!==''?monthStart+' h':'＿＿＿＿＿'}</div>
 <div class="cols">
@@ -2233,18 +2234,19 @@ function printStandardMonth(mid,m){
 <style>
 @page{size:A4 portrait;margin:5mm}
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0;width:100%;height:100%}
-.head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3mm}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:3mm}
 .title{font-size:14px;font-weight:700}
+.ym{font-size:20px;font-weight:800}
 .cols{display:flex;gap:3mm}
 .col{flex:1}
-table{width:100%;border-collapse:collapse;font-size:8px;table-layout:fixed}
-th,td{border:1px solid #333;padding:3px 3px;text-align:center;height:20px}
-td.stack{height:auto;min-height:26px}
+table{width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed}
+th,td{border:1px solid #333;padding:5px 4px;text-align:center;height:30px}
+td.stack{height:auto;min-height:38px}
 th{background:#eee}
 .tl{text-align:left}
 .stack{padding:1px 3px;line-height:1.25}
 .stack div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stack .sub{color:#555;font-size:7px;border-top:1px dotted #ccc;margin-top:1px;padding-top:1px}
+.stack .sub{color:#555;font-size:8px;border-top:1px dotted #ccc;margin-top:2px;padding-top:2px}
 .stack.tl div{text-align:left}
 .foot{margin-top:4mm;font-size:9px}
 .notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
@@ -2254,7 +2256,7 @@ th{background:#eee}
 <button class="noprint" onclick="window.print()">🖨 印刷する</button>
 <div class="head">
   <span class="title">運転日報　${mid}（${nm}）</span>
-  <span>令和${calYear-2018}年${calMonth+1}月</span>
+  <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
 </div>
 <div class="cols">
   <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
