@@ -2202,7 +2202,8 @@ function printStandardMonth(mid,m){
         });
         const locEntries=Object.entries(byLoc);
         const contractorText=[...new Set(locEntries.map(([,r])=>r.contractor).filter(Boolean))].join('/');
-        const locOpText=locEntries.map(([loc,r])=>[loc,r.operator].filter(Boolean).join(' ')).filter(Boolean).join(' / ')||'';
+        const locText=locEntries.map(([loc])=>loc).filter(Boolean).join(' / ')||'';
+        const opText=locEntries.map(([,r])=>r.operator).filter(Boolean).join('・');
         // 給油: 合算＋給油元を列挙
         const totalFuel=arr.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
         const fuelLocs=[...new Set(arr.map(r=>r.fuelLocation).filter(Boolean))].join('/');
@@ -2212,32 +2213,33 @@ function printStandardMonth(mid,m){
         h+=`<tr>
           <td>${d}</td>
           <td class="stack"><div>${hm}</div><div class="sub">${totalW||''}</div></td>
-          <td class="stack tl"><div>${contractorText}</div><div class="sub">${locOpText}</div></td>
+          <td class="stack tl"><div>${contractorText}</div><div class="sub">${locText}</div></td>
+          <td class="tl">${opText}</td>
           <td class="stack"><div>${fuelLocs}</div><div class="sub">${fuelAmtText}</div></td>
           <td>${inspOk?'☑':'☐'}</td>
           <td>${transOk?'☑':'☐'}</td>
         </tr>`;
       }else{
-        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td>☐</td><td>☐</td></tr>`;
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td>☐</td><td>☐</td></tr>`;
       }
     }
     for(let i=(to-from+1);i<padTo;i++){
-      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
     }
     return h;
   };
-  const tableHead=`<tr><th style="width:7%">日</th><th style="width:15%">ｱﾜﾒｰﾀ／稼働h</th><th style="width:34%">元請／現場名・運転者</th><th style="width:20%">給油元／給油量</th><th style="width:8%">点検</th><th style="width:8%">回送</th></tr>`;
+  const tableHead=`<tr><th style="width:6%">日</th><th style="width:13%">ｱﾜﾒｰﾀ／稼働h</th><th style="width:24%">元請／現場名</th><th style="width:13%">運転者</th><th style="width:16%">給油元／給油量</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
 <style>
-@page{size:A4 portrait;margin:10mm}
-body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0}
-.head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4mm}
+@page{size:A4 portrait;margin:5mm}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0;width:100%;height:100%}
+.head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3mm}
 .title{font-size:14px;font-weight:700}
-.cols{display:flex;gap:4mm}
+.cols{display:flex;gap:3mm}
 .col{flex:1}
-table{width:100%;border-collapse:collapse;font-size:8px}
-th,td{border:1px solid #333;padding:2px 3px;text-align:center;height:14px}
-td.stack{height:auto;min-height:18px}
+table{width:100%;border-collapse:collapse;font-size:8px;table-layout:fixed}
+th,td{border:1px solid #333;padding:3px 3px;text-align:center;height:20px}
+td.stack{height:auto;min-height:26px}
 th{background:#eee}
 .tl{text-align:left}
 .stack{padding:1px 3px;line-height:1.25}
