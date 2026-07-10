@@ -1,51 +1,2303 @@
-// ============================================================
-// Service Worker — キャッシュ & オフライン対応
-// ============================================================
-const CACHE_NAME = 'juki-nippo-v21';
-const ASSETS = ['./index.html', './manifest.json'];
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(c => c.addAll(ASSETS))
-  );
-  self.skipWaiting();
-});
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-self.addEventListener('fetch', e => {
-  // GAS API リクエストはキャッシュしない
-  if (e.request.url.includes('script.google.com')) return;
-  if (e.request.method !== 'GET') return;
-  // index.html等のナビゲーションはネットワーク優先（圏外時のみキャッシュ）
-  const isNav = e.request.mode === 'navigate' || e.request.url.endsWith('index.html') || e.request.url.endsWith('/');
-  if (isNav) {
-    e.respondWith(
-      fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        return res;
-      }).catch(() => caches.match(e.request).then(c => c || caches.match('./index.html')))
-    );
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="重機日報">
+<meta name="theme-color" content="#1a1a2e">
+<title>重機稼働日報</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:17px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#e2e2e2;color:#1a1a1a;min-height:100vh;-webkit-font-smoothing:antialiased}
+.app-shell{max-width:100%;margin:0 auto;background:#f0f0f0;min-height:100vh}
+.cnt-badge{background:#185fa5;color:#fff;font-size:15px;font-weight:800;padding:4px 12px;border-radius:12px}
+.arrow{font-size:18px;color:#999;transition:transform .2s;display:inline-block}
+.arrow.open{transform:rotate(180deg)}
+.entries{border-top:1px solid #eee;display:none}
+.entries.open{display:block}
+.entry{padding:13px 14px;border-bottom:1px solid #f4f4f4;display:flex;align-items:flex-start;gap:12px}
+.entry:last-child{border-bottom:none}
+.entry-time{font-size:16px;font-weight:800;color:#185fa5;min-width:56px}
+.entry-body{flex:1}
+.entry-op{font-size:17px;font-weight:700}
+.entry-dtl{font-size:15px;color:#777;margin-top:3px;line-height:1.5}
+.top-fixed{position:fixed;top:0;left:0;right:0;z-index:100;background:#f0f0f0}
+.hdr{background:#1a1a2e;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+.hdr-title{font-size:20px;font-weight:700;letter-spacing:.3px}
+.hdr-date{font-size:15px;color:#c5cad6;margin-top:3px}
+.net-badge{font-size:15px;padding:5px 14px;border-radius:12px;font-weight:700;transition:.3s}
+.net-on{background:#27ae60}.net-off{background:#c0392b}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
+.tab{flex:1 0 auto;padding:15px 10px;text-align:center;font-size:15px;color:#999;cursor:pointer;border-bottom:3px solid transparent;font-weight:600;white-space:nowrap}
+.tab.on{color:#185fa5;border-bottom-color:#185fa5;font-weight:700}
+.body-pad{padding-top:104px}
+.scr{display:none;min-height:calc(100vh - 104px)}
+.scr.on{display:block}
+.scr-fixed{display:none;padding:12px 12px 0;background:#f0f0f0}
+.scr-fixed.on{display:block;position:fixed;left:0;right:0;z-index:90;max-width:inherit;margin:0 auto}
+.scr-scroll{padding:0 12px 12px;overflow-y:auto}
+.card{background:#fff;border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.card-h{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f5f5f5}
+.card-b{padding:10px 12px}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mname{font-size:18px;font-weight:700}
+.msub{font-size:15px;color:#777;margin-top:3px}
+.sl{font-size:15px;color:#777}.sv{font-size:17px;font-weight:700;margin-top:3px}
+.bdg{font-size:15px;padding:5px 11px;border-radius:9px;font-weight:700;white-space:nowrap}
+.bdg-ok{background:#eaf3de;color:#3b6d11}
+.bdg-pend{background:#faeeda;color:#854f0b}
+.bdg-none{background:#eef0f2;color:#666}
+.bdg-warn{background:#fcebeb;color:#791f1f}
+.bdg-blue{background:#e6f1fb;color:#0c447c}
+.fg{margin-bottom:11px}
+.fl{font-size:15px;color:#444;margin-bottom:6px;display:block;font-weight:600}
+.fc{width:100%;padding:14px 14px;border:1.5px solid #d5d5d5;border-radius:9px;font-size:17px;background:#fafafa;color:#1a1a1a;-webkit-appearance:none;appearance:none;transition:border .15s}
+.fc:focus{outline:none;border-color:#185fa5;background:#fff}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.trow{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f5f5f5}
+.trow:last-child{border-bottom:none}
+.tlbl{font-size:15px;font-weight:500}
+.tog{width:46px;height:26px;border-radius:13px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.tog.on{background:#27ae60}.tog.off{background:#ccc}
+.tog-k{width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:2px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.tog.on .tog-k{left:22px}.tog.off .tog-k{left:2px}
+.btn{padding:16px;border-radius:11px;font-size:17px;font-weight:700;cursor:pointer;border:none;display:block;width:100%;text-align:center;transition:opacity .15s;letter-spacing:.3px}
+.btn:active{opacity:.82}
+.btn-p{background:#185fa5;color:#fff}
+.btn-d{background:#fcebeb;color:#791f1f;border:1px solid #f09595}
+.btn-o{background:#fff;color:#185fa5;border:1.5px solid #185fa5}
+.btn-g{background:#27ae60;color:#fff}
+.btn-sm{padding:9px 16px;font-size:15px;border-radius:8px;width:auto;display:inline-block}
+.gps-box{background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:10px 12px;margin-bottom:12px;transition:.3s}
+.gps-box.ok{background:#eaf3de;border-color:#97c459}
+.gps-box.err{background:#fcebeb;border-color:#f09595}
+.gps-row{display:flex;align-items:center;gap:8px}
+.gps-st{font-size:16px;font-weight:700;color:#185fa5}
+.gps-box.ok .gps-st{color:#27ae60}.gps-box.err .gps-st{color:#c0392b}
+.gps-coord{font-size:15px;color:#185fa5;margin-top:6px;font-family:monospace;word-break:break-all}
+.gps-box.err .gps-coord{color:#c0392b}
+.notice{padding:12px 14px;border-radius:9px;font-size:15px;margin-bottom:14px;display:flex;align-items:flex-start;gap:9px;line-height:1.55}
+.n-info{background:#e6f1fb;color:#0c447c;border:1px solid #b5d4f4}
+.n-warn{background:#faeeda;color:#854f0b;border:1px solid #fac775}
+.n-ok{background:#eaf3de;color:#3b6d11;border:1px solid #97c459}
+.slbl{font-size:15px;color:#777;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;font-weight:700}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat-card{background:#fff;border-radius:11px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.stat-card .num{font-size:28px;font-weight:800}
+.stat-card .lbl{font-size:15px;color:#777;margin-top:4px;font-weight:600}
+.sync-row{display:flex;align-items:center;justify-content:space-between;background:#fff;padding:13px 16px;border-radius:10px;margin-bottom:12px;font-size:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.sync-cnt{color:#854f0b;font-weight:700}
+.sync-btn{color:#185fa5;font-weight:700;cursor:pointer;padding:4px 8px}
+.mrow{display:flex;align-items:center;padding:11px 12px;border-bottom:1px solid #f5f5f5;gap:10px}
+.mrow:last-child{border-bottom:none}
+.mrow-id{font-size:16px;font-weight:800;color:#185fa5;min-width:58px}
+.mrow-name{font-size:16px;color:#333;flex:1;line-height:1.45}
+.mrow-acts{display:flex;gap:6px;flex-shrink:0}
+.prog-wrap{flex:1;padding:0 10px}
+.prog-bg{background:#f0f0f0;border-radius:4px;height:6px;overflow:hidden}
+.prog-fill{height:100%;border-radius:4px;transition:width .3s}
+.card-alert{border-left:3px solid #c0392b}
+.card-alert .card-h{background:#fff5f5}
+.fab{background:#185fa5;color:#fff;border-radius:28px;padding:13px 20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(24,95,165,.35);margin-bottom:12px;transition:opacity .15s}
+.fab:active{opacity:.85}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(26,26,26,.9);color:#fff;padding:9px 20px;border-radius:22px;font-size:15px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.toast.t-ok{background:rgba(39,174,96,.92)}
+.toast.t-err{background:rgba(192,57,43,.92)}
+.empty{text-align:center;padding:36px 20px;color:#bbb}
+.empty-ico{font-size:32px;margin-bottom:10px}
+.empty-txt{font-size:15px}
+.yard-chips{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:8px;margin-bottom:8px}
+.chip{flex:0 0 auto;font-size:15px;padding:9px 16px;border-radius:18px;border:1.5px solid #d5d5d5;background:#fff;color:#555;cursor:pointer;font-weight:600;white-space:nowrap}
+.chip.on{background:#185fa5;color:#fff;border-color:#185fa5}
+.nt-opt{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;border:1.5px solid #d5d5d5;border-radius:9px;cursor:pointer;background:#fafafa}
+.nt-opt span{font-size:15px;font-weight:700;color:#555}
+.nt-opt.on-biko{border-color:#185fa5;background:#e6f1fb}
+.nt-opt.on-biko span{color:#185fa5}
+.nt-opt.on-kosho{border-color:#c0392b;background:#fcebeb}
+.nt-opt.on-kosho span{color:#791f1f}
+.cal-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:15px;border:1px solid #eee;background:#fff}
+.cal-ok{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
+.cal-caution{background:#faeeda;color:#854f0b;border-color:#fac775}
+.cal-warn{background:#fcebeb;color:#791f1f;border-color:#f09595}
+.cal-day{font-weight:700}
+.cal-sub{font-size:15px}
+.insp-group{margin-bottom:12px}
+.insp-gh{font-size:15px;font-weight:700;color:#185fa5;padding:6px 0;border-bottom:1.5px solid #e6f1fb;margin-bottom:4px}
+.insp-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #f7f7f7}
+.insp-chk{width:24px;height:24px;border-radius:6px;border:2px solid #ccc;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
+.insp-chk.on{background:#27ae60;border-color:#27ae60}
+.insp-chk.on::after{content:'✓';color:#fff;font-size:15px;font-weight:800}
+.insp-txt{font-size:15px;color:#333;line-height:1.4}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:flex-end;justify-content:center}
+.modal-bg.on{display:flex}
+.modal{background:#fff;width:100%;max-width:640px;margin:0 auto;border-radius:18px 18px 0 0;padding:20px;max-height:88vh;overflow-y:auto}
+.modal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-t{font-size:20px;font-weight:800}
+.modal-x{font-size:28px;color:#999;cursor:pointer;line-height:1;padding:4px}
+.insp-linkbar{display:flex;gap:8px;margin-bottom:12px}
+.insp-linkbar a{flex:1;text-align:center;background:#e6f1fb;color:#185fa5;padding:9px;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none}
+.due-tag{font-size:15px;padding:2px 7px;border-radius:6px;font-weight:700}
+.due-ok{background:#eaf3de;color:#3b6d11}
+.due-soon{background:#faeeda;color:#854f0b}
+.due-over{background:#fcebeb;color:#791f1f}
+.info-line{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:15px}
+.info-line .k{color:#888}.info-line .v{font-weight:600;color:#333}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+<div class="top-fixed" id="top-fixed">
+<div class="hdr">
+  <div>
+    <div class="hdr-title">重機稼働日報</div>
+    <div class="hdr-date" id="hdr-date">読み込み中...</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="net-badge net-off" id="net-badge">圏外</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab on" onclick="showTab('list')">稼働一覧</div>
+  <div class="tab" onclick="showTab('input')">日報入力</div>
+  <div class="tab" onclick="showTab('machines')">重機管理</div>
+  <div class="tab" onclick="showTab('jikensa')">特定自主検査</div>
+  <div class="tab" onclick="showTab('dash')">集計</div>
+</div>
+</div>
+<div class="body-pad" id="body-pad"></div>
+
+<!-- ===== 稼働一覧 ===== -->
+<div id="scr-list" class="scr on">
+  <div class="scr-fixed on">
+    <div class="sync-row" id="sync-row" style="display:none">
+      <span>未送信: <span class="sync-cnt" id="pend-cnt">0</span>件</span>
+      <span class="sync-btn" id="sync-btn" onclick="syncNow()">今すぐ送信 →</span>
+    </div>
+    <div class="notice n-info" id="list-net-note" style="display:none">
+      <span id="list-net-txt">オンライン中：全端末の最新データを表示</span>
+      <span style="margin-left:auto;color:#0c447c;font-weight:700;cursor:pointer" id="list-refresh" onclick="refreshTodayList(true)">↻ 更新</span>
+    </div>
+    <div class="yard-chips" id="list-yards"></div>
+    <div class="slbl">本日入力済みの稼働（<span id="list-count">0</span>件）</div>
+  </div>
+  <div class="scr-scroll" id="list-scr-scroll">
+    <div id="list-body"></div>
+  </div>
+  <div class="fab" onclick="showTab('input')">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    日報を入力する
+  </div>
+</div>
+
+<!-- ===== 日報入力 ===== -->
+<div id="scr-input" class="scr">
+  <div class="notice n-info" id="inp-notice">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span id="inp-notice-txt">圏外のため端末に保存します。電波回復時に自動送信されます。</span>
+  </div>
+
+  <div class="card"><div class="card-b">
+    <div class="fg">
+      <label class="fl">日付 <span style="color:#c0392b">*</span></label>
+      <input class="fc" type="date" id="f-date">
+    </div>
+    <div class="fg">
+      <label class="fl">重機番号 <span style="color:#c0392b">*</span></label>
+      <select class="fc" id="f-machine" onchange="onMachineChange()">
+        <option value="">選択してください</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">運転者（任意）　<span onclick="openOpModal()" style="color:#185fa5;cursor:pointer;font-size:15px;font-weight:700">👥 運転者を管理</span></label>
+      <select class="fc" id="f-operator"><option value="">選択してください（空欄可）</option></select>
+    </div>
+    <div class="fg">
+      <label class="fl">元請（任意）</label>
+      <input class="fc" type="text" id="f-contractor" list="dl-contractor" placeholder="例: 〇〇林業" autocomplete="off">
+      <datalist id="dl-contractor"></datalist>
+    </div>
+    <div class="fg" style="margin-bottom:0">
+      <label class="fl">現場名（任意）</label>
+      <input class="fc" type="text" id="f-location" list="dl-location" placeholder="例: 深山林道 3工区" autocomplete="off">
+      <datalist id="dl-location"></datalist>
+    </div>
+  </div></div>
+
+  <!-- 始業前点検 -->
+  <div class="card"><div class="card-b">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:15px;font-weight:700">始業前点検（日常点検）</span>
+      <span class="bdg bdg-none" id="insp-status">未実施</span>
+    </div>
+    <div style="font-size:15px;color:#888;margin-bottom:10px" id="insp-hint">重機を選択すると点検表が表示されます</div>
+    <button class="btn btn-o" id="insp-open-btn" onclick="openInspModal()" style="display:none">始業前点検を開く</button>
+  </div></div>
+
+  <!-- GPS -->
+  <div class="gps-box" id="gps-box">
+    <div style="font-size:15px;color:#888;margin-bottom:8px;font-weight:700">重機の所在確認用</div>
+    <div class="gps-row">
+      <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span class="gps-st" id="gps-st">GPS取得中...</span>
+      <span class="btn btn-sm btn-o" onclick="getGPS()" style="margin-left:auto">再取得</span>
+    </div>
+    <div class="gps-coord" id="gps-coord">取得中...</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
+      <input type="checkbox" id="gps-skip" style="width:18px;height:18px;flex-shrink:0">
+      <span style="font-size:15px;color:#555">位置情報を記録しない</span>
+    </label>
+  </div>
+
+  <div class="card"><div class="card-b">
+    <div class="frow" style="margin-bottom:11px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">アワーメータ終了 (h)</label>
+        <input class="fc" type="number" id="f-hmeter" placeholder="例: 2847" inputmode="decimal">
+        <div id="prev-hmeter" style="font-size:15px;color:#888;margin-top:5px">前回終了: —</div>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">稼働時間 (h)</label>
+        <input class="fc" type="number" id="f-whours" placeholder="例: 7.5" step="0.5" inputmode="decimal">
+        <div style="font-size:15px;color:#888;margin-top:5px" id="whours-hint">前回との差から自動計算されます</div>
+      </div>
+    </div>
+    <div class="frow" style="margin-bottom:0">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">給油元</label>
+        <input class="fc" type="text" id="f-floc" list="dl-floc" placeholder="例: 事務所" autocomplete="off">
+        <datalist id="dl-floc">
+          <option value="事務所"></option>
+          <option value="現場"></option>
+          <option value="その他"></option>
+        </datalist>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">給油量 (L)</label>
+        <input class="fc" type="number" id="f-famt" placeholder="例: 45" inputmode="decimal">
+      </div>
+    </div>
+  </div></div>
+
+  <!-- 破砕機専用フィールド（機種タイプ=破砕機のときのみ表示） -->
+  <div class="card" id="crusher-fields" style="display:none"><div class="card-b">
+    <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#185fa5">破砕機 部品・消耗品交換</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:11px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">ビット (個)</label>
+        <input class="fc" type="number" id="f-bit" placeholder="0" inputmode="numeric">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">ボルト (個)</label>
+        <input class="fc" type="number" id="f-bolt" placeholder="0" inputmode="numeric">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">ナット (個)</label>
+        <input class="fc" type="number" id="f-nut" placeholder="0" inputmode="numeric">
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:0">
+      <label class="fl">給油時アワメータ (h)</label>
+      <input class="fc" type="number" id="f-fuelhour" placeholder="例: 4262" inputmode="decimal">
+    </div>
+  </div></div>
+
+  <div class="card"><div class="card-b">
+    <div class="trow">
+      <span class="tlbl">グリス充填実施</span>
+      <div class="tog off" id="tog-grease" onclick="togEl(this)"><div class="tog-k"></div></div>
+    </div>
+    <div class="trow">
+      <span class="tlbl">回送あり</span>
+      <div class="tog off" id="tog-trans" onclick="togEl(this)"><div class="tog-k"></div></div>
+    </div>
+  </div></div>
+
+  <div class="card"><div class="card-b">
+    <label class="fl">備考・故障報告</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px" id="nt-group">
+      <label class="nt-opt" data-v="備考"><input type="radio" name="note-type" value="備考" style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>備考</span></label>
+      <label class="nt-opt" data-v="故障"><input type="radio" name="note-type" value="故障" style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>故障</span></label>
+      <label class="nt-opt" data-v="備考と故障"><input type="radio" name="note-type" value="備考と故障" style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>備考と故障</span></label>
+      <label class="nt-opt" data-v="選んでいない"><input type="radio" name="note-type" value="" checked style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>選んでいない</span></label>
+    </div>
+    <textarea class="fc" id="f-notes" rows="3" placeholder="任意 — 異音、部品交換、作業内容など"></textarea>
+    <div style="margin-top:10px">
+      <label class="fl">写真の添付（任意）</label>
+      <input type="file" id="f-photo-cam" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelect(event)">
+      <input type="file" id="f-photo-lib" accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
+      <button class="btn btn-o" type="button" onclick="document.getElementById('f-photo-cam').click()">📷 撮影</button>
+      <button class="btn btn-o" type="button" onclick="document.getElementById('f-photo-lib').click()">🖼 ギャラリーから選択</button>
+      <div id="photo-preview" style="display:none;margin-top:10px;position:relative">
+        <img id="photo-img" style="width:100%;border-radius:9px;display:block">
+        <button type="button" onclick="clearPhoto()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:16px;padding:6px 14px;font-size:15px;cursor:pointer">✕ 削除</button>
+      </div>
+    </div>
+  </div></div>
+
+  <button class="btn btn-p" onclick="submitReport()">保存する（電波回復時に自動送信）</button>
+  <div style="height:20px"></div>
+</div>
+
+<!-- ===== 重機管理 ===== -->
+<div id="scr-machines" class="scr">
+  <div class="scr-fixed">
+    <div class="yard-chips" id="m-yards"></div>
+    <div class="slbl">登録重機　<span id="m-cnt" style="color:#185fa5;font-weight:800"></span></div>
+  </div>
+  <div class="scr-scroll">
+  <div class="card" id="m-list"></div>
+
+  <div class="slbl" style="margin-top:16px">重機を追加</div>
+  <div class="card"><div class="card-b">
+    <div class="frow" style="margin-bottom:10px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">重機番号 <span style="color:#c0392b">*</span></label>
+        <input class="fc" type="text" id="nm-id" placeholder="例: H-19">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">機種名 <span style="color:#c0392b">*</span></label>
+        <input class="fc" type="text" id="nm-model" placeholder="例: ZX135">
+      </div>
+    </div>
+    <div class="frow" style="margin-bottom:10px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">アタッチメント</label>
+        <input class="fc" type="text" id="nm-att" placeholder="例: フォーク">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">拠点</label>
+        <select class="fc" id="nm-yard"></select>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">機種タイプ（点検表の種類）</label>
+      <select class="fc" id="nm-type">
+        <option value="backhoe">バックホウ系</option>
+        <option value="wheel">タイヤショベル</option>
+        <option value="carrier">不整地運搬車</option>
+        <option value="forklift">フォークリフト</option>
+        <option value="crusher">破砕機</option>
+      </select>
+    </div>
+    <button class="btn btn-p" onclick="addMachine()">追加する</button>
+  </div></div>
+
+  <div class="notice n-warn">
+    <svg width="14" height="14" fill="none" stroke="#854f0b" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    削除しても過去の日報データは残ります。稼働中の機体は慎重に操作してください。
+  </div>
+  <div style="height:20px"></div>
+  </div>
+</div>
+
+<!-- ===== 特定自主検査 ===== -->
+<div id="scr-jikensa" class="scr">
+  <div class="scr-fixed">
+    <div class="notice n-info">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      年次の特定自主検査（特自検）の記録を管理します。次回実施日が近づくと集計画面に警告表示。
+    </div>
+    <div class="yard-chips" id="ji-yards"></div>
+    <div class="slbl">検査台帳</div>
+  </div>
+  <div class="scr-scroll">
+    <div id="ji-list"></div>
+    <div style="height:20px"></div>
+  </div>
+</div>
+
+<!-- ===== 集計 ===== -->
+<div id="scr-dash" class="scr">
+  <div class="slbl" id="dash-month"></div>
+  <div class="stat-grid" id="dash-stats"></div>
+  <button class="btn btn-o" onclick="openCsvModal()" style="margin-bottom:14px">📊 CSV出力</button>
+
+  <div class="slbl">機体別カレンダー</div>
+  <div class="card"><div class="card-b">
+    <div class="yard-chips" id="cal-yards"></div>
+    <div class="yard-chips" id="cal-machine-chips" style="display:none"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(-1)">‹</span>
+      <span style="font-size:15px;font-weight:700" id="cal-title"></span>
+      <span style="font-size:20px;color:#185fa5;cursor:pointer;padding:2px 14px" onclick="calNav(1)">›</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:15px;color:#999;text-align:center;margin-bottom:4px"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px" id="cal-grid"></div>
+    <div style="font-size:15px;color:#999;margin-top:8px;line-height:1.5">緑＝入力済み／黄＝点検未実施／赤＝備考あり／白＝未入力。日付をタップで編集できます。</div>
+    <button class="btn btn-o" style="margin-top:10px" onclick="printMonth()">🖨 この月の日報を印刷 / PDF保存</button>
+  </div></div>
+
+  <div class="slbl">特定自主検査 期限警告</div>
+  <div id="dash-jikensa"></div>
+
+  <div class="slbl" style="margin-top:4px">アワーメーター警告</div>
+  <div id="dash-alerts"></div>
+  <div style="height:20px"></div>
+</div>
+
+<!-- 始業前点検モーダル -->
+<div class="modal-bg" id="insp-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t" id="insp-modal-t">始業前点検</span>
+      <span class="modal-x" onclick="closeInspModal()">&times;</span>
+    </div>
+    <div class="insp-linkbar">
+      <a href="#" id="insp-pdf-link" target="_blank">📄 元の点検表PDFを開く</a>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn btn-sm btn-o" onclick="inspAllOn()" style="flex:1">全てチェック</button>
+      <button class="btn btn-sm btn-o" onclick="inspAllOff()" style="flex:1">全て解除</button>
+    </div>
+    <div id="insp-list"></div>
+    <button class="btn btn-g" onclick="saveInspModal()" style="margin-top:14px">点検完了として保存</button>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- 特定自主検査 編集モーダル -->
+<div class="modal-bg" id="ji-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t" id="ji-modal-t">特定自主検査</span>
+      <span class="modal-x" onclick="closeJiModal()">&times;</span>
+    </div>
+    <input type="hidden" id="ji-mid">
+    <div class="fg">
+      <label class="fl">前回検査日</label>
+      <input class="fc" type="date" id="ji-last">
+    </div>
+    <div class="fg">
+      <label class="fl">標章番号</label>
+      <input class="fc" type="text" id="ji-label" placeholder="例: 検査標章 2025-1234">
+    </div>
+    <div class="fg">
+      <label class="fl">次回実施日</label>
+      <input class="fc" type="date" id="ji-next">
+    </div>
+    <div class="fg">
+      <label class="fl">検査業者</label>
+      <input class="fc" type="text" id="ji-vendor" placeholder="例: ○○重機サービス">
+    </div>
+    <div class="fg">
+      <label class="fl">検査書類PDF（Google Driveリンク）</label>
+      <input class="fc" type="url" id="ji-url" placeholder="https://drive.google.com/...">
+    </div>
+    <button class="btn btn-p" onclick="saveJiModal()">保存する</button>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- 日報編集モーダル（カレンダーから） -->
+<div class="modal-bg" id="day-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t" id="dm-title">日報編集</span>
+      <span class="modal-x" onclick="closeDayModal()">&times;</span>
+    </div>
+    <input type="hidden" id="dm-id">
+    <div id="dm-multi"></div>
+    <div id="dm-empty" style="display:none;font-size:15px;color:#888;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
+    <div id="dm-form">
+      <div class="frow" style="margin-bottom:11px">
+        <div class="fg" style="margin-bottom:0"><label class="fl">日付</label><input class="fc" type="date" id="dm-date"></div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">重機番号</label><select class="fc" id="dm-machine"></select></div>
+      </div>
+      <div class="fg"><label class="fl">運転者</label>
+        <select class="fc" id="dm-operator"></select>
+      </div>
+      <div class="fg"><label class="fl">元請</label><input class="fc" id="dm-contractor"></div>
+      <div class="fg"><label class="fl">現場名</label><input class="fc" id="dm-location"></div>
+      <div class="frow" style="margin-bottom:11px">
+        <div class="fg" style="margin-bottom:0"><label class="fl">アワーメータ終了(h)</label><input class="fc" type="number" id="dm-hmeter" inputmode="decimal"></div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">稼働時間(h)</label><input class="fc" type="number" id="dm-whours" step="0.5" inputmode="decimal"></div>
+      </div>
+      <div class="frow" style="margin-bottom:11px">
+        <div class="fg" style="margin-bottom:0"><label class="fl">給油元</label>
+          <input class="fc" type="text" id="dm-floc" list="dl-floc" autocomplete="off">
+        </div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">給油量(L)</label><input class="fc" type="number" id="dm-famt" inputmode="decimal"></div>
+      </div>
+      <div class="fg"><label class="fl">始業前点検</label>
+        <select class="fc" id="dm-insp"><option value="済">済</option><option value="未">未</option></select>
+      </div>
+      <div class="card"><div class="card-b">
+        <div class="trow"><span class="tlbl">グリス充填実施</span><div class="tog off" id="dm-grease" onclick="togEl(this)"><div class="tog-k"></div></div></div>
+        <div class="trow"><span class="tlbl">回送あり</span><div class="tog off" id="dm-trans" onclick="togEl(this)"><div class="tog-k"></div></div></div>
+      </div></div>
+      <div id="dm-crusher" style="display:none">
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px;color:#185fa5">破砕機 部品・消耗品交換</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0"><label class="fl">ビット</label><input class="fc" type="number" id="dm-bit" inputmode="numeric"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ボルト</label><input class="fc" type="number" id="dm-bolt" inputmode="numeric"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ナット</label><input class="fc" type="number" id="dm-nut" inputmode="numeric"></div>
+        </div>
+        <div class="fg"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" id="dm-fuelhour" inputmode="decimal"></div>
+      </div>
+      <div class="fg"><label class="fl">備考区分</label>
+        <select class="fc" id="dm-notetype"><option value="">選んでいない</option><option value="備考">備考</option><option value="故障">故障</option><option value="備考と故障">備考と故障</option></select>
+      </div>
+      <div class="fg"><label class="fl">備考</label><textarea class="fc" id="dm-notes" rows="2"></textarea></div>
+      <div class="fg" id="dm-photo-wrap" style="display:none">
+        <label class="fl">添付写真</label>
+        <img id="dm-photo-img" style="width:100%;border-radius:9px;display:block;margin-bottom:8px;cursor:pointer" onclick="window.open(document.getElementById('dm-photo-link').href,'_blank')">
+        <a href="#" id="dm-photo-link" target="_blank" class="btn btn-o" style="text-decoration:none">📷 写真を開く（原寸）</a>
+      </div>
+      <div class="fg">
+        <label class="fl">GPS座標（記録値・変更不可）</label>
+        <div class="fc" id="dm-gps" style="background:#f0f0f0;display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span id="dm-gps-txt">記録なし</span>
+          <a href="#" id="dm-gps-link" target="_blank" style="display:none;color:#185fa5;font-weight:700;font-size:15px;flex-shrink:0">🗺 地図を開く</a>
+        </div>
+      </div>
+      <div id="dm-noid" style="display:none;font-size:15px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:10px">旧形式のデータのため編集できません（閲覧のみ）。</div>
+      <button class="btn btn-p" id="dm-save" onclick="saveDayModal()">保存する</button>
+      <button class="btn btn-d" id="dm-delete" onclick="deleteDayModal()" style="margin-top:8px">この日報を削除する</button>
+    </div>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- 重機編集モーダル -->
+<div class="modal-bg" id="machine-edit-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t">重機情報を編集</span>
+      <span class="modal-x" onclick="closeMachineEditModal()">&times;</span>
+    </div>
+    <input type="hidden" id="me-oldid">
+    <div class="fg"><label class="fl">重機番号</label><input class="fc" id="me-id" style="text-transform:uppercase"></div>
+    <div class="fg"><label class="fl">機種名</label><input class="fc" id="me-model"></div>
+    <div class="fg"><label class="fl">アタッチメント</label><input class="fc" id="me-att"></div>
+    <div class="fg"><label class="fl">拠点</label>
+      <select class="fc" id="me-yard"></select>
+    </div>
+    <div class="fg"><label class="fl">機種タイプ</label>
+      <select class="fc" id="me-type">
+        <option value="backhoe">バックホウ系</option>
+        <option value="wheel">タイヤショベル</option>
+        <option value="carrier">不整地運搬車</option>
+        <option value="forklift">フォークリフト</option>
+        <option value="crusher">破砕機</option>
+      </select>
+    </div>
+    <div style="font-size:15px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:12px">
+      重機番号を変更すると、過去の日報・特定自主検査データとの紐付けは変更後の番号に引き継がれません（新規番号として扱われます）。拠点移動などで番号ごと変える場合はご注意ください。
+    </div>
+    <button class="btn btn-p" onclick="saveMachineEdit()">保存する</button>
+    <button class="btn btn-d" onclick="deleteMachineFromModal()" style="margin-top:8px">この重機を削除する</button>
+    <div style="height:8px"></div>
+  </div>
+</div>
+
+<!-- CSV出力モーダル -->
+<div class="modal-bg" id="csv-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t">CSV出力</span>
+      <span class="modal-x" onclick="closeCsvModal()">&times;</span>
+    </div>
+    <div class="fg">
+      <label class="fl">対象機体</label>
+      <select class="fc" id="csv-machine">
+        <option value="">全機体</option>
+      </select>
+    </div>
+    <div class="frow" style="margin-bottom:11px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">開始日</label>
+        <input class="fc" type="date" id="csv-from">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">終了日</label>
+        <input class="fc" type="date" id="csv-to">
+      </div>
+    </div>
+    <div style="font-size:15px;color:#888;margin-bottom:14px">オンライン時はサーバー上の全データ、圏外時は端末内データのみが対象になります。</div>
+    <button class="btn btn-p" onclick="exportCsv()">CSVをダウンロード</button>
+    <div style="height:8px"></div>
+  </div>
+</div>
+
+<!-- 運転者マスタ管理モーダル -->
+<div class="modal-bg" id="op-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t">運転者マスタ管理</span>
+      <span class="modal-x" onclick="closeOpModal()">&times;</span>
+    </div>
+    <div class="slbl">登録運転者　<span id="op-cnt"></span></div>
+    <div class="card" id="op-list"></div>
+    <div class="fg" style="margin-top:12px">
+      <label class="fl">運転者を追加</label>
+      <div style="display:flex;gap:8px">
+        <input class="fc" id="op-new" placeholder="氏名を入力" style="flex:1">
+        <button class="btn btn-p" style="width:auto;padding:10px 18px" onclick="addOperator()">追加</button>
+      </div>
+    </div>
+    <p style="font-size:15px;color:#999;margin-top:10px;line-height:1.5">
+      スプレッドシートの「運転者マスタ」シートで直接編集も可能です。変更はオンライン時に全端末へ反映されます。
+    </p>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ================================================================
+// CONFIG — GASデプロイ後に GAS_URL を変更してください
+// ================================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby73U2vHX5Mw61BQwv-oo_INW38BHrGzn2YfmVvrOY8--Cvl8gzxweKiKNrfORupYG5aw/exec';
+const APP_TOKEN = 'sanyochip-juki-2026-8f3k'; // GAS側 コード.gs の APP_TOKEN と同じ文字列にする
+const HOUR_ALERT = 250;
+const YARDS = ['菊川ヤード','萩ヤード','素材部','菊川工場','燻製工場','美東工場'];
+
+const INSPECTION_DATA = {"wheel": {"name": "タイヤショベル", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前後進、ターン）"], ["走行作業装置", "ブレーキのきき具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "タイヤの空気圧"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "carrier": {"name": "不整地運搬車", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "タイヤ、クローラーの摩耗、亀裂破損、空気圧"], ["走行作業装置", "トランスミッションのオイル量、もれ"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "操向クラッチのきき具合"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "荷台ダンプシリンダーの作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["走行作業装置", "荷台の開閉、ロック装置の作動"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "前照灯の作動状態"], ["電装品", "方向指示器の作動状態"], ["電装品", "各モニターランプの作動状態"], ["安全装置", "警報機の作動状態"], ["安全装置", "ミラーの損傷"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "backhoe": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "forklift": {"name": "バックホウ系機械", "items": [["エンジン", "ラジエーターの冷却水量、もれ"], ["エンジン", "潤滑油量、もれ"], ["エンジン", "燃料の量、もれ"], ["エンジン", "ファンベルトの張り具合"], ["走行作業装置", "走行作動状態（前進、ターン）"], ["走行作業装置", "ブレーキの効き具合"], ["走行作業装置", "油圧シリンダーの作動状態"], ["走行作業装置", "旋回の作動、停止状態"], ["走行作業装置", "作動油量、もれ"], ["走行作業装置", "操作レバーの作動状態"], ["走行作業装置", "レバーロック装置の作動状態"], ["走行作業装置", "油圧ホースの損傷、もれ"], ["電装品", "バッテリーの充電状態（チャージランプ点灯）"], ["電装品", "作業灯の作動状態"], ["電装品", "各メーターの作動状態"], ["電装品", "モニターランプの作動状態"], ["電装品", "警報機の作動状態"], ["アタッチメント", "変形、ゆがみ、損傷"], ["アタッチメント", "作動状態、旋回機、ローテータ破損"], ["アタッチメント", "油圧系統のもれ、油量、発熱・振動異常"], ["給脂", "油圧シリンダーの給脂"], ["給脂", "各支点ピンの給脂"]]}, "crusher": {"name": "破砕機（HG4000TXⅡ）", "items": [["始業点検", "LCDディスプレイの確認（稼働時間、警告・指示表示の有無）"], ["始業点検", "エンジンオイルレベルの点検（ADDとFULLの間）"], ["始業点検", "作動油量の点検（サイトゲージ半分以上）"], ["始業点検", "冷却水量の点検（ラジエータサイトゲージ内）"], ["始業点検", "燃料の水抜き（きれいな燃料が出るまで排出）"], ["始業点検", "エアクリーナのフィルタ詰まり表示器の点検（赤表示時はエレメント交換）"], ["始業点検", "冷却装置の点検・清掃（チップ・ダストの除去）"], ["始業点検", "フィードテーブルドライブチェーンの点検・注油（たるみ16mm以内）"], ["始業点検", "フィードテーブル、排出コンベヤの点検"], ["始業点検", "トラックの張りの点検・調整"], ["始業点検", "ボルト・ナットの緩み点検（緩み・脱落無きこと）"], ["始業点検（午前・午後 各1回）", "ナイフの点検（過度の摩耗・亀裂・ひずみ無きこと）"], ["始業点検（午前・午後 各1回）", "ナイフ取付ボルトの緩み点検"], ["始業点検（午前・午後 各1回）", "カウンターナイフ、シムの点検"], ["始業点検（午前・午後 各1回）", "スクリーン部の点検（詰まり・摩耗・破損・ダスト無きこと）"], ["作業終了後", "フィードテーブルの給脂"], ["作業終了後", "排出コンベヤの給脂（極圧グリース）"], ["作業終了後", "カッタドラムカバーピンの給脂"], ["作業終了後", "フィードローラの給脂（極圧グリース）"], ["作業終了後", "排出コンベヤフラッシングの清掃"], ["作業終了後", "機械各部の清掃（破砕チップ・可燃物の除去）"], ["作業終了後", "燃料の補給（燃料タンク容量852L）"]]}};
+
+const INSPECTION_PDF = {
+  wheel:    'https://drive.google.com/file/d/1tFms0qV2M3rVf2f1sFvQNGRC3a_cSUWS/view?usp=drive_link',
+  carrier:  'https://drive.google.com/file/d/1yHgzzPiUJitZVaANYVsdAmEQiI2E3Y8i/view?usp=drive_link',
+  backhoe:  'https://drive.google.com/file/d/1FGC3xv6tD_789XvWuNEtbXFuORk8yL4i/view?usp=drive_link',
+  forklift: 'https://drive.google.com/file/d/1FGC3xv6tD_789XvWuNEtbXFuORk8yL4i/view?usp=drive_link',
+  crusher:  'https://drive.google.com/file/d/1CIlz7oGWIKQiOqzc5wPzre9n_yv2B-_N/view?usp=drive_link'
+};
+
+const DEFAULT_OPERATORS = ['山田','田中','佐藤','鈴木','高橋','伊藤','渡辺'];
+const TYPE_LABELS = {wheel:'タイヤショベル', carrier:'不整地運搬車', backhoe:'バックホウ系', forklift:'フォークリフト', crusher:'破砕機'};
+
+// ===== STATE =====
+let machines=[], operators=[], pending=[], synced=[], inspections=[];
+let gpsLat=null, gpsLng=null, gpsAcc=null, syncBusy=false;
+let listYard='', mYard='', jiYard='';
+let curInspType=null, curInspChecks={};
+
+function gasGet(qs){ return GAS_URL+'?token='+encodeURIComponent(APP_TOKEN)+'&'+qs; }
+function gasBody(obj){ return JSON.stringify(Object.assign({token:APP_TOKEN}, obj)); }
+
+let realOnline=false;
+async function checkRealConnectivity(){
+  if(!navigator.onLine){realOnline=false;updateNet();return false;}
+  if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){realOnline=true;updateNet();return true;}
+  try{
+    const ctrl=new AbortController();
+    const timeout=setTimeout(()=>ctrl.abort(),8000);
+    const res=await fetch(gasGet('action=ping'),{signal:ctrl.signal});
+    clearTimeout(timeout);
+    const data=await res.json();
+    realOnline = !!data.ok;
+  }catch(e){
+    realOnline=false;
+  }
+  updateNet();
+  return realOnline;
+}
+
+function initApp(){
+  loadData();
+  setDate(); updateNet(); populateForms();
+  renderYardChips(); renderList(); renderMachines(); renderJikensa(); renderDash();
+  getGPS(); updateSyncRow();
+  syncStickyOffset();
+  window.addEventListener('resize', syncStickyOffset);
+  document.getElementById('f-hmeter').addEventListener('input', calcWorkHours);
+  document.getElementById('f-date').value=todayStr();
+  document.getElementById('f-date').addEventListener('change',()=>{const mid=document.getElementById('f-machine').value;if(mid)updatePrevHour(mid);});
+  window.addEventListener('online', async ()=>{
+    await checkRealConnectivity();
+    if(realOnline){autoSync();refreshTodayList(false);refreshSuggestLists();}
+  });
+  window.addEventListener('offline', ()=>{realOnline=false;updateNet();});
+  setInterval(async ()=>{
+    if(navigator.onLine && !realOnline){
+      await checkRealConnectivity();
+      if(realOnline){autoSync();refreshTodayList(false);}
+    }
+  }, 30000);
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      reg.update();
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        if(!nw)return;
+        nw.addEventListener('statechange',()=>{
+          if(nw.state==='installed' && navigator.serviceWorker.controller){
+            showToast('新バージョンがあります。再読み込みします');
+            setTimeout(()=>location.reload(),1500);
+          }
+        });
+      });
+    }).catch(e=>console.warn('SW:',e));
+  }
+  checkRealConnectivity().then(()=>{fetchRemote();refreshSuggestLists();});
+}
+
+function syncStickyOffset(){
+  const topFixed=document.getElementById('top-fixed');
+  if(!topFixed)return;
+  const headerH=topFixed.offsetHeight;
+  const activeFixed=document.querySelector('.scr-fixed.on');
+  document.querySelectorAll('.scr-fixed').forEach(el=>el.style.top=headerH+'px');
+  const fixedH=activeFixed?activeFixed.offsetHeight:0;
+  const total=headerH+fixedH;
+  const bodyPad=document.getElementById('body-pad');
+  if(bodyPad)bodyPad.style.height=headerH+'px';
+  document.querySelectorAll('.scr-scroll').forEach(el=>{el.style.paddingTop=(fixedH>0?fixedH+8:0)+'px';});
+}
+
+function setDate(){
+  const d=new Date(), days=['日','月','火','水','木','金','土'];
+  document.getElementById('hdr-date').textContent=`令和${d.getFullYear()-2018}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+}
+
+function updateNet(){
+  const b=document.getElementById('net-badge'), t=document.getElementById('inp-notice-txt');
+  if(realOnline){
+    b.textContent='オンライン';b.className='net-badge net-on';
+    t.textContent='オンライン中 — データはリアルタイムでスプレッドシートに送信されます。';
+    document.getElementById('inp-notice').className='notice n-ok';
+  }else if(navigator.onLine){
+    b.textContent='通信不安定';b.className='net-badge net-off';
+    t.textContent='ネットワークには接続していますが送信先に届きません。端末に保存します。';
+    document.getElementById('inp-notice').className='notice n-warn';
+  }else{
+    b.textContent='圏外';b.className='net-badge net-off';
+    t.textContent='圏外のため端末に保存します。電波回復時に自動送信されます。';
+    document.getElementById('inp-notice').className='notice n-info';
+  }
+}
+
+function loadData(){
+  machines=JSON.parse(localStorage.getItem('machines')||'null')||[];
+  operators=JSON.parse(localStorage.getItem('operators')||'null')||DEFAULT_OPERATORS;
+  pending=JSON.parse(localStorage.getItem('pending')||'[]');
+  synced=JSON.parse(localStorage.getItem('synced')||'[]');
+  inspections=JSON.parse(localStorage.getItem('inspections')||'[]');
+}
+function saveData(){
+  localStorage.setItem('machines',JSON.stringify(machines));
+  localStorage.setItem('operators',JSON.stringify(operators));
+  localStorage.setItem('pending',JSON.stringify(pending));
+  localStorage.setItem('synced',JSON.stringify(synced));
+  localStorage.setItem('inspections',JSON.stringify(inspections));
+}
+function todayStr(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+function monthStr(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}`;}
+function pad(n){return String(n).padStart(2,'0');}
+function getDeviceId(){let id=localStorage.getItem('deviceId');if(!id){id='dev-'+Math.random().toString(36).slice(2,11);localStorage.setItem('deviceId',id);}return id;}
+function allReports(){return [...pending,...synced];}
+function todayReports(){const t=todayStr();return allReports().filter(r=>r.date===t);}
+function findMachine(id){return machines.find(m=>m.id===id);}
+
+// ===== 元請・現場名サジェスト（直近1ヶ月・全端末共通） =====
+function daysAgoStr(n){
+  const d=new Date();d.setDate(d.getDate()-n);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function buildSuggestList(reports,field){
+  const since=daysAgoStr(30);
+  const seen={}; // 値 → 最新date（重複除去しつつ新しい順に並べるため）
+  reports.forEach(r=>{
+    const v=(r[field]||'').trim();
+    if(!v||String(r.date)<since)return;
+    if(!seen[v]||String(r.date)>seen[v])seen[v]=String(r.date);
+  });
+  return Object.keys(seen).sort((a,b)=>seen[b].localeCompare(seen[a]));
+}
+function renderSuggestLists(reports){
+  const cList=buildSuggestList(reports,'contractor');
+  const lList=buildSuggestList(reports,'location');
+  const fList=buildSuggestList(reports,'fuelLocation');
+  mergeIntoDatalist('dl-contractor',cList);
+  mergeIntoDatalist('dl-location',lList);
+  mergeIntoDatalist('dl-floc',fList);
+}
+function mergeIntoDatalist(id,newValues){
+  const dl=document.getElementById(id);
+  const existing=Array.from(dl.options).map(o=>o.value);
+  const merged=[...new Set([...newValues,...existing])]; // 新しい候補を優先しつつ既存も保持
+  dl.innerHTML=merged.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">`).join('');
+}
+async function refreshSuggestLists(){
+  if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){
+    // オフライン時は端末内データのみでフォールバック
+    renderSuggestLists(allReports());
     return;
   }
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (!res || res.status !== 200 || res.type !== 'basic') return res;
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        return res;
-      }).catch(() => caches.match('./index.html'));
-    })
+  try{
+    const d=new Date();
+    const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+    const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+    const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+    const results=await Promise.all([thisM,prevM].map(ym=>
+      fetch(gasGet('action=getReports&month='+ym)).then(r=>r.json()).catch(()=>({reports:[]}))
+    ));
+    const merged=[];
+    results.forEach(dd=>{if(dd.reports)merged.push(...dd.reports);});
+    // 端末内の未送信分も候補に含める（他端末に送信済みの類似表記との重複はbuildSuggestListのvalueベースで自然に吸収）
+    merged.push(...allReports());
+    renderSuggestLists(merged);
+  }catch(e){
+    console.warn('suggest:',e);
+    renderSuggestLists(allReports());
+  }
+}
+
+async function fetchRemote(){
+  if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE') return;
+  const get=a=>fetch(gasGet('action='+a)).then(r=>r.json());
+  const [mR,oR,iR,tR]=await Promise.allSettled([
+    get('getMachines'), get('getOperators'), get('getInspections'),
+    get('getReports&month='+monthStr())
+  ]);
+  if(mR.status==='fulfilled'&&mR.value.machines&&mR.value.machines.length>0){
+    machines=mR.value.machines;populateForms();renderMachines();renderYardChips();
+  }
+  if(oR.status==='fulfilled'&&oR.value.operators&&oR.value.operators.length>0){
+    operators=oR.value.operators;populateForms();
+  }
+  if(iR.status==='fulfilled'&&iR.value.inspections){
+    inspections=iR.value.inspections;renderJikensa();renderDash();
+  }
+  if(tR.status==='fulfilled'&&tR.value.reports){
+    const t=todayStr();
+    serverToday=tR.value.reports.filter(r=>String(r.date)===t).map(r=>({...r,synced:true}));
+    renderList();
+  }
+  saveData();
+}
+
+let serverToday=[];
+async function refreshTodayList(showMsg){
+  if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){renderList();return;}
+  try{
+    const res=await fetch(gasGet('action=getReports&month='+monthStr()));
+    const data=await res.json();
+    if(data.reports){
+      const t=todayStr();
+      serverToday=data.reports.filter(r=>String(r.date)===t).map(r=>({...r,synced:true}));
+      renderList();
+      if(showMsg)showToast('最新データに更新しました','ok');
+    }
+  }catch(e){console.warn('refreshToday:',e);if(showMsg)showToast('更新に失敗しました','err');}
+}
+
+function populateForms(){
+  const ms=document.getElementById('f-machine');
+  if(machines.length===0){
+    ms.innerHTML='<option value="">'+(navigator.onLine?'重機マスタを読込中...':'圏外: 重機マスタ未取得')+'</option>';
+  }else{
+    ms.innerHTML='<option value="">選択してください</option>';
+  }
+  YARDS.forEach(y=>{
+    const inY=machines.filter(m=>m.yard===y);
+    if(inY.length===0)return;
+    let grp=`<optgroup label="${y}">`;
+    inY.forEach(m=>{
+      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+      grp+=`<option value="${m.id}">${lbl}</option>`;
+    });
+    grp+='</optgroup>';
+    ms.innerHTML+=grp;
+  });
+  const os=document.getElementById('f-operator');
+  os.innerHTML='<option value="">選択してください</option>';
+  operators.forEach(op=>os.innerHTML+=`<option value="${op}">${op}</option>`);
+  const ny=document.getElementById('nm-yard');
+  ny.innerHTML='';
+  YARDS.forEach(y=>ny.innerHTML+=`<option value="${y}">${y}</option>`);
+}
+
+function onMachineChange(){
+  const id=document.getElementById('f-machine').value;
+  const m=findMachine(id);
+  const hint=document.getElementById('insp-hint');
+  const btn=document.getElementById('insp-open-btn');
+  const st=document.getElementById('insp-status');
+  curInspChecks={};
+  st.textContent='未実施';st.className='bdg bdg-none';
+  document.getElementById('crusher-fields').style.display=(m&&m.type==='crusher')?'block':'none';
+  if(!m){
+    hint.textContent='重機を選択すると点検表が表示されます';btn.style.display='none';curInspType=null;
+    prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
+    return;
+  }
+  curInspType=m.type||'backhoe';
+  hint.textContent=`点検表: ${INSPECTION_DATA[curInspType].name}（${INSPECTION_DATA[curInspType].items.length}項目）`;
+  btn.style.display='block';
+  updatePrevHour(id);
+}
+
+let prevHour=null;
+async function updatePrevHour(mid){
+  prevHour=null;
+  const el=document.getElementById('prev-hmeter');
+  el.textContent='前回終了: 取得中...';
+  const selDate=document.getElementById('f-date').value||todayStr();
+  const consider=(r,best)=>{
+    const h=parseFloat(r.hourMeter);
+    if(isNaN(h))return best;
+    if(String(r.date)>selDate)return best;
+    const key=String(r.date)+String(r.savedAt||'');
+    if(!best||key>best.key)return {key,h,date:r.date};
+    return best;
+  };
+  let best=null;
+  [...allReports(),...serverToday].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    try{
+      const d=new Date(selDate+'T00:00:00');
+      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results=await Promise.all([thisM,prevM].map(ym=>
+        fetch(gasGet('action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid))).then(r=>r.json()).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
+    }catch(e){}
+  }
+  if(document.getElementById('f-machine').value!==mid)return;
+  if(best){
+    prevHour=best.h;
+    const dd=String(best.date);
+    el.textContent=`前回終了: ${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    calcWorkHours();
+  }else{
+    el.textContent='前回終了: 記録なし';
+  }
+}
+
+function calcWorkHours(){
+  if(prevHour===null)return;
+  const cur=parseFloat(document.getElementById('f-hmeter').value);
+  if(isNaN(cur))return;
+  const diff=Math.round((cur-prevHour)*10)/10;
+  if(diff>=0&&diff<48){
+    document.getElementById('f-whours').value=diff;
+  }
+}
+
+function getGPS(){
+  const box=document.getElementById('gps-box'),st=document.getElementById('gps-st'),coord=document.getElementById('gps-coord');
+  box.className='gps-box';st.textContent='GPS取得中...';coord.textContent='取得中...';
+  if(!navigator.geolocation){st.textContent='GPS非対応';coord.textContent='このデバイスはGPSに対応していません';box.className='gps-box err';return;}
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      gpsLat=pos.coords.latitude.toFixed(6);gpsLng=pos.coords.longitude.toFixed(6);gpsAcc=Math.round(pos.coords.accuracy);
+      st.textContent='取得済';coord.textContent=`${gpsLat}, ${gpsLng}（精度: ±${gpsAcc}m）`;box.className='gps-box ok';
+    },
+    err=>{
+      const msgs={1:'位置情報の許可が必要です',2:'位置情報を取得できません',3:'タイムアウト'};
+      st.textContent='GPS取得失敗';coord.textContent=msgs[err.code]||'取得失敗';box.className='gps-box err';gpsLat=null;gpsLng=null;
+    },
+    {timeout:15000,enableHighAccuracy:true,maximumAge:60000}
   );
-});
-// メインスレッドからのメッセージ受信（オプション）
-self.addEventListener('message', e => {
-  if (e.data === 'SKIP_WAITING') self.skipWaiting();
-});
+}
+
+function openInspModal(){
+  if(!curInspType)return;
+  const data=INSPECTION_DATA[curInspType];
+  document.getElementById('insp-modal-t').textContent=data.name+' 始業前点検';
+  document.getElementById('insp-pdf-link').href=INSPECTION_PDF[curInspType]||'#';
+  const el=document.getElementById('insp-list');
+  let html='',lastGroup='';
+  data.items.forEach((it,i)=>{
+    if(it[0]!==lastGroup){html+=`<div class="insp-gh">${it[0]}</div>`;lastGroup=it[0];}
+    const on=curInspChecks[i]?'on':'';
+    html+=`<div class="insp-item"><div class="insp-chk ${on}" onclick="toggleInspChk(${i},this)"></div><div class="insp-txt">${it[1]}</div></div>`;
+  });
+  el.innerHTML=html;
+  document.getElementById('insp-modal').classList.add('on');
+}
+function closeInspModal(){document.getElementById('insp-modal').classList.remove('on');}
+function toggleInspChk(i,el){curInspChecks[i]=!curInspChecks[i];el.classList.toggle('on');}
+function inspAllOn(){
+  const data=INSPECTION_DATA[curInspType];
+  data.items.forEach((it,i)=>curInspChecks[i]=true);
+  openInspModal();
+}
+function inspAllOff(){curInspChecks={};openInspModal();}
+function saveInspModal(){
+  const data=INSPECTION_DATA[curInspType];
+  const total=data.items.length;
+  const done=Object.values(curInspChecks).filter(Boolean).length;
+  const st=document.getElementById('insp-status');
+  if(done===total){st.textContent='済（全項目）';st.className='bdg bdg-ok';}
+  else if(done>0){st.textContent=`${done}/${total}項目`;st.className='bdg bdg-pend';}
+  else{st.textContent='未実施';st.className='bdg bdg-none';}
+  closeInspModal();
+  showToast(`点検 ${done}/${total}項目を記録`,'ok');
+}
+
+function togEl(el){el.classList.toggle('on');el.classList.toggle('off');}
+
+let photoData=null;
+
+function updateNoteTypeUI(){
+  const val=document.querySelector('input[name="note-type"]:checked').value;
+  document.querySelectorAll('.nt-opt').forEach(el=>{
+    el.classList.remove('on-biko','on-kosho');
+    const v=el.dataset.v;
+    if(el.querySelector('input').value===val){
+      if(v==='故障')el.classList.add('on-kosho');
+      else if(v==='備考と故障')el.classList.add('on-kosho');
+      else if(v==='備考')el.classList.add('on-biko');
+    }
+  });
+}
+
+function handlePhotoSelect(e){
+  const f=e.target.files[0];
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=1024;
+      let w=img.width,h=img.height;
+      if(w>max||h>max){
+        if(w>h){h=Math.round(h*max/w);w=max;}
+        else{w=Math.round(w*max/h);h=max;}
+      }
+      const cv=document.createElement('canvas');
+      cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      photoData=cv.toDataURL('image/jpeg',0.6);
+      document.getElementById('photo-img').src=photoData;
+      document.getElementById('photo-preview').style.display='block';
+    };
+    img.src=ev.target.result;
+  };
+  rd.readAsDataURL(f);
+}
+
+function clearPhoto(){
+  photoData=null;
+  document.getElementById('f-photo-cam').value='';
+  document.getElementById('f-photo-lib').value='';
+  document.getElementById('photo-preview').style.display='none';
+}
+
+function submitReport(){
+  const machineId=document.getElementById('f-machine').value;
+  const operator=document.getElementById('f-operator').value;
+  const contractor=document.getElementById('f-contractor').value.trim();
+  const location=document.getElementById('f-location').value.trim();
+  if(!machineId){showToast('重機番号を選択してください','err');return;}
+  const m=findMachine(machineId);
+  const inspTotal=curInspType?INSPECTION_DATA[curInspType].items.length:0;
+  const inspDone=Object.values(curInspChecks).filter(Boolean).length;
+  // 稼働時間・アワーメータが未入力＝燃料補給のみの入力とみなし、点検を「対象外」とする
+  const hasWork = document.getElementById('f-whours').value !== '' || document.getElementById('f-hmeter').value !== '';
+  const inspStatus = !hasWork ? '対象外' : (inspDone===0?'未':(inspDone===inspTotal?'済':`一部(${inspDone}/${inspTotal})`));
+  const skipGps=document.getElementById('gps-skip').checked;
+
+  const report={
+    id:Date.now().toString()+Math.random().toString(36).slice(2,6),
+    date:document.getElementById('f-date').value||todayStr(), machineId, yard:m?m.yard:'', operator, contractor, location,
+    hourMeter:document.getElementById('f-hmeter').value,
+    workHours:document.getElementById('f-whours').value,
+    fuelLocation:document.getElementById('f-floc').value,
+    fuelAmount:document.getElementById('f-famt').value,
+    inspection:inspStatus,
+    grease:document.getElementById('tog-grease').classList.contains('on')?'済':'未',
+    transfer:document.getElementById('tog-trans').classList.contains('on')?'有':'無',
+    notes:document.getElementById('f-notes').value.trim(),
+    noteType:document.querySelector('input[name="note-type"]:checked').value,
+    photo:photoData||'',
+    bit:document.getElementById('f-bit').value,
+    bolt:document.getElementById('f-bolt').value,
+    nut:document.getElementById('f-nut').value,
+    fuelHour:document.getElementById('f-fuelhour').value,
+    lat:skipGps?'':(gpsLat||''), lng:skipGps?'':(gpsLng||''), accuracy:skipGps?'':(gpsAcc||''),
+    savedAt:new Date().toISOString(), synced:false, deviceId:getDeviceId()
+  };
+  try{
+    pending.push(report);saveData();
+  }catch(e){
+    report.photo='';
+    try{saveData();}catch(e2){pending.pop();showToast('端末の保存容量が不足しています','err');return;}
+    showToast('容量不足のため写真は保存できませんでした（本文は保存済）','err');
+  }
+  updateSyncRow();
+  showToast('日報を保存しました','ok');resetForm();
+  renderSuggestLists([...allReports()]); // オフライン時も含め今回の入力値を即座に候補へ反映
+  if(navigator.onLine)autoSync();
+}
+
+function resetForm(){
+  ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes','f-bit','f-bolt','f-nut','f-fuelhour'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-date').value=todayStr();
+  document.getElementById('crusher-fields').style.display='none';
+  prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
+  clearPhoto();
+  document.querySelector('input[name="note-type"][value=""]').checked=true;
+  updateNoteTypeUI();
+  ['tog-grease','tog-trans'].forEach(id=>{const t=document.getElementById(id);t.classList.remove('on');t.classList.add('off');});
+  document.getElementById('gps-skip').checked=false;
+  curInspChecks={};curInspType=null;
+  document.getElementById('insp-status').textContent='未実施';
+  document.getElementById('insp-status').className='bdg bdg-none';
+  document.getElementById('insp-hint').textContent='重機を選択すると点検表が表示されます';
+  document.getElementById('insp-open-btn').style.display='none';
+  gpsLat=null;gpsLng=null;gpsAcc=null;getGPS();
+}
+
+let syncDebounce=null;
+async function autoSync(){
+  if(syncBusy||pending.length===0||!realOnline)return;
+  if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE')return;
+  clearTimeout(syncDebounce);
+  syncDebounce=setTimeout(()=>doSync(),150);
+}
+async function doSync(){
+  if(syncBusy||pending.length===0||!realOnline)return;
+  syncBusy=true;
+  const batch=[...pending];
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'batchAddReports',reports:batch})});
+    const data=await res.json();
+    if(data.success||data.count>=0){
+      batch.forEach(r=>{r.synced=true;r.photo='';});
+      synced=[...synced,...batch];
+      const ids=new Set(batch.map(r=>r.id));
+      pending=pending.filter(r=>!ids.has(r.id));
+      saveData();updateSyncRow();renderList();
+      if(batch.length>0)showToast(`${batch.length}件を送信しました`,'ok');
+      refreshDashMonth();
+      refreshSuggestLists();
+    }
+  }catch(e){console.warn('Sync:',e);}finally{syncBusy=false;}
+}
+async function syncNow(){
+  showToast('接続確認中...','');
+  await checkRealConnectivity();
+  if(!realOnline){showToast('サーバーに接続できません。電波状況をご確認ください','err');return;}
+  if(GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){showToast('GAS_URL を設定してください','err');return;}
+  const btn=document.getElementById('sync-btn');
+  if(btn.dataset.busy==='1')return;
+  btn.dataset.busy='1';
+  const origText=btn.textContent;
+  btn.textContent='送信中...';
+  btn.style.pointerEvents='none';
+  btn.style.opacity='0.5';
+  showToast('送信中...','');
+  try{
+    await doSync();
+  }finally{
+    btn.dataset.busy='0';
+    btn.textContent=origText;
+    btn.style.pointerEvents='';
+    btn.style.opacity='';
+  }
+}
+function updateSyncRow(){
+  document.getElementById('pend-cnt').textContent=pending.length;
+  document.getElementById('sync-row').style.display=pending.length>0?'flex':'none';
+}
+
+function renderYardChips(){
+  const mk=(cur,cb)=>{
+    let h=`<div class="chip ${cur===''?'on':''}" onclick="${cb}('')">全拠点</div>`;
+    YARDS.forEach(y=>{
+      const n=machines.filter(m=>m.yard===y).length;
+      if(n>0)h+=`<div class="chip ${cur===y?'on':''}" onclick="${cb}('${y}')">${y}</div>`;
+    });
+    return h;
+  };
+  document.getElementById('list-yards').innerHTML=mk(listYard,'setListYard');
+  document.getElementById('m-yards').innerHTML=mk(mYard,'setMYard');
+  document.getElementById('ji-yards').innerHTML=mk(jiYard,'setJiYard');
+}
+function setListYard(y){listYard=y;renderYardChips();renderList();}
+function setMYard(y){mYard=y;renderYardChips();renderMachines();}
+function setJiYard(y){jiYard=y;renderYardChips();renderJikensa();}
+
+function renderList(){
+  const el=document.getElementById('list-body');
+  const note=document.getElementById('list-net-note');
+  const noteTxt=document.getElementById('list-net-txt');
+  const refreshBtn=document.getElementById('list-refresh');
+  const t=todayStr();
+  let tr;
+  if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    const sids=new Set(serverToday.map(r=>r.id).filter(Boolean));
+    const localOnly=pending.filter(r=>r.date===t && !sids.has(r.id));
+    tr=[...serverToday,...localOnly];
+    note.style.display='flex';
+    noteTxt.textContent='オンライン中：全端末の最新データを表示';
+    refreshBtn.style.display='inline';
+  }else{
+    tr=todayReports();
+    note.style.display='flex';
+    noteTxt.textContent='圏外のため端末内データのみ表示';
+    refreshBtn.style.display='none';
+  }
+  if(listYard)tr=tr.filter(r=>r.yard===listYard);
+
+  const groups={};
+  tr.forEach(r=>{
+    if(!groups[r.machineId])groups[r.machineId]=[];
+    groups[r.machineId].push(r);
+  });
+  window.listGroups=groups;
+  const gkeys=Object.keys(groups);
+  document.getElementById('list-count').textContent=`${tr.length}件・${gkeys.length}機体`;
+
+  if(tr.length===0){
+    el.innerHTML='<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">本日の入力はまだありません<br>下のボタンから日報を入力してください</div></div>';
+    return;
+  }
+
+  el.innerHTML=gkeys.map(mid=>{
+    const rs=groups[mid].slice().sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||'')));
+    const m=findMachine(mid);
+    const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+    const yard=rs[0].yard||'';
+    const multi=rs.length>1;
+    const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+    const lastH=rs.reduce((mx,r)=>{const v=parseFloat(r.hourMeter);return isNaN(v)?mx:Math.max(mx,v);},NaN);
+    const totalF=rs.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
+    const allSynced=rs.every(r=>r.synced);
+    const bdg=allSynced?'<span class="bdg bdg-ok">✓ 送信済</span>':'<span class="bdg bdg-pend">⏳ 送信待ちあり</span>';
+    const mSafe=mid.replace(/'/g,"\\'");
+    const nmSafe=(nm||'').replace(/'/g,"\\'");
+    const entries=rs.map(r=>{
+      const tm=r.savedAt?new Date(r.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):(r.receivedAt?String(r.receivedAt).slice(11,16):'--:--');
+      const inspTxt=r.inspection==='済'?'点検済':(r.inspection==='未'?'<span style="color:#854f0b;font-weight:700">点検未</span>':(r.inspection==='対象外'?'<span style="color:#999">点検対象外（給油のみ）</span>':r.inspection));
+      const dtl=[`稼働 ${r.workHours||'—'}h`,`アワー ${r.hourMeter||'—'}h`,(r.fuelAmount?`給油 ${r.fuelAmount}L`:'給油なし'),inspTxt].join(' ／ ');
+      const eBdg=r.synced?'<span class="bdg bdg-ok">✓</span>':'<span class="bdg bdg-pend">⏳</span>';
+      const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">地図</a>`:'';
+      const photoLink=r.photoUrl?` <a href="${r.photoUrl}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">📷 写真</a>`:'';
+      const isFault=(r.noteType==='故障'||r.noteType==='備考と故障');
+      const ntPrefix=isFault?'⚠ 故障: ':(r.noteType==='備考'?'📝 ':'');
+      const noteHtml=r.notes?`<div style="margin-top:5px;font-size:15px;color:${isFault?'#791f1f':'#666'};background:${isFault?'#fcebeb':'#f8f8f8'};padding:6px 9px;border-radius:6px">${ntPrefix}${r.notes}${photoLink}</div>`:(r.photoUrl?`<div style="margin-top:5px;font-size:15px">${photoLink}</div>`:'');
+      return `<div class="entry" onclick="event.stopPropagation();openListEntryModal('${mSafe}','${nmSafe}')" style="cursor:pointer">
+        <span class="entry-time">${tm}</span>
+        <div class="entry-body">
+          <div class="entry-op">${r.operator||'（運転者未記入）'}</div>
+          <div class="entry-dtl">${dtl}${gpsLink}</div>
+          ${noteHtml}
+        </div>
+        ${eBdg}
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="card-h" onclick="toggleEntries(this)" style="cursor:pointer">
+        <div><div class="mname">${mid}　${nm}</div><div class="msub">${yard}</div></div>
+        <div style="display:flex;align-items:center;gap:9px">
+          ${multi?`<span class="cnt-badge">${rs.length}件</span>`:''}
+          ${bdg}
+          <span class="arrow">▾</span>
+        </div>
+      </div>
+      <div class="card-b" style="padding-top:10px">
+        <div class="card-grid">
+          <div><div class="sl">${multi?'合計稼働':'稼働時間'}</div><div class="sv">${totalW||'—'} h</div></div>
+          <div><div class="sl">${multi?'最終アワー':'アワーメータ'}</div><div class="sv">${isNaN(lastH)?'—':lastH} h</div></div>
+          <div><div class="sl">${multi?'給油合計':'給油量'}</div><div class="sv">${totalF||'—'} L</div></div>
+        </div>
+      </div>
+      <div class="entries">${entries}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleEntries(h){
+  const card=h.closest('.card');
+  const e=card.querySelector('.entries');
+  const a=card.querySelector('.arrow');
+  if(e){e.classList.toggle('open');}
+  if(a){a.classList.toggle('open');}
+}
+
+function openListEntryModal(mid,nm){
+  const rs=(window.listGroups&&window.listGroups[mid])?window.listGroups[mid].slice().sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))):[];
+  const title=`${mid}　${nm}（本日）`;
+  openReportModal(title,rs);
+}
+
+function renderMachines(){
+  let ms=machines;
+  if(mYard)ms=ms.filter(m=>m.yard===mYard);
+  document.getElementById('m-cnt').textContent=`${ms.length}台${mYard?'':' / 全'+machines.length+'台'}`;
+  const el=document.getElementById('m-list');
+  if(ms.length===0){el.innerHTML='<div class="empty"><div class="empty-txt">該当なし</div></div>';return;}
+  el.innerHTML=ms.map(m=>{
+    const nm=m.attachment?`${m.model}・${m.attachment}`:m.model;
+    const tl=TYPE_LABELS[m.type||'backhoe'];
+    return `<div class="mrow">
+      <span class="mrow-id">${m.id}</span>
+      <span class="mrow-name">${nm}<br><span style="font-size:15px;color:#aaa">${tl}</span></span>
+      <div class="mrow-acts"><span class="btn btn-sm btn-o" onclick="openMachineEditModal(machines.find(x=>x.id==='${m.id}'))">編集</span></div>
+    </div>`;
+  }).join('');
+}
+function addMachine(){
+  const id=document.getElementById('nm-id').value.trim().toUpperCase();
+  const mdl=document.getElementById('nm-model').value.trim();
+  const att=document.getElementById('nm-att').value.trim();
+  const yard=document.getElementById('nm-yard').value;
+  const type=document.getElementById('nm-type').value;
+  if(!id||!mdl){showToast('重機番号と機種名は必須です','err');return;}
+  if(machines.find(m=>m.id===id)){showToast(`${id} は既に登録されています`,'err');return;}
+  const m={id,model:mdl,attachment:att,yard,type};
+  machines.push(m);saveData();renderMachines();renderYardChips();populateForms();
+  ['nm-id','nm-model','nm-att'].forEach(i=>document.getElementById(i).value='');
+  showToast(`${id} を追加しました`,'ok');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'addMachine',machine:m})}).catch(()=>{});
+  }
+}
+function openMachineEditModal(m){
+  if(!m)return;
+  document.getElementById('me-oldid').value=m.id;
+  document.getElementById('me-id').value=m.id;
+  document.getElementById('me-model').value=m.model||'';
+  document.getElementById('me-att').value=m.attachment||'';
+  const ysel=document.getElementById('me-yard');
+  ysel.innerHTML=YARDS.map(y=>`<option value="${y}" ${y===m.yard?'selected':''}>${y}</option>`).join('');
+  document.getElementById('me-type').value=m.type||'backhoe';
+  document.getElementById('machine-edit-modal').classList.add('on');
+}
+function closeMachineEditModal(){document.getElementById('machine-edit-modal').classList.remove('on');}
+function saveMachineEdit(){
+  const oldId=document.getElementById('me-oldid').value;
+  const id=document.getElementById('me-id').value.trim().toUpperCase();
+  const model=document.getElementById('me-model').value.trim();
+  const attachment=document.getElementById('me-att').value.trim();
+  const yard=document.getElementById('me-yard').value;
+  const type=document.getElementById('me-type').value;
+  if(!id||!model){showToast('重機番号と機種名は必須です','err');return;}
+  if(id!==oldId && machines.some(x=>x.id===id)){showToast(`${id} は既に使用されています`,'err');return;}
+  const idx=machines.findIndex(x=>x.id===oldId);
+  if(idx<0){showToast('対象の重機が見つかりません','err');return;}
+  machines[idx]={id,model,attachment,yard,type,registeredAt:machines[idx].registeredAt,status:machines[idx].status};
+  saveData();renderMachines();renderYardChips();populateForms();
+  closeMachineEditModal();
+  showToast(`${id} を更新しました`,'ok');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'editMachine',machine:{oldId,id,model,attachment,yard,type}})}).catch(()=>{});
+  }
+}
+
+function deleteMachine(id){
+  if(!confirm(`${id} を削除しますか？`))return;
+  machines=machines.filter(m=>m.id!==id);saveData();renderMachines();renderYardChips();populateForms();
+  showToast(`${id} を削除しました`,'');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteMachine',machineId:id})}).catch(()=>{});
+  }
+}
+function deleteMachineFromModal(){
+  const id=document.getElementById('me-oldid').value;
+  if(!id)return;
+  if(!confirm(`${id} を削除しますか？`))return;
+  machines=machines.filter(m=>m.id!==id);saveData();renderMachines();renderYardChips();populateForms();
+  closeMachineEditModal();
+  showToast(`${id} を削除しました`,'');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteMachine',machineId:id})}).catch(()=>{});
+  }
+}
+
+function jiStatus(nextDate){
+  if(!nextDate)return {cls:'',txt:'未設定',days:null};
+  const days=Math.ceil((new Date(nextDate)-new Date())/(1000*60*60*24));
+  if(days<0)return {cls:'due-over',txt:`${-days}日超過`,days};
+  if(days<=30)return {cls:'due-soon',txt:`あと${days}日`,days};
+  return {cls:'due-ok',txt:`あと${days}日`,days};
+}
+function renderJikensa(){
+  let ms=machines;
+  if(jiYard)ms=ms.filter(m=>m.yard===jiYard);
+  const el=document.getElementById('ji-list');
+  if(ms.length===0){el.innerHTML='<div class="empty"><div class="empty-txt">該当なし</div></div>';return;}
+  el.innerHTML=ms.map(m=>{
+    const ins=inspections.find(x=>x.machineId===m.id);
+    const nm=m.attachment?`${m.model}・${m.attachment}`:m.model;
+    const st=jiStatus(ins?ins.nextDate:'');
+    const dueTag=ins&&ins.nextDate?`<span class="due-tag ${st.cls}">${st.txt}</span>`:'<span class="due-tag" style="background:#eef0f2;color:#888">未登録</span>';
+    let body='';
+    if(ins){
+      body=`
+        <div class="info-line"><span class="k">前回検査日</span><span class="v">${ins.lastDate||'—'}</span></div>
+        <div class="info-line"><span class="k">標章番号</span><span class="v">${ins.labelNo||'—'}</span></div>
+        <div class="info-line"><span class="k">次回実施日</span><span class="v">${ins.nextDate||'—'}</span></div>
+        <div class="info-line"><span class="k">検査業者</span><span class="v">${ins.vendor||'—'}</span></div>
+        ${ins.docUrl?`<a href="${ins.docUrl}" target="_blank" style="display:block;text-align:center;background:#e6f1fb;color:#185fa5;padding:8px;border-radius:7px;font-size:15px;font-weight:700;text-decoration:none;margin-top:8px">📄 検査書類PDFを開く</a>`:''}
+      `;
+    }else{
+      body='<div style="font-size:15px;color:#aaa;padding:8px 0">検査記録が未登録です</div>';
+    }
+    return `<div class="card">
+      <div class="card-h">
+        <div><div class="mname">${m.id}　${nm}</div><div class="msub">${m.yard}</div></div>
+        ${dueTag}
+      </div>
+      <div class="card-b">
+        ${body}
+        <button class="btn btn-sm btn-o" onclick="openJiModal('${m.id}')" style="width:100%;margin-top:8px">${ins?'編集':'登録'}する</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function openJiModal(mid){
+  const m=findMachine(mid);
+  const ins=inspections.find(x=>x.machineId===mid)||{};
+  document.getElementById('ji-modal-t').textContent=`${mid} 特定自主検査`;
+  document.getElementById('ji-mid').value=mid;
+  document.getElementById('ji-last').value=ins.lastDate||'';
+  document.getElementById('ji-label').value=ins.labelNo||'';
+  document.getElementById('ji-next').value=ins.nextDate||'';
+  document.getElementById('ji-vendor').value=ins.vendor||'';
+  document.getElementById('ji-url').value=ins.docUrl||'';
+  document.getElementById('ji-modal').classList.add('on');
+}
+function closeJiModal(){document.getElementById('ji-modal').classList.remove('on');}
+function saveJiModal(){
+  const mid=document.getElementById('ji-mid').value;
+  const ins={
+    machineId:mid,
+    lastDate:document.getElementById('ji-last').value,
+    labelNo:document.getElementById('ji-label').value.trim(),
+    nextDate:document.getElementById('ji-next').value,
+    vendor:document.getElementById('ji-vendor').value.trim(),
+    docUrl:document.getElementById('ji-url').value.trim()
+  };
+  const idx=inspections.findIndex(x=>x.machineId===mid);
+  if(idx>=0)inspections[idx]=ins;else inspections.push(ins);
+  saveData();closeJiModal();renderJikensa();renderDash();
+  showToast(`${mid} の検査記録を保存`,'ok');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'saveInspection',inspection:ins})}).catch(()=>{});
+  }
+}
+
+let dashServerReports=null; // 集計タブ用: サーバーから取得した当月の全日報（オンライン時のみ）
+function dashSourceReports(){
+  const mo=monthStr();
+  if(dashServerReports && dashServerReports.month===mo){
+    // サーバー全件 + 端末内のみでまだサーバー未反映の分（同一idは除外）
+    const sids=new Set(dashServerReports.reports.map(r=>r.id).filter(Boolean));
+    const localOnly=allReports().filter(r=>r.date&&r.date.startsWith(mo) && !sids.has(r.id));
+    return [...dashServerReports.reports,...localOnly];
+  }
+  return allReports().filter(r=>r.date&&r.date.startsWith(mo));
+}
+
+async function refreshDashMonth(){
+  if(!navigator.onLine || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE')return;
+  const mo=monthStr();
+  try{
+    const res=await fetch(gasGet('action=getReports&month='+mo));
+    const data=await res.json();
+    if(data.reports){
+      dashServerReports={month:mo, reports:data.reports};
+      if(document.getElementById('scr-dash').classList.contains('on'))renderDash();
+    }
+  }catch(e){console.warn('dashMonth:',e);}
+}
+
+function renderDash(){
+  const d=new Date();
+  document.getElementById('dash-month').textContent=`令和${d.getFullYear()-2018}年${d.getMonth()+1}月　月次集計`;
+  const rpts=dashSourceReports();
+  const totalL=rpts.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
+  const uninsp=rpts.filter(r=>r.inspection==='未').length;
+
+  // 総給油量の機体別内訳
+  const fuelByM={};
+  rpts.forEach(r=>{
+    const amt=parseFloat(r.fuelAmount)||0;
+    if(amt<=0)return;
+    if(!fuelByM[r.machineId])fuelByM[r.machineId]=0;
+    fuelByM[r.machineId]+=amt;
+  });
+  const fuelDetailHtml=Object.keys(fuelByM).length===0
+    ? '<div style="font-size:15px;color:#888;padding:8px 4px">今月の給油記録なし</div>'
+    : Object.entries(fuelByM).sort((a,b)=>b[1]-a[1]).map(([id,l])=>
+        `<div class="mrow"><span class="mrow-id">${id}</span><span class="mrow-name" style="font-size:15px">${Math.round(l*10)/10} L</span></div>`
+      ).join('');
+
+  // 点検未実施の機体別内訳（対象外は集計から除外）
+  const inspByM={};
+  rpts.forEach(r=>{
+    if(r.inspection==='対象外')return;
+    if(!inspByM[r.machineId])inspByM[r.machineId]={t:0,ok:0};
+    inspByM[r.machineId].t++;
+    if(r.inspection==='済')inspByM[r.machineId].ok++;
+  });
+  const inspDetailHtml=Object.keys(inspByM).length===0
+    ? '<div style="font-size:15px;color:#888;padding:8px 4px">今月のデータなし</div>'
+    : Object.entries(inspByM).map(([id,v])=>{
+        const pct=Math.round(v.ok/v.t*100);const col=pct===100?'#27ae60':pct>=50?'#e67e22':'#c0392b';
+        return `<div class="mrow"><span class="mrow-id">${id}</span><div class="prog-wrap"><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div></div><span style="font-size:15px;font-weight:700;color:${col};min-width:34px;text-align:right">${v.ok}/${v.t}</span></div>`;
+      }).join('');
+
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat-card" style="cursor:pointer" onclick="toggleStatDetail('fuel')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>
+        <span class="arrow" id="stat-arrow-fuel">▾</span>
+      </div>
+    </div>
+    <div class="stat-card" style="cursor:pointer" onclick="toggleStatDetail('insp')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="num" style="color:${uninsp>0?'#e67e22':'#27ae60'}">${uninsp}件</div><div class="lbl">点検未実施</div></div>
+        <span class="arrow" id="stat-arrow-insp">▾</span>
+      </div>
+    </div>
+    <div class="card" id="stat-detail-fuel" style="display:none;grid-column:1/-1">${fuelDetailHtml}</div>
+    <div class="card" id="stat-detail-insp" style="display:none;grid-column:1/-1">${inspDetailHtml}</div>`;
+
+  const jiEl=document.getElementById('dash-jikensa');
+  const due=inspections.map(ins=>({ins,st:jiStatus(ins.nextDate)})).filter(x=>x.st.days!==null&&x.st.days<=30).sort((a,b)=>a.st.days-b.st.days);
+  jiEl.innerHTML=due.length>0?due.map(x=>{
+    const m=findMachine(x.ins.machineId);
+    const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+    return `<div class="card ${x.st.cls==='due-over'?'card-alert':''}">
+      <div class="card-h">
+        <div><div class="mname" style="color:${x.st.cls==='due-over'?'#c0392b':'#854f0b'}">${x.ins.machineId}　${nm}</div><div class="msub">次回: ${x.ins.nextDate}</div></div>
+        <span class="due-tag ${x.st.cls}">${x.st.txt}</span>
+      </div>
+    </div>`;
+  }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ 30日以内の期限なし</div></div>';
+
+  const alertEl=document.getElementById('dash-alerts');
+  const latest={};
+  rpts.forEach(r=>{const h=parseFloat(r.hourMeter);if(!isNaN(h)&&(!latest[r.machineId]||h>latest[r.machineId]))latest[r.machineId]=h;});
+  const warns=Object.entries(latest).filter(([,h])=>h%HOUR_ALERT<15).map(([id,h])=>({id,h,next:Math.ceil(h/HOUR_ALERT)*HOUR_ALERT}));
+  alertEl.innerHTML=warns.length>0?warns.map(w=>{
+    const m=findMachine(w.id);const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+    return `<div class="card card-alert"><div class="card-h"><div><div class="mname" style="color:#c0392b">${w.id}　${nm}</div><div class="msub">現在: ${w.h} h</div></div><span class="bdg bdg-warn">⚠ 要点検</span></div><div class="card-b" style="font-size:15px;color:#666">${w.next}h定期点検まで あと ${w.next-w.h} h</div></div>`;
+  }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ アワー警告なし</div></div>';
+}
+
+function toggleStatDetail(key){
+  const el=document.getElementById('stat-detail-'+key);
+  const arrow=document.getElementById('stat-arrow-'+key);
+  if(!el)return;
+  const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  if(arrow)arrow.classList.toggle('open',!open);
+}
+
+let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
+let calReports=[];
+let calScope='all';
+let calMachineId='';
+
+function calYM(){return `${calYear}-${pad(calMonth+1)}`;}
+
+function renderCalYardChips(){
+  let h=`<div class="chip ${calScope==='all'?'on':''}" onclick="setCalScope('all')">全体</div>`;
+  YARDS.forEach(y=>{
+    const n=machines.filter(m=>m.yard===y).length;
+    if(n>0)h+=`<div class="chip ${calScope===y?'on':''}" onclick="setCalScope('${y}')">${y}</div>`;
+  });
+  document.getElementById('cal-yards').innerHTML=h;
+}
+function setCalScope(scope){
+  calScope=scope;
+  calMachineId='';
+  renderCalYardChips();
+  renderCalMachineChips();
+  loadCalMonth();
+}
+
+function renderCalMachineChips(){
+  const wrap=document.getElementById('cal-machine-chips');
+  if(calScope==='all'){
+    wrap.style.display='none';
+    wrap.innerHTML='';
+    return;
+  }
+  const inY=machines.filter(m=>m.yard===calScope);
+  if(inY.length===0){
+    wrap.style.display='none';
+    wrap.innerHTML='';
+    return;
+  }
+  wrap.style.display='flex';
+  let h=`<div class="chip ${calMachineId===''?'on':''}" onclick="setCalMachine('')">拠点全体</div>`;
+  inY.forEach(m=>{
+    const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+    h+=`<div class="chip ${calMachineId===m.id?'on':''}" onclick="setCalMachine('${m.id}')">${lbl}</div>`;
+  });
+  wrap.innerHTML=h;
+}
+function setCalMachine(mid){
+  calMachineId=mid;
+  renderCalMachineChips();
+  loadCalMonth();
+}
+
+function calNav(dir){
+  calMonth+=dir;
+  if(calMonth<0){calMonth=11;calYear--;}
+  if(calMonth>11){calMonth=0;calYear++;}
+  loadCalMonth();
+}
+
+let calMonthCache={};
+async function loadCalMonth(){
+  const ym=calYM();
+
+  if(calMachineId){
+    const mid=calMachineId;
+    const key=mid+'|'+ym;
+    const local=allReports().filter(r=>r.machineId===mid && String(r.date).startsWith(ym));
+    calReports=calMonthCache[key]?calMonthCache[key]:local;
+    renderCalendar();
+    if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+      try{
+        const res=await fetch(gasGet('action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid)));
+        const data=await res.json();
+        if(data.reports){
+          const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
+          const localOnly=local.filter(r=>!sids.has(r.id));
+          const merged=[...data.reports,...localOnly];
+          calMonthCache[key]=merged;
+          // 別の機体/月に切り替わっていたら、この古いレスポンスでcalReportsを汚染しない
+          if(calMachineId===mid && calYM()===ym){
+            calReports=merged;
+            renderCalendar();
+          }
+        }
+      }catch(e){console.warn('cal:',e);}
+    }
+    return;
+  }
+
+  const targetIds = calScope==='all' ? machines.map(m=>m.id) : machines.filter(m=>m.yard===calScope).map(m=>m.id);
+  const idSet=new Set(targetIds);
+  const local=allReports().filter(r=>idSet.has(r.machineId) && String(r.date).startsWith(ym));
+  calReports=local;
+  renderCalendar();
+  if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    try{
+      const res=await fetch(gasGet('action=getReports&month='+ym));
+      const data=await res.json();
+      if(data.reports){
+        const filtered=data.reports.filter(r=>idSet.has(r.machineId));
+        const sids=new Set(filtered.map(r=>r.id).filter(Boolean));
+        const localOnly=local.filter(r=>!sids.has(r.id));
+        // scope/月が切り替わっていたら、この古いレスポンスでcalReportsを汚染しない
+        if(!calMachineId && calYM()===ym){
+          calReports=[...filtered,...localOnly];
+          renderCalendar();
+        }
+      }
+    }catch(e){console.warn('cal:',e);}
+  }
+}
+
+function dayStatus(r){
+  if(r.notes && String(r.notes).trim()!=='')return 'warn';    // 赤: 備考あり
+  if(r.inspection==='未')return 'caution';                    // 黄: 点検未（対象外は含めない）
+  return 'ok';                                                 // 緑
+}
+
+function renderCalendar(){
+  document.getElementById('cal-title').textContent=`令和${calYear-2018}年${calMonth+1}月`;
+  const grid=document.getElementById('cal-grid');
+  grid.innerHTML='';
+  const first=new Date(calYear,calMonth,1);
+  const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  for(let i=0;i<first.getDay();i++)grid.appendChild(document.createElement('div'));
+  const byDay={};
+  calReports.forEach(r=>{
+    const d=parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d))return;
+    if(!byDay[d])byDay[d]=[];
+    byDay[d].push(r);
+  });
+  Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
+  const isMultiScope = !calMachineId;
+  for(let d=1;d<=daysIn;d++){
+    const cell=document.createElement('div');
+    const rs=byDay[d];
+    if(rs&&rs.length>0){
+      let st='ok';
+      rs.forEach(r=>{const s=dayStatus(r);if(s==='warn')st='warn';else if(s==='caution'&&st!=='warn')st='caution';});
+      cell.className='cal-cell cal-'+st;
+      if(isMultiScope){
+        const machineCount=new Set(rs.map(r=>r.machineId)).size;
+        cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${machineCount}機体入力済み</div>`;
+      }else{
+        const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+        let sub=st==='warn'?'備考あり':(st==='caution'?'点検未':(totalW?totalW+'h':'入力済'));
+        if(rs.length>1)sub=`${rs.length}件 ${sub}`;
+        cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${sub}</div>`;
+      }
+    }else{
+      cell.className='cal-cell';
+      cell.innerHTML=`<div class="cal-day" style="color:#bbb;font-weight:500">${d}</div>`;
+    }
+    cell.onclick=()=>{
+      if(isMultiScope){
+        openDayMultiMachineModal(d,rs||[]);
+      }else{
+        openDayModal(d,rs||[]);
+      }
+    };
+    grid.appendChild(cell);
+  }
+}
+
+let dmCurrent=null;
+let dmDayReports=[];
+function openDayModal(day,rs){
+  const mid=calMachineId;
+  const title=`${calMonth+1}月${day}日　${mid}`;
+  openReportModal(title,rs);
+}
+
+function openDayMultiMachineModal(day,rs){
+  if(!rs||rs.length===0){openReportModal(`${calMonth+1}月${day}日`,[]);return;}
+  const byMachine={};
+  rs.forEach(r=>{if(!byMachine[r.machineId])byMachine[r.machineId]=[];byMachine[r.machineId].push(r);});
+  const mids=Object.keys(byMachine);
+  if(mids.length===1){
+    openReportModal(`${calMonth+1}月${day}日　${mids[0]}`,byMachine[mids[0]]);
+    return;
+  }
+  window.__dmDayMachines=byMachine;
+  const listHtml=mids.map(mid=>{
+    const m=findMachine(mid);
+    const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+    const cnt=byMachine[mid].length;
+    const midSafe=mid.replace(/'/g,"\\'");
+    return `<div class="mrow" style="cursor:pointer" onclick="openDayModalFromList('${midSafe}',${day})">
+      <span class="mrow-id">${mid}</span><span class="mrow-name">${nm}</span><span class="bdg bdg-blue">${cnt}件</span>
+    </div>`;
+  }).join('');
+  document.getElementById('dm-title').textContent=`${calMonth+1}月${day}日　${mids.length}機体入力済み`;
+  document.getElementById('dm-form').style.display='none';
+  document.getElementById('dm-empty').style.display='none';
+  document.getElementById('dm-multi').innerHTML=`<div class="card">${listHtml}</div>`;
+  document.getElementById('day-modal').classList.add('on');
+}
+function openDayModalFromList(mid,day){
+  const rs=(window.__dmDayMachines&&window.__dmDayMachines[mid])||[];
+  openReportModal(`${calMonth+1}月${day}日　${mid}`,rs);
+}
+
+function openReportModal(title,rs){
+  document.getElementById('dm-title').textContent=title;
+  const form=document.getElementById('dm-form');
+  const empty=document.getElementById('dm-empty');
+  const selWrap=document.getElementById('dm-multi');
+  dmDayReports=rs||[];
+  if(!rs || rs.length===0){
+    form.style.display='none';empty.style.display='block';selWrap.innerHTML='';dmCurrent=null;
+    document.getElementById('day-modal').classList.add('on');
+    return;
+  }
+  if(rs.length>1){
+    selWrap.innerHTML='<div class="fl" style="margin-bottom:6px">この日の日報 '+rs.length+'件（タップで切替）</div>'+
+      rs.map((r,i)=>{
+        const tm=r.savedAt?new Date(r.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'--:--';
+        return `<div class="dm-sel" data-i="${i}" onclick="dmSelect(${i})" style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1.5px solid #d5d5d5;border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fafafa">
+          <span style="font-weight:800;color:#185fa5;font-size:15px">${tm}</span>
+          <span style="font-weight:700;font-size:16px;flex:1">${r.operator||'（運転者未記入）'}</span>
+          <span style="font-size:15px;color:#888">${r.workHours||'—'}h</span>
+        </div>`;
+      }).join('')+'<div style="height:6px"></div>';
+  }else{
+    selWrap.innerHTML='';
+  }
+  dmSelect(rs.length-1);
+  document.getElementById('day-modal').classList.add('on');
+}
+
+function dmSelect(i){
+  const r=dmDayReports[i];
+  if(!r)return;
+  dmCurrent=r;
+  document.querySelectorAll('.dm-sel').forEach(el=>{
+    el.style.borderColor=el.dataset.i==i?'#185fa5':'#d5d5d5';
+    el.style.background=el.dataset.i==i?'#e6f1fb':'#fafafa';
+  });
+  document.getElementById('dm-form').style.display='block';
+  document.getElementById('dm-empty').style.display='none';
+  document.getElementById('dm-date').value=r.date||'';
+  const mSel=document.getElementById('dm-machine');
+  mSel.innerHTML='';
+  YARDS.forEach(y=>{
+    const inY=machines.filter(m=>m.yard===y);
+    if(inY.length===0)return;
+    let grp=`<optgroup label="${y}">`;
+    inY.forEach(m=>{
+      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+      grp+=`<option value="${m.id}">${lbl}</option>`;
+    });
+    grp+='</optgroup>';
+    mSel.innerHTML+=grp;
+  });
+  if(r.machineId && !machines.some(m=>m.id===r.machineId)){
+    mSel.innerHTML=`<option value="${r.machineId}">${r.machineId}（マスタ未登録）</option>`+mSel.innerHTML;
+  }
+  mSel.value=r.machineId||'';
+  const opSel=document.getElementById('dm-operator');
+  opSel.innerHTML='<option value="">（空欄）</option>';
+  const names=[...operators];
+  if(r.operator && !names.includes(r.operator))names.unshift(r.operator);
+  names.forEach(n=>opSel.innerHTML+=`<option value="${n}">${n}</option>`);
+  opSel.value=r.operator||'';
+  document.getElementById('dm-location').value=r.location||'';
+  document.getElementById('dm-contractor').value=r.contractor||'';
+  document.getElementById('dm-hmeter').value=r.hourMeter!==undefined?r.hourMeter:'';
+  document.getElementById('dm-whours').value=r.workHours!==undefined?r.workHours:'';
+  document.getElementById('dm-floc').value=r.fuelLocation||'';
+  document.getElementById('dm-famt').value=r.fuelAmount!==undefined?r.fuelAmount:'';
+  const inspSel=document.getElementById('dm-insp');
+  inspSel.innerHTML='<option value="済">済</option><option value="未">未</option><option value="対象外">対象外（給油のみ）</option>';
+  if(r.inspection && !['済','未','対象外'].includes(r.inspection))inspSel.innerHTML+=`<option value="${r.inspection}">${r.inspection}</option>`;
+  inspSel.value=r.inspection||'未';
+  document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
+  document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
+  document.getElementById('dm-notes').value=r.notes||'';
+  document.getElementById('dm-notetype').value=r.noteType||'';
+  const pw=document.getElementById('dm-photo-wrap');
+  if(r.photoUrl){pw.style.display='block';document.getElementById('dm-photo-link').href=r.photoUrl;}
+  else{pw.style.display='none';}
+  const dmM=findMachine(r.machineId);
+  const isCrusher=dmM&&dmM.type==='crusher';
+  document.getElementById('dm-crusher').style.display=isCrusher?'block':'none';
+  document.getElementById('dm-bit').value=r.bit!==undefined?r.bit:'';
+  document.getElementById('dm-bolt').value=r.bolt!==undefined?r.bolt:'';
+  document.getElementById('dm-nut').value=r.nut!==undefined?r.nut:'';
+  document.getElementById('dm-fuelhour').value=r.fuelHour!==undefined?r.fuelHour:'';
+  document.getElementById('dm-gps-txt').textContent=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
+  const gpsLink=document.getElementById('dm-gps-link');
+  if(r.lat){gpsLink.href=`https://www.google.com/maps?q=${r.lat},${r.lng}`;gpsLink.style.display='inline';}
+  else{gpsLink.style.display='none';}
+  const noid=!r.id;
+  document.getElementById('dm-noid').style.display=noid?'block':'none';
+  document.getElementById('dm-save').style.display=noid?'none':'block';
+  document.getElementById('dm-delete').style.display=noid?'none':'block';
+}
+function closeDayModal(){document.getElementById('day-modal').classList.remove('on');}
+
+async function saveDayModal(){
+  if(!dmCurrent||!dmCurrent.id){showToast('編集できないデータです','err');return;}
+  if(!navigator.onLine){showToast('編集はオンライン時のみ可能です','err');return;}
+  const newDate=document.getElementById('dm-date').value;
+  const newMachine=document.getElementById('dm-machine').value;
+  if(!newDate){showToast('日付を入力してください','err');return;}
+  if(!newMachine){showToast('重機番号を選択してください','err');return;}
+  const moved = (newDate!==dmCurrent.date) || (newMachine!==dmCurrent.machineId);
+  if(moved && !confirm(`日付/重機番号を変更します。\n${dmCurrent.date} ${dmCurrent.machineId} → ${newDate} ${newMachine}\nよろしいですか？`))return;
+  const upd={
+    id:dmCurrent.id,
+    date:newDate,
+    machineId:newMachine,
+    operator:document.getElementById('dm-operator').value,
+    contractor:document.getElementById('dm-contractor').value.trim(),
+    location:document.getElementById('dm-location').value.trim(),
+    hourMeter:document.getElementById('dm-hmeter').value,
+    workHours:document.getElementById('dm-whours').value,
+    fuelLocation:document.getElementById('dm-floc').value,
+    fuelAmount:document.getElementById('dm-famt').value,
+    inspection:document.getElementById('dm-insp').value,
+    grease:document.getElementById('dm-grease').classList.contains('on')?'済':'未',
+    transfer:document.getElementById('dm-trans').classList.contains('on')?'有':'無',
+    notes:document.getElementById('dm-notes').value.trim(),
+    noteType:document.getElementById('dm-notetype').value,
+    bit:document.getElementById('dm-bit').value,
+    bolt:document.getElementById('dm-bolt').value,
+    nut:document.getElementById('dm-nut').value,
+    fuelHour:document.getElementById('dm-fuelhour').value
+  };
+  showToast('保存中...','');
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'editReport',report:upd})});
+    const data=await res.json();
+    if(data.success){
+      const newYard=(findMachine(newMachine)||{}).yard||'';
+      [pending,synced].forEach(arr=>{
+        const idx=arr.findIndex(r=>r.id===upd.id);
+        if(idx>=0)Object.assign(arr[idx],upd,{yard:newYard});
+      });
+      serverToday=serverToday.map(r=>r.id===upd.id?Object.assign({},r,upd,{yard:newYard}):r);
+      saveData();
+      closeDayModal();
+      showToast('日報を更新しました','ok');
+      loadCalMonth();refreshTodayList(false);refreshDashMonth();
+    }else{
+      showToast(data.error||'更新に失敗しました','err');
+    }
+  }catch(e){showToast('通信エラー: '+e.message,'err');}
+}
+
+async function deleteDayModal(){
+  if(!dmCurrent||!dmCurrent.id){showToast('削除できないデータです','err');return;}
+  if(!navigator.onLine){showToast('削除はオンライン時のみ可能です','err');return;}
+  const tm=dmCurrent.savedAt?new Date(dmCurrent.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'';
+  if(!confirm(`${dmCurrent.operator||'（運転者未記入）'} ${tm} の日報を削除しますか？\nこの操作は取り消せません。`))return;
+  showToast('削除中...','');
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteReport',id:dmCurrent.id})});
+    const data=await res.json();
+    if(data.success){
+      const delId=dmCurrent.id;
+      pending=pending.filter(r=>r.id!==delId);
+      synced=synced.filter(r=>r.id!==delId);
+      serverToday=serverToday.filter(r=>r.id!==delId);
+      saveData();
+      closeDayModal();
+      showToast('日報を削除しました','ok');
+      loadCalMonth();refreshTodayList(false);refreshDashMonth();
+    }else{
+      showToast(data.error||'削除に失敗しました','err');
+    }
+  }catch(e){showToast('通信エラー: '+e.message,'err');}
+}
+function openOpModal(){renderOps();document.getElementById('op-modal').classList.add('on');}
+function closeOpModal(){document.getElementById('op-modal').classList.remove('on');}
+function renderOps(){
+  document.getElementById('op-cnt').textContent=operators.length+'名';
+  const el=document.getElementById('op-list');
+  if(operators.length===0){el.innerHTML='<div class="empty"><div class="empty-txt">運転者が登録されていません</div></div>';return;}
+  el.innerHTML=operators.map(n=>`<div class="mrow"><span class="mrow-name" style="font-size:15px">${n}</span><span class="btn btn-sm btn-d" onclick="deleteOperator('${n}')">削除</span></div>`).join('');
+}
+function addOperator(){
+  const inp=document.getElementById('op-new');
+  const name=inp.value.trim();
+  if(!name){showToast('氏名を入力してください','err');return;}
+  if(operators.includes(name)){showToast(name+' は既に登録されています','err');return;}
+  operators.push(name);saveData();populateForms();renderOps();
+  inp.value='';
+  showToast(name+' を追加しました','ok');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'addOperator',name})}).catch(()=>{});
+  }
+}
+function deleteOperator(name){
+  if(!confirm(name+' を削除しますか？'))return;
+  operators=operators.filter(n=>n!==name);saveData();populateForms();renderOps();
+  showToast(name+' を削除しました','');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteOperator',name})}).catch(()=>{});
+  }
+}
+
+function openCsvModal(){
+  const sel=document.getElementById('csv-machine');
+  sel.innerHTML='<option value="">全機体</option>';
+  YARDS.forEach(y=>{
+    const inY=machines.filter(m=>m.yard===y);
+    if(inY.length===0)return;
+    let grp=`<optgroup label="${y}">`;
+    inY.forEach(m=>{
+      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+      grp+=`<option value="${m.id}">${lbl}</option>`;
+    });
+    grp+='</optgroup>';
+    sel.innerHTML+=grp;
+  });
+  const t=todayStr();
+  const firstOfMonth=t.slice(0,8)+'01';
+  document.getElementById('csv-from').value=firstOfMonth;
+  document.getElementById('csv-to').value=t;
+  document.getElementById('csv-modal').classList.add('on');
+}
+function closeCsvModal(){document.getElementById('csv-modal').classList.remove('on');}
+
+async function exportCsv(){
+  const mid=document.getElementById('csv-machine').value;
+  const from=document.getElementById('csv-from').value;
+  const to=document.getElementById('csv-to').value;
+  if(!from||!to){showToast('開始日と終了日を指定してください','err');return;}
+  if(from>to){showToast('開始日は終了日より前にしてください','err');return;}
+
+  showToast('データを集計中...','');
+  let rows=[];
+  if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    const months=new Set();
+    let cur=new Date(from+'T00:00:00');
+    const end=new Date(to+'T00:00:00');
+    while(cur<=end){months.add(`${cur.getFullYear()}-${pad(cur.getMonth()+1)}`);cur.setMonth(cur.getMonth()+1);}
+    try{
+      const results=await Promise.all([...months].map(ym=>
+        fetch(gasGet('action=getReports&month='+ym+(mid?'&machineId='+encodeURIComponent(mid):''))).then(r=>r.json())
+      ));
+      results.forEach(d=>{if(d.reports)rows.push(...d.reports);});
+    }catch(e){
+      showToast('サーバー取得に失敗。端末内データのみで出力します','err');
+      rows=allReports();
+    }
+  }else{
+    rows=allReports();
+  }
+
+  rows=rows.filter(r=>r.date>=from && r.date<=to);
+  if(mid)rows=rows.filter(r=>String(r.machineId)===String(mid));
+  rows.sort((a,b)=>(a.date+String(a.savedAt||'')).localeCompare(b.date+String(b.savedAt||'')));
+
+  if(rows.length===0){showToast('該当データがありません','err');return;}
+
+  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油元','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考区分','備考','写真URL','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
+  const csvRows=[headers.join(',')];
+  rows.forEach(r=>{
+    const vals=[
+      r.date, r.machineId, r.yard, r.operator, r.contractor, r.location,
+      r.hourMeter, r.workHours, r.fuelLocation, r.fuelAmount,
+      r.inspection, r.grease, r.transfer, r.lat, r.lng, r.noteType, r.notes, r.photoUrl,
+      r.bit, r.bolt, r.nut, r.fuelHour
+    ].map(v=>{
+      const s=(v===undefined||v===null)?'':String(v);
+      return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+    });
+    csvRows.push(vals.join(','));
+  });
+  const csvContent='\uFEFF'+csvRows.join('\r\n');
+
+  const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const mLabel=mid?mid:'全機体';
+  a.href=url;
+  a.download=`重機日報_${mLabel}_${from}_${to}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  closeCsvModal();
+  showToast(`${rows.length}件をCSV出力しました`,'ok');
+}
+
+function printMonth(){
+  const mid=calMachineId;
+  if(!mid){showToast('印刷するには機体を選択してください','err');return;}
+  const m=findMachine(mid);
+  if(m&&m.type==='crusher'){printCrusherMonth(mid,m);return;}
+  printStandardMonth(mid,m);
+}
+
+function printCrusherMonth(mid,m){
+  const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+  const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  const byDay={};
+  calReports.forEach(r=>{
+    const d=parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d))return;
+    if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
+  });
+  let monthStart='';
+  const firstDay=Object.keys(byDay).map(Number).sort((a,b)=>a-b)[0];
+  if(firstDay){
+    const fr=byDay[firstDay];
+    const h=parseFloat(fr.hourMeter), w=parseFloat(fr.workHours);
+    if(!isNaN(h)&&!isNaN(w))monthStart=Math.round((h-w)*10)/10;
+    else if(!isNaN(h))monthStart='';
+  }
+  const notes=[];
+  let monthlyChecked=false;
+  Object.entries(byDay).forEach(([d,r])=>{
+    if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
+    if(r.inspection==='済')monthlyChecked=true;
+  });
+  const mkRows=(from,to,padTo)=>{
+    let h='';
+    for(let d=from;d<=to;d++){
+      const r=byDay[d];
+      if(r){
+        h+=`<tr><td>${d}</td><td>${r.hourMeter!==''&&r.hourMeter!==undefined?r.hourMeter:''}</td><td>${r.workHours!==''&&r.workHours!==undefined?r.workHours:''}</td><td>${r.bit||''}</td><td>${r.bolt||''}</td><td>${r.nut||''}</td><td>${r.fuelAmount||''}</td><td>${r.fuelHour||''}</td><td>${r.inspection==='済'?'☑':'☐'}</td></tr>`;
+      }else{
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>☐</td></tr>`;
+      }
+    }
+    for(let i=(to-from+1);i<padTo;i++){
+      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    }
+    return h;
+  };
+  const tableHead=`<tr><th style="width:6%">日</th><th style="width:12%">終了</th><th style="width:9%">稼働</th><th style="width:8%">ﾋﾞｯﾄ</th><th style="width:8%">ﾎﾞﾙﾄ</th><th style="width:8%">ﾅｯﾄ</th><th style="width:11%">給油量</th><th style="width:13%">給油時ｱﾜ</th><th style="width:6%">点検</th></tr>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
+<style>
+@page{size:A4 portrait;margin:10mm}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0}
+.head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2mm}
+.title{font-size:14px;font-weight:700}
+.mstart{font-size:10px;margin-bottom:2mm}
+.cols{display:flex;gap:4mm}
+.col{flex:1}
+table{width:100%;border-collapse:collapse;font-size:7.5px}
+th,td{border:1px solid #333;padding:2px 2px;text-align:center;height:14px}
+th{background:#eee}
+.foot{margin-top:4mm;font-size:9px}
+.notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
+@media print{.noprint{display:none}}
+.noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
+</style></head><body>
+<button class="noprint" onclick="window.print()">🖨 印刷する</button>
+<div class="head">
+  <span class="title">運転日報　破砕機 ${mid}（${nm}）</span>
+  <span>令和${calYear-2018}年${calMonth+1}月</span>
+</div>
+<div class="mstart">月初アワメータ: ${monthStart!==''?monthStart+' h':'＿＿＿＿＿'}</div>
+<div class="cols">
+  <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
+  <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
+</div>
+<div class="foot">
+  <div>備考（故障・注意事項等）　※燃費目安 1H/約60L</div>
+  <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
+  <div style="margin-top:3mm">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
+  <div style="margin-top:2mm;font-size:8px;color:#555">※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+</div>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(!w){showToast('ポップアップがブロックされました。許可してください','err');return;}
+  w.document.write(html);
+  w.document.close();
+}
+
+function printStandardMonth(mid,m){
+  const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+  const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  // その日の全件を保持（従来は最新1件のみだったため、複数入力時に給油量等が欠落していた）
+  const byDay={};
+  calReports.forEach(r=>{
+    const d=parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d))return;
+    if(!byDay[d])byDay[d]=[];
+    byDay[d].push(r);
+  });
+  Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
+
+  const notes=[];
+  let monthlyChecked=false;
+  Object.entries(byDay).forEach(([d,arr])=>{
+    arr.forEach(r=>{
+      if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
+      if(r.inspection==='済')monthlyChecked=true;
+    });
+  });
+
+  const mkRows=(from,to,padTo)=>{
+    let h='';
+    for(let d=from;d<=to;d++){
+      const arr=byDay[d];
+      if(arr&&arr.length>0){
+        // アワメータ: 最新（savedAtが最も新しい）値を採用
+        let hm=''; for(const r of arr){const v=parseFloat(r.hourMeter);if(!isNaN(v))hm=v;}
+        // 稼働時間: 合算
+        const totalW=arr.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+        // 現場名ごとに、その現場での最後の運転者を対応付け
+        const byLoc={}; // 現場名 → 最後のレコード
+        arr.forEach(r=>{
+          const locKey=r.location||'';
+          byLoc[locKey]=r; // 配列はsavedAt昇順なので、後勝ちで最後の人になる
+        });
+        const locEntries=Object.entries(byLoc);
+        const locText=locEntries.map(([loc,r])=>[r.contractor,loc].filter(Boolean).join(' ')).filter(Boolean).join(' / ')||'';
+        const opText=locEntries.map(([,r])=>r.operator).filter(Boolean).join('・');
+        // 給油: 合算＋給油元を列挙
+        const totalFuel=arr.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
+        const fuelLocs=[...new Set(arr.map(r=>r.fuelLocation).filter(Boolean))].join('/');
+        const fuelAmtText=totalFuel>0?(Math.round(totalFuel*10)/10)+'L':'';
+        const inspOk=arr.some(r=>r.inspection==='済');
+        const transOk=arr.some(r=>r.transfer==='有');
+        h+=`<tr>
+          <td>${d}</td>
+          <td class="stack"><div>${hm}</div><div class="sub">${totalW||''}</div></td>
+          <td class="stack tl"><div>${locText}</div><div class="sub">${opText}</div></td>
+          <td class="stack"><div>${fuelLocs}</div><div class="sub">${fuelAmtText}</div></td>
+          <td>${inspOk?'☑':'☐'}</td>
+          <td>${transOk?'☑':'☐'}</td>
+        </tr>`;
+      }else{
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td>☐</td><td>☐</td></tr>`;
+      }
+    }
+    for(let i=(to-from+1);i<padTo;i++){
+      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    }
+    return h;
+  };
+  const tableHead=`<tr><th style="width:7%">日</th><th style="width:15%">ｱﾜﾒｰﾀ／稼働h</th><th style="width:34%">現場名／運転者</th><th style="width:20%">給油元／給油量</th><th style="width:8%">点検</th><th style="width:8%">回送</th></tr>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
+<style>
+@page{size:A4 portrait;margin:10mm}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0}
+.head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4mm}
+.title{font-size:14px;font-weight:700}
+.cols{display:flex;gap:4mm}
+.col{flex:1}
+table{width:100%;border-collapse:collapse;font-size:8px}
+th,td{border:1px solid #333;padding:2px 3px;text-align:center;height:14px}
+td.stack{height:auto;min-height:18px}
+th{background:#eee}
+.tl{text-align:left}
+.stack{padding:1px 3px;line-height:1.25}
+.stack div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stack .sub{color:#555;font-size:7px;border-top:1px dotted #ccc;margin-top:1px;padding-top:1px}
+.stack.tl div{text-align:left}
+.foot{margin-top:4mm;font-size:9px}
+.notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
+@media print{.noprint{display:none}}
+.noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
+</style></head><body>
+<button class="noprint" onclick="window.print()">🖨 印刷する</button>
+<div class="head">
+  <span class="title">運転日報　${mid}（${nm}）</span>
+  <span>令和${calYear-2018}年${calMonth+1}月</span>
+</div>
+<div class="cols">
+  <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
+  <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
+</div>
+<div class="foot">
+  <div>備考（故障・注意事項等）</div>
+  <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
+  <div style="margin-top:3mm">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
+  <div style="margin-top:2mm;font-size:8px;color:#555">※回送した時は回送の欄にチェック✓　※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+</div>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(!w){showToast('ポップアップがブロックされました。許可してください','err');return;}
+  w.document.write(html);
+  w.document.close();
+}
+
+function showTab(name){
+  const tabs=['list','input','machines','jikensa','dash'];
+  tabs.forEach((t,i)=>{
+    const scr=document.getElementById('scr-'+t);
+    scr.className='scr'+(t===name?' on':'');
+    document.querySelectorAll('.tab')[i].className='tab'+(t===name?' on':'');
+    const fx=scr.querySelector('.scr-fixed');
+    if(fx)fx.classList.toggle('on',t===name);
+  });
+  if(name==='list'){refreshTodayList(false);renderList();updateSyncRow();}
+  if(name==='machines')renderMachines();
+  if(name==='jikensa')renderJikensa();
+  if(name==='dash'){renderDash();renderCalYardChips();renderCalMachineChips();loadCalMonth();refreshDashMonth();}
+  if(name==='input')updateNet();
+  window.scrollTo(0,0);
+  requestAnimationFrame(syncStickyOffset);
+}
+
+let _tt;
+function showToast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show'+(type?' t-'+type:'');
+  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+window.addEventListener('DOMContentLoaded',initApp);
+</script>
+</div>
+</body>
+</html>
