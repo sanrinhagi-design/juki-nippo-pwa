@@ -2217,11 +2217,11 @@ function printStandardMonth(mid,m){
           <td class="stack tl"><div>${contractorText}</div><div class="sub">${locText}</div></td>
           <td class="tl">${opText}</td>
           <td class="stack"><div>${fuelLocs}</div><div class="sub">${fuelAmtText}</div></td>
-          <td>${inspOk?'☑':'☐'}</td>
-          <td>${transOk?'☑':'☐'}</td>
+          <td class="chk">${inspOk?'☑':'☐'}</td>
+          <td class="chk">${transOk?'☑':'☐'}</td>
         </tr>`;
       }else{
-        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td>☐</td><td>☐</td></tr>`;
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td class="chk">☐</td><td class="chk">☐</td></tr>`;
       }
     }
     for(let i=(to-from+1);i<padTo;i++){
@@ -2229,33 +2229,36 @@ function printStandardMonth(mid,m){
     }
     return h;
   };
-  const tableHead=`<tr><th style="width:6%">日</th><th style="width:13%">ｱﾜﾒｰﾀ／稼働h</th><th style="width:24%">元請／現場名</th><th style="width:13%">運転者</th><th style="width:16%">給油元／給油量</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
+  const tableHead=`<tr><th style="width:6%">日</th><th style="width:13%">ｱﾜﾒｰﾀ<br>／稼働h</th><th style="width:24%">元請<br>／現場名</th><th style="width:13%">運転者</th><th style="width:16%">給油元<br>／給油量</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
 <style>
-@page{size:A4 portrait;margin:5mm}
+@page{size:A4 portrait;margin:4mm}
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0;width:100%;height:100%}
-.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:3mm}
+.head{display:flex;flex-direction:column;align-items:center;margin-bottom:2mm}
 .title{font-size:14px;font-weight:700}
-.ym{font-size:20px;font-weight:800}
+.machine-name{font-size:26px;font-weight:900;margin:1mm 0}
+.ym{font-size:16px;font-weight:700;color:#444}
 .cols{display:flex;gap:3mm}
 .col{flex:1}
 table{width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed}
-th,td{border:1px solid #333;padding:5px 4px;text-align:center;height:30px}
-td.stack{height:auto;min-height:38px}
-th{background:#eee}
+th,td{border:1px solid #333;padding:5px 4px;text-align:center;height:38px}
+td.stack{height:auto;min-height:46px}
+th{background:#eee;line-height:1.3;padding:4px 2px}
 .tl{text-align:left}
 .stack{padding:1px 3px;line-height:1.25}
 .stack div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stack .sub{color:#555;font-size:8px;border-top:1px dotted #ccc;margin-top:2px;padding-top:2px}
 .stack.tl div{text-align:left}
-.foot{margin-top:4mm;font-size:9px}
-.notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
+.chk{font-size:16px;font-weight:700}
+.foot{margin-top:2mm;font-size:11px}
+.notes{border:1px solid #333;padding:2mm;min-height:10mm;margin-top:1mm}
 @media print{.noprint{display:none}}
 .noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
 </style></head><body>
 <button class="noprint" onclick="window.print()">🖨 印刷する</button>
 <div class="head">
-  <span class="title">運転日報　${mid}（${nm}）</span>
+  <span class="title">運転日報</span>
+  <span class="machine-name">${mid}（${nm}）</span>
   <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
 </div>
 <div class="cols">
@@ -2265,8 +2268,8 @@ th{background:#eee}
 <div class="foot">
   <div>備考（故障・注意事項等）</div>
   <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
-  <div style="margin-top:3mm">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
-  <div style="margin-top:2mm;font-size:8px;color:#555">※回送した時は回送の欄にチェック✓　※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+  <div style="margin-top:2mm;font-size:13px;font-weight:700">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
+  <div style="margin-top:1.5mm;font-size:11px;color:#333">※回送した時は回送の欄にチェック✓　※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
 </div>
 </body></html>`;
   const w=window.open('','_blank');
