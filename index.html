@@ -198,6 +198,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
 <!-- ===== 日報入力 ===== -->
 <div id="scr-input" class="scr">
+
+<!-- ========== モード切替（まとめて入力機能） ========== -->
+<div class="card"><div class="card-b">
+  <div class="frow" style="margin-bottom:0">
+    <div class="chip on" id="mode-single" onclick="setInputMode('single')" style="text-align:center">📝 通常入力</div>
+    <div class="chip" id="mode-bulk" onclick="setInputMode('bulk')" style="text-align:center">📋 まとめて入力</div>
+  </div>
+</div></div>
+
   <div class="notice n-info" id="inp-notice">
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     <span id="inp-notice-txt">圏外のため端末に保存します。電波回復時に自動送信されます。</span>
@@ -343,6 +352,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <button class="btn btn-p" onclick="submitReport()">保存する（電波回復時に自動送信）</button>
   <div style="height:20px"></div>
+
+<!-- ========== まとめて入力 画面（scr-input内、通常フォームと排他表示） ========== -->
+<div id="bulk-input-wrap" style="display:none">
+
+  <div class="card"><div class="card-b">
+    <div class="fg">
+      <label class="fl">日付（共通） <span style="color:#c0392b">*</span></label>
+      <input class="fc" type="date" id="bk-date">
+    </div>
+    <div class="fg">
+      <label class="fl">元請（共通・任意）</label>
+      <input class="fc" type="text" id="bk-contractor" list="dl-contractor" placeholder="例: 〇〇林業" autocomplete="off">
+    </div>
+    <div class="fg" style="margin-bottom:0">
+      <label class="fl">現場名（共通・任意）</label>
+      <input class="fc" type="text" id="bk-location" list="dl-location" placeholder="例: 深山林道 3工区" autocomplete="off">
+    </div>
+  </div></div>
+
+  <div class="card"><div class="card-b">
+    <label class="fl">対象重機を選択</label>
+    <div id="bk-yard-chips" class="yard-chips"></div>
+    <div id="bk-machine-picker" style="max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:8px"></div>
+    <div style="font-size:15px;color:#888;margin-top:8px" id="bk-picked-count">0台選択中</div>
+  </div></div>
+
+  <div id="bk-rows"></div>
+
+  <div class="notice n-info" id="bk-empty-hint">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12.01" y2="16"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
+    上で重機を選択すると、機体ごとの入力欄がここに表示されます。
+  </div>
+
+  <button class="btn btn-p" onclick="submitBulkReports()" id="bk-submit-btn" style="display:none">選択した全機体の日報を保存する</button>
+  <div style="height:20px"></div>
+</div>
+
 </div>
 
 <!-- ===== 重機管理 ===== -->
@@ -2300,6 +2346,221 @@ function showToast(msg,type=''){
   const el=document.getElementById('toast');
   el.textContent=msg;el.className='toast show'+(type?' t-'+type:'');
   clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ================================================================
+// まとめて入力（複数機体一括登録）
+// ================================================================
+let bulkMode = false;
+let bkYard = '';
+let bkPicked = {};      // { machineId: true }
+let bkRowData = {};     // { machineId: {operator, hmeter, whours, floc, famt, insp, grease, trans, notes} }
+let bkInspType = {};    // { machineId: type }
+
+function setInputMode(mode) {
+  bulkMode = (mode === 'bulk');
+  document.getElementById('mode-single').className = 'chip' + (bulkMode ? '' : ' on');
+  document.getElementById('mode-bulk').className = 'chip' + (bulkMode ? ' on' : '');
+
+  // 通常フォームの各カードを非表示にし、まとめて入力エリアを表示
+  const singleCards = document.querySelectorAll('#scr-input > .card, #scr-input > .gps-box, #scr-input > button.btn-p');
+  singleCards.forEach(el => { el.style.display = bulkMode ? 'none' : ''; });
+  document.getElementById('inp-notice').style.display = bulkMode ? 'none' : 'flex';
+  document.getElementById('bulk-input-wrap').style.display = bulkMode ? 'block' : 'none';
+
+  if (bulkMode) {
+    document.getElementById('bk-date').value = todayStr();
+    renderBkYardChips();
+    renderBkMachinePicker();
+    renderBkRows();
+  }
+}
+
+function renderBkYardChips() {
+  let h = `<div class="chip ${bkYard===''?'on':''}" onclick="setBkYard('')">全拠点</div>`;
+  YARDS.forEach(y => {
+    const n = machines.filter(m => m.yard === y).length;
+    if (n > 0) h += `<div class="chip ${bkYard===y?'on':''}" onclick="setBkYard('${y}')">${y}</div>`;
+  });
+  document.getElementById('bk-yard-chips').innerHTML = h;
+}
+function setBkYard(y) {
+  bkYard = y;
+  renderBkYardChips();
+  renderBkMachinePicker();
+}
+
+function renderBkMachinePicker() {
+  let ms = machines;
+  if (bkYard) ms = ms.filter(m => m.yard === bkYard);
+  const el = document.getElementById('bk-machine-picker');
+  if (ms.length === 0) { el.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-txt">該当する重機がありません</div></div>'; return; }
+  el.innerHTML = ms.map(m => {
+    const nm = m.attachment ? `${m.model}・${m.attachment}` : m.model;
+    const on = bkPicked[m.id] ? 'on' : '';
+    return `<div class="mrow" style="cursor:pointer" onclick="toggleBkMachine('${m.id}')">
+      <div class="insp-chk ${on}"></div>
+      <span class="mrow-id">${m.id}</span>
+      <span class="mrow-name" style="font-size:15px">${nm}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleBkMachine(mid) {
+  if (bkPicked[mid]) {
+    delete bkPicked[mid];
+    delete bkRowData[mid];
+  } else {
+    bkPicked[mid] = true;
+    const m = findMachine(mid);
+    bkInspType[mid] = m ? (m.type || 'backhoe') : 'backhoe';
+    if (!bkRowData[mid]) {
+      bkRowData[mid] = {
+        operator:'', hmeter:'', whours:'', floc:'', famt:'',
+        insp:'未', inspChecks:{}, grease:false, trans:false, noteType:'', notes:'',
+        bit:'', bolt:'', nut:'', fuelhour:''
+      };
+    }
+  }
+  renderBkMachinePicker();
+  renderBkRows();
+}
+
+function renderBkRows() {
+  const ids = Object.keys(bkPicked);
+  document.getElementById('bk-picked-count').textContent = `${ids.length}台選択中`;
+  document.getElementById('bk-submit-btn').style.display = ids.length > 0 ? 'block' : 'none';
+  document.getElementById('bk-empty-hint').style.display = ids.length > 0 ? 'none' : 'flex';
+
+  const wrap = document.getElementById('bk-rows');
+  wrap.innerHTML = ids.map(mid => {
+    const m = findMachine(mid);
+    const nm = m ? (m.attachment ? `${m.model}・${m.attachment}` : m.model) : '';
+    const d = bkRowData[mid];
+    const isCrusher = m && m.type === 'crusher';
+    const opOptions = ['<option value="">選択（空欄可）</option>']
+      .concat(operators.map(op => `<option value="${op}" ${d.operator===op?'selected':''}>${op}</option>`)).join('');
+
+    return `<div class="card" data-bkrow="${mid}">
+      <div class="card-h">
+        <div class="mname">${mid}　${nm}</div>
+        <span style="color:#c0392b;font-size:20px;cursor:pointer;padding:4px 8px" onclick="toggleBkMachine('${mid}')">✕</span>
+      </div>
+      <div class="card-b">
+        <div class="fg">
+          <label class="fl">運転者</label>
+          <select class="fc" onchange="bkSet('${mid}','operator',this.value)">${opOptions}</select>
+        </div>
+        <div class="frow" style="margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">アワーメータ終了(h)</label>
+            <input class="fc" type="number" inputmode="decimal" value="${d.hmeter}" oninput="bkSet('${mid}','hmeter',this.value)">
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">稼働時間(h)</label>
+            <input class="fc" type="number" step="0.5" inputmode="decimal" value="${d.whours}" oninput="bkSet('${mid}','whours',this.value)">
+          </div>
+        </div>
+        <div class="frow" style="margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">給油元</label>
+            <input class="fc" type="text" list="dl-floc" autocomplete="off" value="${d.floc}" oninput="bkSet('${mid}','floc',this.value)">
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">給油量(L)</label>
+            <input class="fc" type="number" inputmode="decimal" value="${d.famt}" oninput="bkSet('${mid}','famt',this.value)">
+          </div>
+        </div>
+        ${isCrusher ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0"><label class="fl">ビット</label><input class="fc" type="number" inputmode="numeric" value="${d.bit}" oninput="bkSet('${mid}','bit',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ボルト</label><input class="fc" type="number" inputmode="numeric" value="${d.bolt}" oninput="bkSet('${mid}','bolt',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ナット</label><input class="fc" type="number" inputmode="numeric" value="${d.nut}" oninput="bkSet('${mid}','nut',this.value)"></div>
+        </div>
+        <div class="fg"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" inputmode="decimal" value="${d.fuelhour}" oninput="bkSet('${mid}','fuelhour',this.value)"></div>
+        ` : ''}
+        <div class="fg">
+          <label class="fl">始業前点検</label>
+          <select class="fc" onchange="bkSet('${mid}','insp',this.value)">
+            <option value="未" ${d.insp==='未'?'selected':''}>未</option>
+            <option value="済" ${d.insp==='済'?'selected':''}>済（全項目）</option>
+            <option value="対象外" ${d.insp==='対象外'?'selected':''}>対象外（給油のみ）</option>
+          </select>
+        </div>
+        <div class="trow">
+          <span class="tlbl">グリス充填実施</span>
+          <div class="tog ${d.grease?'on':'off'}" onclick="bkToggle('${mid}','grease',this)"><div class="tog-k"></div></div>
+        </div>
+        <div class="trow">
+          <span class="tlbl">回送あり</span>
+          <div class="tog ${d.trans?'on':'off'}" onclick="bkToggle('${mid}','trans',this)"><div class="tog-k"></div></div>
+        </div>
+        <div class="fg" style="margin-top:11px;margin-bottom:0">
+          <label class="fl">備考・故障報告</label>
+          <select class="fc" style="margin-bottom:8px" onchange="bkSet('${mid}','noteType',this.value)">
+            <option value="" ${d.noteType===''?'selected':''}>選んでいない</option>
+            <option value="備考" ${d.noteType==='備考'?'selected':''}>備考</option>
+            <option value="故障" ${d.noteType==='故障'?'selected':''}>故障</option>
+            <option value="備考と故障" ${d.noteType==='備考と故障'?'selected':''}>備考と故障</option>
+          </select>
+          <textarea class="fc" rows="2" placeholder="任意" oninput="bkSet('${mid}','notes',this.value)">${d.notes}</textarea>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function bkSet(mid, key, val) {
+  if (!bkRowData[mid]) return;
+  bkRowData[mid][key] = val;
+}
+function bkToggle(mid, key, el) {
+  if (!bkRowData[mid]) return;
+  bkRowData[mid][key] = !bkRowData[mid][key];
+  el.classList.toggle('on');
+  el.classList.toggle('off');
+}
+
+function submitBulkReports() {
+  const date = document.getElementById('bk-date').value || todayStr();
+  const contractor = document.getElementById('bk-contractor').value.trim();
+  const location = document.getElementById('bk-location').value.trim();
+  const ids = Object.keys(bkPicked);
+  if (ids.length === 0) { showToast('重機を選択してください', 'err'); return; }
+
+  let count = 0;
+  ids.forEach(mid => {
+    const m = findMachine(mid);
+    const d = bkRowData[mid];
+    const hasWork = d.whours !== '' || d.hmeter !== '';
+    const report = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6) + count,
+      date, machineId: mid, yard: m ? m.yard : '', operator: d.operator, contractor, location,
+      hourMeter: d.hmeter, workHours: d.whours,
+      fuelLocation: d.floc, fuelAmount: d.famt,
+      inspection: !hasWork ? '対象外' : d.insp,
+      grease: d.grease ? '済' : '未',
+      transfer: d.trans ? '有' : '無',
+      notes: d.notes.trim(), noteType: d.noteType, photo: '',
+      bit: d.bit, bolt: d.bolt, nut: d.nut, fuelHour: d.fuelhour,
+      lat: gpsLat || '', lng: gpsLng || '', accuracy: gpsAcc || '',
+      savedAt: new Date().toISOString(), synced: false, deviceId: getDeviceId()
+    };
+    pending.push(report);
+    count++;
+  });
+  saveData();
+  updateSyncRow();
+  showToast(`${count}件の日報を保存しました`, 'ok');
+  renderSuggestLists([...allReports()]);
+
+  bkPicked = {}; bkRowData = {}; bkInspType = {};
+  document.getElementById('bk-contractor').value = '';
+  document.getElementById('bk-location').value = '';
+  renderBkMachinePicker();
+  renderBkRows();
+
+  if (navigator.onLine) autoSync();
 }
 
 window.addEventListener('DOMContentLoaded',initApp);
