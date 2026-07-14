@@ -105,19 +105,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .compact-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 @media(max-width:360px){.compact-row{grid-template-columns:1fr}}
 /* 月次一覧表（機体×日） */
-.ml-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #eee;border-radius:8px}
-.ml-table{border-collapse:collapse;font-size:13px;white-space:nowrap}
-.ml-table th,.ml-table td{border:1px solid #eee;padding:0;text-align:center}
-.ml-table thead th{background:#f7f7f7;color:#888;font-weight:700;font-size:12px;padding:6px 3px;position:sticky;top:0;z-index:2}
-.ml-table th.ml-daynum{min-width:30px}
+.ml-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e5e5e5;border-radius:10px;max-width:100%}
+.ml-table{border-collapse:collapse;font-size:14px}
+.ml-table th,.ml-table td{border:1px solid #ececec;padding:0;text-align:center}
+.ml-table thead th{background:#f7f7f7;color:#888;font-weight:700;font-size:13px;padding:8px 2px;position:sticky;top:0;z-index:2}
+.ml-table th.ml-daynum{width:52px;min-width:52px}
 .ml-table th.ml-sun{color:#c0392b}.ml-table th.ml-sat{color:#185fa5}
-.ml-machine-col{position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:8px 10px !important;font-weight:700;color:#185fa5;min-width:118px;max-width:118px;font-size:13px;border-right:2px solid #ddd}
-.ml-yard-row td{background:#eef3f9;color:#185fa5;font-weight:800;text-align:left;padding:7px 10px !important;position:sticky;left:0;font-size:14px}
-.ml-cell{width:30px;height:34px;cursor:pointer;font-size:11px;line-height:1.15;padding:2px 1px !important;overflow:hidden}
+.ml-machine-col{position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:12px 14px !important;font-weight:700;color:#185fa5;width:170px;min-width:170px;max-width:170px;font-size:15px;border-right:2px solid #ddd}
+.ml-yard-row td{background:#eef3f9;color:#185fa5;font-weight:800;text-align:left;padding:10px 14px !important;position:sticky;left:0;font-size:16px}
+.ml-cell{width:52px;height:56px;cursor:pointer;font-size:12px;line-height:1.3;padding:3px 3px !important;overflow:hidden;vertical-align:middle}
 .ml-cell.ml-ok{background:#eaf3de}
 .ml-cell.ml-caution{background:#faeeda}
 .ml-cell.ml-warn{background:#fcebeb}
-.ml-cell-txt{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:29px;margin:0 auto}
+.ml-cell.ml-span{border-left:2px solid #fff}
+.ml-cell-txt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;max-width:100%;margin:0 auto}
+.ml-cell-contractor{font-size:10.5px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.ml-cell-location{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+@media(min-width:900px){
+  .ml-cell{width:64px;height:60px;font-size:13px}
+  .ml-cell-contractor{font-size:11px}
+  .ml-cell-location{font-size:13px}
+  .ml-table th.ml-daynum{width:64px;min-width:64px}
+  .ml-machine-col{width:190px;min-width:190px;max-width:190px;font-size:16px}
+}
 .notice{padding:12px 14px;border-radius:9px;font-size:15px;margin-bottom:14px;display:flex;align-items:flex-start;gap:9px;line-height:1.55}
 .n-info{background:#e6f1fb;color:#0c447c;border:1px solid #b5d4f4}
 .n-warn{background:#faeeda;color:#854f0b;border:1px solid #fac775}
@@ -543,7 +553,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <span style="font-size:28px;color:#185fa5;cursor:pointer;padding:6px 20px;font-weight:700;line-height:1" onclick="calNav(1)">›</span>
     </div>
     <div class="ml-scroll"><table class="ml-table" id="ml-table"></table></div>
-    <div style="font-size:15px;color:#999;margin-top:10px;line-height:1.5">セルの文字は現場名（未入力の場合は元請名）。緑＝入力済み／黄＝点検未実施／赤＝備考あり。セルをタップで編集できます。横にスクロールできます。</div>
+    <div style="font-size:15px;color:#999;margin-top:10px;line-height:1.5">セル上段＝元請／下段＝現場名。緑＝入力済み／黄＝点検未実施／赤＝備考あり。同じ元請・現場名が連続する日はセルを結合表示します（同日に複数件入力がある場合は結合せず件数を表示）。セルをタップで編集できます。横にスクロールできます。</div>
   </div></div>
 
   <div class="slbl">特定自主検査 期限警告</div>
@@ -1991,6 +2001,9 @@ function renderMonthlyList(){
     g.ms.forEach(m=>{
       const nm=m.attachment?`${m.model}・${m.attachment}`:m.model;
       tbody+=`<tr><td class="ml-machine-col">${m.id}<br><span style="font-size:11px;color:#888;font-weight:500">${nm}</span></td>`;
+
+      // 1日ごとのセル情報（状態・元請・現場名・件数）を先に組み立てる
+      const days=[];
       for(let d=1;d<=daysIn;d++){
         const key=m.id+'|'+d;
         const rs=byMachineDay[key];
@@ -1998,13 +2011,43 @@ function renderMonthlyList(){
           let st='ok';
           rs.forEach(r=>{const s=dayStatus(r);if(s==='warn')st='warn';else if(s==='caution'&&st!=='warn')st='caution';});
           const rep=rs[rs.length-1];
-          const label=(rep.location||rep.contractor||'').trim() || '入力済';
-          const cnt=rs.length>1?`(${rs.length})`:'';
-          const midSafe=m.id.replace(/'/g,"\\'");
-          tbody+=`<td class="ml-cell ml-${st}" onclick="openMlCell('${midSafe}',${d})"><span class="ml-cell-txt">${label}${cnt}</span></td>`;
+          const contractor=(rep.contractor||'').trim();
+          const location=(rep.location||'').trim();
+          days.push({d, has:true, st, contractor, location, cnt:rs.length});
         }else{
-          tbody+=`<td class="ml-cell" onclick="openMlCell('${m.id.replace(/'/g,"\\'")}',${d})"></td>`;
+          days.push({d, has:false});
         }
+      }
+
+      // 連続する同一内容（拠点・元請・現場名・状態）のセルをcolspanで結合
+      const midSafe=m.id.replace(/'/g,"\\'");
+      let i=0;
+      while(i<days.length){
+        const cur=days[i];
+        if(!cur.has){
+          tbody+=`<td class="ml-cell" onclick="openMlCell('${midSafe}',${cur.d})"></td>`;
+          i++;
+          continue;
+        }
+        let span=1;
+        while(
+          i+span<days.length &&
+          days[i+span].has &&
+          days[i+span].st===cur.st &&
+          days[i+span].contractor===cur.contractor &&
+          days[i+span].location===cur.location &&
+          days[i+span].cnt===1 && cur.cnt===1 // 複数件入力がある日は結合対象から除外し、個別に件数表示する
+        ){
+          span++;
+        }
+        const cnt=cur.cnt>1?`(${cur.cnt})`:'';
+        const spanAttr=span>1?` colspan="${span}"`:'';
+        const spanCls=span>1?' ml-span':'';
+        const inner = (cur.contractor||cur.location)
+          ? `<span class="ml-cell-txt">${cur.contractor?`<span class="ml-cell-contractor">${cur.contractor}</span>`:''}${cur.location?`<span class="ml-cell-location">${cur.location}${cnt}</span>`:(cnt?`<span class="ml-cell-location">${cnt}</span>`:'')}</span>`
+          : `<span class="ml-cell-txt"><span class="ml-cell-location">入力済${cnt}</span></span>`;
+        tbody+=`<td class="ml-cell ml-${cur.st}${spanCls}"${spanAttr} onclick="openMlCell('${midSafe}',${cur.d})">${inner}</td>`;
+        i+=span;
       }
       tbody+='</tr>';
     });
