@@ -80,6 +80,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .gps-box.ok .gps-st{color:#27ae60}.gps-box.err .gps-st{color:#c0392b}
 .gps-coord{font-size:15px;color:#185fa5;margin-top:6px;font-family:monospace;word-break:break-all}
 .gps-box.err .gps-coord{color:#c0392b}
+/* コンパクトGPSバー（折りたたみ式） */
+.gps-bar{display:flex;align-items:center;gap:8px;background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:10px 12px;cursor:pointer;transition:.2s}
+.gps-bar.ok{background:#eaf3de;border-color:#97c459}
+.gps-bar.err{background:#fcebeb;border-color:#f09595}
+.gps-bar.skip{background:#eef0f2;border-color:#d5d5d5;opacity:.75}
+.gps-bar-st{font-size:15px;font-weight:700;color:#185fa5;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gps-bar.ok .gps-bar-st{color:#27ae60}.gps-bar.err .gps-bar-st{color:#c0392b}.gps-bar.skip .gps-bar-st{color:#888}
+.gps-detail{display:none;padding:10px 12px 2px}
+.gps-detail.open{display:block}
+/* GPSコンパクトカード（常時展開、1行構成） */
+.gps-compact{background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;transition:.2s}
+.gps-compact.ok{background:#eaf3de;border-color:#97c459}
+.gps-compact.err{background:#fcebeb;border-color:#f09595}
+.gps-compact.skip{background:#eef0f2;border-color:#d5d5d5}
+.gps-compact-icon{flex-shrink:0;display:flex}
+.gps-compact-txt{font-size:15px;font-weight:700;color:#185fa5;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gps-compact.ok .gps-compact-txt{color:#27ae60}
+.gps-compact.err .gps-compact-txt{color:#c0392b}
+.gps-compact.skip .gps-compact-txt{color:#888}
+.gps-compact-refresh{flex-shrink:0;font-size:14px;color:#185fa5;font-weight:700;cursor:pointer;padding:4px 8px;white-space:nowrap}
+.gps-compact-skiprow{width:100%;display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;color:#555;padding-top:2px}
+/* コンパクト化: 点検＋GPSを横並びにする行 */
+.compact-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+@media(max-width:360px){.compact-row{grid-template-columns:1fr}}
 .notice{padding:12px 14px;border-radius:9px;font-size:15px;margin-bottom:14px;display:flex;align-items:flex-start;gap:9px;line-height:1.55}
 .n-info{background:#e6f1fb;color:#0c447c;border:1px solid #b5d4f4}
 .n-warn{background:#faeeda;color:#854f0b;border:1px solid #fac775}
@@ -199,33 +223,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <!-- ===== 日報入力 ===== -->
 <div id="scr-input" class="scr">
 
-<!-- ========== モード切替（まとめて入力機能） ========== -->
-<div class="card"><div class="card-b">
+<!-- ========== モード切替（まとめて入力機能／常時表示） ========== -->
+<div class="card" id="mode-switch-card"><div class="card-b">
   <div class="frow" style="margin-bottom:0">
     <div class="chip on" id="mode-single" onclick="setInputMode('single')" style="text-align:center">📝 通常入力</div>
     <div class="chip" id="mode-bulk" onclick="setInputMode('bulk')" style="text-align:center">📋 まとめて入力</div>
   </div>
 </div></div>
 
+  <div id="single-input-wrap">
   <div class="notice n-info" id="inp-notice">
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     <span id="inp-notice-txt">圏外のため端末に保存します。電波回復時に自動送信されます。</span>
   </div>
 
   <div class="card"><div class="card-b">
-    <div class="fg">
-      <label class="fl">日付 <span style="color:#c0392b">*</span></label>
-      <input class="fc" type="date" id="f-date">
+    <div class="frow" style="margin-bottom:11px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">日付 <span style="color:#c0392b">*</span></label>
+        <input class="fc" type="date" id="f-date">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">重機番号 <span style="color:#c0392b">*</span></label>
+        <select class="fc" id="f-machine" onchange="onMachineChange()">
+          <option value="">選択</option>
+        </select>
+      </div>
     </div>
-    <div class="fg">
-      <label class="fl">重機番号 <span style="color:#c0392b">*</span></label>
-      <select class="fc" id="f-machine" onchange="onMachineChange()">
-        <option value="">選択してください</option>
-      </select>
-    </div>
-    <div class="fg">
-      <label class="fl">運転者（任意）　<span onclick="openOpModal()" style="color:#185fa5;cursor:pointer;font-size:15px;font-weight:700">👥 運転者を管理</span></label>
-      <select class="fc" id="f-operator"><option value="">選択してください（空欄可）</option></select>
+    <div class="frow" style="margin-bottom:11px;align-items:end;grid-template-columns:1fr auto">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">運転者（任意）</label>
+        <select class="fc" id="f-operator"><option value="">選択（空欄可）</option></select>
+      </div>
+      <span class="btn btn-sm btn-o" onclick="openOpModal()" style="height:52px;box-sizing:border-box;display:flex;align-items:center;justify-content:center">👥 管理</span>
     </div>
     <div class="fg">
       <label class="fl">元請（任意）</label>
@@ -239,28 +269,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
   </div></div>
 
-  <!-- 始業前点検 -->
-  <div class="card"><div class="card-b">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <span style="font-size:15px;font-weight:700">始業前点検（日常点検）</span>
-      <span class="bdg bdg-none" id="insp-status">未実施</span>
-    </div>
-    <div style="font-size:15px;color:#888;margin-bottom:10px" id="insp-hint">重機を選択すると点検表が表示されます</div>
-    <button class="btn btn-o" id="insp-open-btn" onclick="openInspModal()" style="display:none">始業前点検を開く</button>
-  </div></div>
+  <!-- 始業前点検（コンパクトバー） -->
+  <div class="gps-bar" id="insp-bar" onclick="openInspModal()" style="background:#fff;border-color:#d5d5d5;margin-bottom:10px">
+    <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    <span class="gps-bar-st" id="insp-status" style="color:#555">始業前点検</span>
+  </div>
 
-  <!-- GPS -->
-  <div class="gps-box" id="gps-box">
-    <div style="font-size:15px;color:#888;margin-bottom:8px;font-weight:700">重機の所在確認用</div>
-    <div class="gps-row">
-      <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      <span class="gps-st" id="gps-st">GPS取得中...</span>
-      <span class="btn btn-sm btn-o" onclick="getGPS()" style="margin-left:auto">再取得</span>
-    </div>
-    <div class="gps-coord" id="gps-coord">取得中...</div>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
-      <input type="checkbox" id="gps-skip" style="width:18px;height:18px;flex-shrink:0">
-      <span style="font-size:15px;color:#555">位置情報を記録しない</span>
+  <!-- GPS（常時展開・コンパクト1行〜2行） -->
+  <div class="gps-compact" id="gps-compact">
+    <span class="gps-compact-icon"><svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+    <span class="gps-compact-txt" id="gps-compact-txt">GPS取得中...</span>
+    <span class="gps-compact-refresh" onclick="getGPS()">↻ 再取得</span>
+    <label class="gps-compact-skiprow">
+      <input type="checkbox" id="gps-skip" style="width:16px;height:16px;flex-shrink:0" onchange="updateGpsBar()">
+      <span>位置情報を記録しない</span>
     </label>
   </div>
 
@@ -274,13 +296,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <div class="fg" style="margin-bottom:0">
         <label class="fl">稼働時間 (h)</label>
         <input class="fc" type="number" id="f-whours" placeholder="例: 7.5" step="0.5" inputmode="decimal">
-        <div style="font-size:15px;color:#888;margin-top:5px" id="whours-hint">前回との差から自動計算されます</div>
+        <div style="font-size:15px;color:#888;margin-top:5px" id="whours-hint">前回差で自動計算</div>
       </div>
     </div>
-    <div class="frow" style="margin-bottom:0">
+    <div class="frow" style="margin-bottom:11px">
       <div class="fg" style="margin-bottom:0">
         <label class="fl">給油元</label>
-        <input class="fc" type="text" id="f-floc" list="dl-floc" placeholder="例: 事務所" autocomplete="off">
+        <input class="fc" type="text" id="f-floc" list="dl-floc" placeholder="事務所" autocomplete="off">
         <datalist id="dl-floc">
           <option value="事務所"></option>
           <option value="現場"></option>
@@ -290,6 +312,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <div class="fg" style="margin-bottom:0">
         <label class="fl">給油量 (L)</label>
         <input class="fc" type="number" id="f-famt" placeholder="例: 45" inputmode="decimal">
+      </div>
+    </div>
+    <div class="frow" style="margin-bottom:0">
+      <div class="trow" style="padding:6px 0;border:none">
+        <span class="tlbl">グリス充填</span>
+        <div class="tog off" id="tog-grease" onclick="togEl(this)"><div class="tog-k"></div></div>
+      </div>
+      <div class="trow" style="padding:6px 0;border:none">
+        <span class="tlbl">回送あり</span>
+        <div class="tog off" id="tog-trans" onclick="togEl(this)"><div class="tog-k"></div></div>
       </div>
     </div>
   </div></div>
@@ -318,17 +350,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   </div></div>
 
   <div class="card"><div class="card-b">
-    <div class="trow">
-      <span class="tlbl">グリス充填実施</span>
-      <div class="tog off" id="tog-grease" onclick="togEl(this)"><div class="tog-k"></div></div>
-    </div>
-    <div class="trow">
-      <span class="tlbl">回送あり</span>
-      <div class="tog off" id="tog-trans" onclick="togEl(this)"><div class="tog-k"></div></div>
-    </div>
-  </div></div>
-
-  <div class="card"><div class="card-b">
     <label class="fl">備考・故障報告</label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px" id="nt-group">
       <label class="nt-opt" data-v="備考"><input type="radio" name="note-type" value="備考" style="width:18px;height:18px" onchange="updateNoteTypeUI()"><span>備考</span></label>
@@ -352,6 +373,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <button class="btn btn-p" onclick="submitReport()">保存する（電波回復時に自動送信）</button>
   <div style="height:20px"></div>
+  </div>
+  <!-- /single-input-wrap -->
 
 <!-- ========== まとめて入力 画面（scr-input内、通常フォームと排他表示） ========== -->
 <div id="bulk-input-wrap" style="display:none">
@@ -359,7 +382,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="card"><div class="card-b">
     <div class="fg">
       <label class="fl">日付（共通） <span style="color:#c0392b">*</span></label>
-      <input class="fc" type="date" id="bk-date">
+      <input class="fc" type="date" id="bk-date" onchange="bkRefetchAllPrevHours()">
     </div>
     <div class="fg">
       <label class="fl">元請（共通・任意）</label>
@@ -371,10 +394,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
   </div></div>
 
+  <!-- GPS（まとめて入力・全機体共通・常時展開コンパクト） -->
+  <div class="gps-compact" id="bk-gps-compact">
+    <span class="gps-compact-icon"><svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+    <span class="gps-compact-txt" id="bk-gps-compact-txt">GPS取得中...（全機体共通）</span>
+    <span class="gps-compact-refresh" onclick="getGPS()">↻ 再取得</span>
+    <label class="gps-compact-skiprow">
+      <input type="checkbox" id="bk-gps-skip" style="width:16px;height:16px;flex-shrink:0" onchange="updateGpsBar()">
+      <span>位置情報を記録しない</span>
+    </label>
+  </div>
+
   <div class="card"><div class="card-b">
     <label class="fl">対象重機を選択</label>
     <div id="bk-yard-chips" class="yard-chips"></div>
-    <div id="bk-machine-picker" style="max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:8px"></div>
+    <div id="bk-machine-picker" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px"></div>
     <div style="font-size:15px;color:#888;margin-top:8px" id="bk-picked-count">0台選択中</div>
   </div></div>
 
@@ -750,6 +784,7 @@ function initApp(){
   loadData();
   setDate(); updateNet(); populateForms();
   renderYardChips(); renderList(); renderMachines(); renderJikensa(); renderDash();
+  setInspBar('idle');
   getGPS(); updateSyncRow();
   syncStickyOffset();
   window.addEventListener('resize', syncStickyOffset);
@@ -964,21 +999,38 @@ function populateForms(){
 function onMachineChange(){
   const id=document.getElementById('f-machine').value;
   const m=findMachine(id);
-  const hint=document.getElementById('insp-hint');
-  const btn=document.getElementById('insp-open-btn');
-  const st=document.getElementById('insp-status');
   curInspChecks={};
-  st.textContent='未実施';st.className='bdg bdg-none';
   document.getElementById('crusher-fields').style.display=(m&&m.type==='crusher')?'block':'none';
   if(!m){
-    hint.textContent='重機を選択すると点検表が表示されます';btn.style.display='none';curInspType=null;
+    setInspBar('idle');
+    curInspType=null;
     prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
     return;
   }
   curInspType=m.type||'backhoe';
-  hint.textContent=`点検表: ${INSPECTION_DATA[curInspType].name}（${INSPECTION_DATA[curInspType].items.length}項目）`;
-  btn.style.display='block';
+  setInspBar('ready');
   updatePrevHour(id);
+}
+
+// 始業前点検バーの見た目を状態に応じて更新
+function setInspBar(state){
+  const bar=document.getElementById('insp-bar');
+  const st=document.getElementById('insp-status');
+  if(!bar||!st)return;
+  if(state==='idle'){
+    bar.style.background='#eef0f2';bar.style.borderColor='#d5d5d5';
+    st.textContent='始業前点検';st.style.color='#888';
+  }else if(state==='ready'){
+    bar.style.background='#fff';bar.style.borderColor='#185fa5';
+    const n=INSPECTION_DATA[curInspType].items.length;
+    st.textContent=`始業前点検（${n}項目）`;st.style.color='#185fa5';
+  }else if(state==='done'){
+    bar.style.background='#eaf3de';bar.style.borderColor='#97c459';
+    st.style.color='#3b6d11';
+  }else if(state==='partial'){
+    bar.style.background='#faeeda';bar.style.borderColor='#fac775';
+    st.style.color='#854f0b';
+  }
 }
 
 let prevHour=null;
@@ -1030,54 +1082,128 @@ function calcWorkHours(){
   }
 }
 
+let gpsState='loading'; // loading | ok | err
+let gpsErrMsg='';
 function getGPS(){
-  const box=document.getElementById('gps-box'),st=document.getElementById('gps-st'),coord=document.getElementById('gps-coord');
-  box.className='gps-box';st.textContent='GPS取得中...';coord.textContent='取得中...';
-  if(!navigator.geolocation){st.textContent='GPS非対応';coord.textContent='このデバイスはGPSに対応していません';box.className='gps-box err';return;}
+  gpsState='loading';gpsErrMsg='';
+  updateGpsBar();
+  if(!navigator.geolocation){gpsState='err';gpsErrMsg='このデバイスはGPSに対応していません';gpsLat=null;gpsLng=null;updateGpsBar();return;}
   navigator.geolocation.getCurrentPosition(
     pos=>{
       gpsLat=pos.coords.latitude.toFixed(6);gpsLng=pos.coords.longitude.toFixed(6);gpsAcc=Math.round(pos.coords.accuracy);
-      st.textContent='取得済';coord.textContent=`${gpsLat}, ${gpsLng}（精度: ±${gpsAcc}m）`;box.className='gps-box ok';
+      gpsState='ok';
+      updateGpsBar();
     },
     err=>{
       const msgs={1:'位置情報の許可が必要です',2:'位置情報を取得できません',3:'タイムアウト'};
-      st.textContent='GPS取得失敗';coord.textContent=msgs[err.code]||'取得失敗';box.className='gps-box err';gpsLat=null;gpsLng=null;
+      gpsState='err';gpsErrMsg=msgs[err.code]||'取得失敗';gpsLat=null;gpsLng=null;
+      updateGpsBar();
     },
     {timeout:15000,enableHighAccuracy:true,maximumAge:60000}
   );
 }
 
+// 通常入力・まとめて入力の両GPS表示を、現在の取得状態とskipチェックに応じて更新
+function updateGpsBar(){
+  const skip=document.getElementById('gps-skip') && document.getElementById('gps-skip').checked;
+  const box=document.getElementById('gps-compact'), txt=document.getElementById('gps-compact-txt');
+  if(box&&txt){
+    if(skip){box.className='gps-compact skip';txt.textContent='位置情報を記録しません';}
+    else if(gpsState==='ok'){box.className='gps-compact ok';txt.textContent=`${gpsLat}, ${gpsLng}（±${gpsAcc}m）`;}
+    else if(gpsState==='err'){box.className='gps-compact err';txt.textContent=gpsErrMsg||'GPS取得失敗';}
+    else{box.className='gps-compact';txt.textContent='GPS取得中...';}
+  }
+  const bkSkip=document.getElementById('bk-gps-skip') && document.getElementById('bk-gps-skip').checked;
+  const bbox=document.getElementById('bk-gps-compact'), btxt=document.getElementById('bk-gps-compact-txt');
+  if(bbox&&btxt){
+    if(bkSkip){bbox.className='gps-compact skip';btxt.textContent='位置情報を記録しません';}
+    else if(gpsState==='ok'){bbox.className='gps-compact ok';btxt.textContent=`${gpsLat}, ${gpsLng}（±${gpsAcc}m・全機体共通）`;}
+    else if(gpsState==='err'){bbox.className='gps-compact err';btxt.textContent=gpsErrMsg||'GPS取得失敗';}
+    else{bbox.className='gps-compact';btxt.textContent='GPS取得中...（全機体共通）';}
+  }
+}
+
+let bkModalMid=null; // まとめて入力から点検モーダルを開いた場合の対象機体ID（nullなら通常入力）
+
 function openInspModal(){
+  bkModalMid=null;
   if(!curInspType)return;
-  const data=INSPECTION_DATA[curInspType];
+  renderInspModalBody(curInspType, curInspChecks);
+  document.getElementById('insp-modal').classList.add('on');
+}
+
+// まとめて入力の行から、その機体専用の点検チェックを開く
+function openBkInspModal(mid){
+  const m=findMachine(mid);
+  if(!m)return;
+  bkModalMid=mid;
+  const type=m.type||'backhoe';
+  if(!bkRowData[mid].inspChecks)bkRowData[mid].inspChecks={};
+  renderInspModalBody(type, bkRowData[mid].inspChecks);
+  document.getElementById('insp-modal').classList.add('on');
+}
+
+function renderInspModalBody(type, checks){
+  const data=INSPECTION_DATA[type];
   document.getElementById('insp-modal-t').textContent=data.name+' 始業前点検';
-  document.getElementById('insp-pdf-link').href=INSPECTION_PDF[curInspType]||'#';
+  document.getElementById('insp-pdf-link').href=INSPECTION_PDF[type]||'#';
   const el=document.getElementById('insp-list');
   let html='',lastGroup='';
   data.items.forEach((it,i)=>{
     if(it[0]!==lastGroup){html+=`<div class="insp-gh">${it[0]}</div>`;lastGroup=it[0];}
-    const on=curInspChecks[i]?'on':'';
+    const on=checks[i]?'on':'';
     html+=`<div class="insp-item"><div class="insp-chk ${on}" onclick="toggleInspChk(${i},this)"></div><div class="insp-txt">${it[1]}</div></div>`;
   });
   el.innerHTML=html;
-  document.getElementById('insp-modal').classList.add('on');
 }
+
 function closeInspModal(){document.getElementById('insp-modal').classList.remove('on');}
-function toggleInspChk(i,el){curInspChecks[i]=!curInspChecks[i];el.classList.toggle('on');}
-function inspAllOn(){
-  const data=INSPECTION_DATA[curInspType];
-  data.items.forEach((it,i)=>curInspChecks[i]=true);
-  openInspModal();
+
+function activeInspChecks(){
+  return bkModalMid ? bkRowData[bkModalMid].inspChecks : curInspChecks;
 }
-function inspAllOff(){curInspChecks={};openInspModal();}
+function activeInspType(){
+  if(bkModalMid){const m=findMachine(bkModalMid);return m?(m.type||'backhoe'):'backhoe';}
+  return curInspType;
+}
+
+function toggleInspChk(i,el){
+  const checks=activeInspChecks();
+  checks[i]=!checks[i];
+  el.classList.toggle('on');
+}
+function inspAllOn(){
+  const type=activeInspType();
+  const data=INSPECTION_DATA[type];
+  const checks=activeInspChecks();
+  data.items.forEach((it,i)=>checks[i]=true);
+  renderInspModalBody(type, checks);
+}
+function inspAllOff(){
+  const type=activeInspType();
+  const checks=activeInspChecks();
+  Object.keys(checks).forEach(k=>delete checks[k]);
+  renderInspModalBody(type, checks);
+}
 function saveInspModal(){
-  const data=INSPECTION_DATA[curInspType];
+  const type=activeInspType();
+  const data=INSPECTION_DATA[type];
   const total=data.items.length;
-  const done=Object.values(curInspChecks).filter(Boolean).length;
-  const st=document.getElementById('insp-status');
-  if(done===total){st.textContent='済（全項目）';st.className='bdg bdg-ok';}
-  else if(done>0){st.textContent=`${done}/${total}項目`;st.className='bdg bdg-pend';}
-  else{st.textContent='未実施';st.className='bdg bdg-none';}
+  const checks=activeInspChecks();
+  const done=Object.values(checks).filter(Boolean).length;
+
+  if(bkModalMid){
+    const label=document.getElementById('bk-insp-status-'+bkModalMid);
+    if(label){
+      label.textContent = done===total?`点検済（全${total}項目）`:(done>0?`点検 ${done}/${total}項目`:bkInspLabel(bkRowData[bkModalMid], findMachine(bkModalMid)));
+      label.style.color = done>0?'#185fa5':'#555';
+    }
+  }else{
+    const st=document.getElementById('insp-status');
+    if(done===total){st.textContent=`点検済（全${total}項目）`;setInspBar('done');}
+    else if(done>0){st.textContent=`点検 ${done}/${total}項目`;setInspBar('partial');}
+    else{st.textContent='始業前点検（未実施）';setInspBar('ready');}
+  }
   closeInspModal();
   showToast(`点検 ${done}/${total}項目を記録`,'ok');
 }
@@ -1189,10 +1315,7 @@ function resetForm(){
   ['tog-grease','tog-trans'].forEach(id=>{const t=document.getElementById(id);t.classList.remove('on');t.classList.add('off');});
   document.getElementById('gps-skip').checked=false;
   curInspChecks={};curInspType=null;
-  document.getElementById('insp-status').textContent='未実施';
-  document.getElementById('insp-status').className='bdg bdg-none';
-  document.getElementById('insp-hint').textContent='重機を選択すると点検表が表示されます';
-  document.getElementById('insp-open-btn').style.display='none';
+  setInspBar('idle');
   gpsLat=null;gpsLng=null;gpsAcc=null;getGPS();
 }
 
@@ -2362,18 +2485,18 @@ function setInputMode(mode) {
   document.getElementById('mode-single').className = 'chip' + (bulkMode ? '' : ' on');
   document.getElementById('mode-bulk').className = 'chip' + (bulkMode ? ' on' : '');
 
-  // 通常フォームの各カードを非表示にし、まとめて入力エリアを表示
-  const singleCards = document.querySelectorAll('#scr-input > .card, #scr-input > .gps-box, #scr-input > button.btn-p');
-  singleCards.forEach(el => { el.style.display = bulkMode ? 'none' : ''; });
-  document.getElementById('inp-notice').style.display = bulkMode ? 'none' : 'flex';
+  // 通常フォーム一式とまとめて入力一式を、それぞれのラップdiv単位で排他表示
+  document.getElementById('single-input-wrap').style.display = bulkMode ? 'none' : 'block';
   document.getElementById('bulk-input-wrap').style.display = bulkMode ? 'block' : 'none';
 
   if (bulkMode) {
-    document.getElementById('bk-date').value = todayStr();
+    document.getElementById('bk-date').value = document.getElementById('f-date').value || todayStr();
     renderBkYardChips();
     renderBkMachinePicker();
     renderBkRows();
   }
+  updateGpsBar();
+  requestAnimationFrame(syncStickyOffset);
 }
 
 function renderBkYardChips() {
@@ -2388,6 +2511,18 @@ function setBkYard(y) {
   bkYard = y;
   renderBkYardChips();
   renderBkMachinePicker();
+}
+
+// 共通日付が変更されたとき、選択済み全機体の前回終了アワメータを取り直す
+function bkRefetchAllPrevHours() {
+  Object.keys(bkPicked).forEach(mid => {
+    if (bkRowData[mid]) {
+      bkRowData[mid].prevHour = null;
+      bkRowData[mid].prevHourLabel = '取得中...';
+      bkFetchPrevHour(mid);
+    }
+  });
+  renderBkRows();
 }
 
 function renderBkMachinePicker() {
@@ -2418,12 +2553,70 @@ function toggleBkMachine(mid) {
       bkRowData[mid] = {
         operator:'', hmeter:'', whours:'', floc:'', famt:'',
         insp:'未', inspChecks:{}, grease:false, trans:false, noteType:'', notes:'',
-        bit:'', bolt:'', nut:'', fuelhour:''
+        bit:'', bolt:'', nut:'', fuelhour:'',
+        prevHour:null, prevHourLabel:'取得中...'
       };
+      bkFetchPrevHour(mid);
     }
   }
   renderBkMachinePicker();
   renderBkRows();
+}
+
+// 通常入力のupdatePrevHourと同ロジックで、機体ごとの前回終了アワメータを取得
+async function bkFetchPrevHour(mid) {
+  const selDate = document.getElementById('bk-date').value || todayStr();
+  const consider = (r, best) => {
+    const h = parseFloat(r.hourMeter);
+    if (isNaN(h)) return best;
+    if (String(r.date) > selDate) return best;
+    const key = String(r.date) + String(r.savedAt || '');
+    if (!best || key > best.key) return { key, h, date: r.date };
+    return best;
+  };
+  let best = null;
+  [...allReports(), ...serverToday].filter(r => r.machineId === mid).forEach(r => { best = consider(r, best); });
+  if (navigator.onLine && GAS_URL !== 'YOUR_GAS_WEB_APP_URL_HERE') {
+    try {
+      const d = new Date(selDate + 'T00:00:00');
+      const thisM = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm = new Date(d.getFullYear(), d.getMonth()-1, 1);
+      const prevM = `${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results = await Promise.all([thisM, prevM].map(ym =>
+        fetch(gasGet('action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid))).then(r=>r.json()).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd => { (dd.reports||[]).forEach(r => { best = consider(r, best); }); });
+    } catch(e) {}
+  }
+  // 取得中にユーザーが機体を選択解除していたら反映しない
+  if (!bkRowData[mid]) return;
+  if (best) {
+    bkRowData[mid].prevHour = best.h;
+    const dd = String(best.date);
+    bkRowData[mid].prevHourLabel = `${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+  } else {
+    bkRowData[mid].prevHour = null;
+    bkRowData[mid].prevHourLabel = '記録なし';
+  }
+  const label = document.getElementById('bk-prevh-'+mid);
+  if (label) label.textContent = '前回終了: ' + bkRowData[mid].prevHourLabel;
+  bkCalcWorkHours(mid);
+}
+
+// アワメータ入力時に前回値との差から稼働時間を自動計算（通常入力のcalcWorkHoursと同ロジック）
+function bkCalcWorkHours(mid) {
+  const d = bkRowData[mid];
+  if (!d || d.prevHour === null || d.prevHour === undefined) return;
+  const curEl = document.getElementById('bk-hmeter-'+mid);
+  if (!curEl) return;
+  const cur = parseFloat(curEl.value);
+  if (isNaN(cur)) return;
+  const diff = Math.round((cur - d.prevHour) * 10) / 10;
+  if (diff >= 0 && diff < 48) {
+    d.whours = diff;
+    const wEl = document.getElementById('bk-whours-'+mid);
+    if (wEl) wEl.value = diff;
+  }
 }
 
 function renderBkRows() {
@@ -2451,14 +2644,23 @@ function renderBkRows() {
           <label class="fl">運転者</label>
           <select class="fc" onchange="bkSet('${mid}','operator',this.value)">${opOptions}</select>
         </div>
+
+        <!-- 始業前点検（通常入力と同じバー形式、タップでモーダル） -->
+        <div class="gps-bar" onclick="openBkInspModal('${mid}')" style="background:#fff;border-color:#d5d5d5;margin-bottom:11px">
+          <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span class="gps-bar-st" id="bk-insp-status-${mid}" style="color:${Object.values(d.inspChecks||{}).some(Boolean)?'#185fa5':'#555'}">${bkInspLabel(d, m)}</span>
+        </div>
+
         <div class="frow" style="margin-bottom:11px">
           <div class="fg" style="margin-bottom:0">
             <label class="fl">アワーメータ終了(h)</label>
-            <input class="fc" type="number" inputmode="decimal" value="${d.hmeter}" oninput="bkSet('${mid}','hmeter',this.value)">
+            <input class="fc" type="number" inputmode="decimal" value="${d.hmeter}" oninput="bkSet('${mid}','hmeter',this.value);bkCalcWorkHours('${mid}')" id="bk-hmeter-${mid}">
+            <div id="bk-prevh-${mid}" style="font-size:15px;color:#888;margin-top:5px">前回終了: ${d.prevHourLabel || '取得中...'}</div>
           </div>
           <div class="fg" style="margin-bottom:0">
             <label class="fl">稼働時間(h)</label>
-            <input class="fc" type="number" step="0.5" inputmode="decimal" value="${d.whours}" oninput="bkSet('${mid}','whours',this.value)">
+            <input class="fc" type="number" step="0.5" inputmode="decimal" value="${d.whours}" oninput="bkSet('${mid}','whours',this.value)" id="bk-whours-${mid}">
+            <div style="font-size:15px;color:#888;margin-top:5px">前回差で自動計算</div>
           </div>
         </div>
         <div class="frow" style="margin-bottom:11px">
@@ -2472,28 +2674,23 @@ function renderBkRows() {
           </div>
         </div>
         ${isCrusher ? `
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#185fa5">破砕機 部品・消耗品交換</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:11px">
-          <div class="fg" style="margin-bottom:0"><label class="fl">ビット</label><input class="fc" type="number" inputmode="numeric" value="${d.bit}" oninput="bkSet('${mid}','bit',this.value)"></div>
-          <div class="fg" style="margin-bottom:0"><label class="fl">ボルト</label><input class="fc" type="number" inputmode="numeric" value="${d.bolt}" oninput="bkSet('${mid}','bolt',this.value)"></div>
-          <div class="fg" style="margin-bottom:0"><label class="fl">ナット</label><input class="fc" type="number" inputmode="numeric" value="${d.nut}" oninput="bkSet('${mid}','nut',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ビット(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.bit}" oninput="bkSet('${mid}','bit',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ボルト(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.bolt}" oninput="bkSet('${mid}','bolt',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ナット(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.nut}" oninput="bkSet('${mid}','nut',this.value)"></div>
         </div>
-        <div class="fg"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" inputmode="decimal" value="${d.fuelhour}" oninput="bkSet('${mid}','fuelhour',this.value)"></div>
+        <div class="fg" style="margin-bottom:11px"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" inputmode="decimal" value="${d.fuelhour}" oninput="bkSet('${mid}','fuelhour',this.value)"></div>
         ` : ''}
-        <div class="fg">
-          <label class="fl">始業前点検</label>
-          <select class="fc" onchange="bkSet('${mid}','insp',this.value)">
-            <option value="未" ${d.insp==='未'?'selected':''}>未</option>
-            <option value="済" ${d.insp==='済'?'selected':''}>済（全項目）</option>
-            <option value="対象外" ${d.insp==='対象外'?'selected':''}>対象外（給油のみ）</option>
-          </select>
-        </div>
-        <div class="trow">
-          <span class="tlbl">グリス充填実施</span>
-          <div class="tog ${d.grease?'on':'off'}" onclick="bkToggle('${mid}','grease',this)"><div class="tog-k"></div></div>
-        </div>
-        <div class="trow">
-          <span class="tlbl">回送あり</span>
-          <div class="tog ${d.trans?'on':'off'}" onclick="bkToggle('${mid}','trans',this)"><div class="tog-k"></div></div>
+        <div class="frow" style="margin-bottom:0">
+          <div class="trow" style="padding:6px 0;border:none">
+            <span class="tlbl">グリス充填</span>
+            <div class="tog ${d.grease?'on':'off'}" onclick="bkToggle('${mid}','grease',this)"><div class="tog-k"></div></div>
+          </div>
+          <div class="trow" style="padding:6px 0;border:none">
+            <span class="tlbl">回送あり</span>
+            <div class="tog ${d.trans?'on':'off'}" onclick="bkToggle('${mid}','trans',this)"><div class="tog-k"></div></div>
+          </div>
         </div>
         <div class="fg" style="margin-top:11px;margin-bottom:0">
           <label class="fl">備考・故障報告</label>
@@ -2508,6 +2705,16 @@ function renderBkRows() {
       </div>
     </div>`;
   }).join('');
+}
+
+// まとめて入力の行に表示する始業前点検ラベル（通常入力のsetInspBar相当）
+function bkInspLabel(d, m) {
+  const type = m ? (m.type || 'backhoe') : 'backhoe';
+  const total = INSPECTION_DATA[type] ? INSPECTION_DATA[type].items.length : 0;
+  const done = Object.values(d.inspChecks || {}).filter(Boolean).length;
+  if (done === 0) return `始業前点検（${total}項目）`;
+  if (done === total) return `点検済（全${total}項目）`;
+  return `点検 ${done}/${total}項目`;
 }
 
 function bkSet(mid, key, val) {
@@ -2525,6 +2732,7 @@ function submitBulkReports() {
   const date = document.getElementById('bk-date').value || todayStr();
   const contractor = document.getElementById('bk-contractor').value.trim();
   const location = document.getElementById('bk-location').value.trim();
+  const bkSkipGps = document.getElementById('bk-gps-skip') && document.getElementById('bk-gps-skip').checked;
   const ids = Object.keys(bkPicked);
   if (ids.length === 0) { showToast('重機を選択してください', 'err'); return; }
 
@@ -2533,17 +2741,21 @@ function submitBulkReports() {
     const m = findMachine(mid);
     const d = bkRowData[mid];
     const hasWork = d.whours !== '' || d.hmeter !== '';
+    const type = m ? (m.type || 'backhoe') : 'backhoe';
+    const total = INSPECTION_DATA[type] ? INSPECTION_DATA[type].items.length : 0;
+    const done = Object.values(d.inspChecks || {}).filter(Boolean).length;
+    const inspStatus = !hasWork ? '対象外' : (done===0?'未':(done===total?'済':`一部(${done}/${total})`));
     const report = {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 6) + count,
       date, machineId: mid, yard: m ? m.yard : '', operator: d.operator, contractor, location,
       hourMeter: d.hmeter, workHours: d.whours,
       fuelLocation: d.floc, fuelAmount: d.famt,
-      inspection: !hasWork ? '対象外' : d.insp,
+      inspection: inspStatus,
       grease: d.grease ? '済' : '未',
       transfer: d.trans ? '有' : '無',
       notes: d.notes.trim(), noteType: d.noteType, photo: '',
       bit: d.bit, bolt: d.bolt, nut: d.nut, fuelHour: d.fuelhour,
-      lat: gpsLat || '', lng: gpsLng || '', accuracy: gpsAcc || '',
+      lat: bkSkipGps ? '' : (gpsLat || ''), lng: bkSkipGps ? '' : (gpsLng || ''), accuracy: bkSkipGps ? '' : (gpsAcc || ''),
       savedAt: new Date().toISOString(), synced: false, deviceId: getDeviceId()
     };
     pending.push(report);
@@ -2564,6 +2776,7 @@ function submitBulkReports() {
 }
 
 window.addEventListener('DOMContentLoaded',initApp);
+
 </script>
 </div>
 </body>
