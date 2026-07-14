@@ -2038,4 +2038,894 @@ function renderCalendar(){
     byDay[d].push(r);
   });
   Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
-  cons
+  const isMultiScope = !calMachineId;
+  for(let d=1;d<=daysIn;d++){
+    const cell=document.createElement('div');
+    const rs=byDay[d];
+    if(rs&&rs.length>0){
+      let st='ok';
+      rs.forEach(r=>{const s=dayStatus(r);if(s==='warn')st='warn';else if(s==='caution'&&st!=='warn')st='caution';});
+      cell.className='cal-cell cal-'+st;
+      if(isMultiScope){
+        const machineCount=new Set(rs.map(r=>r.machineId)).size;
+        cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${machineCount}機体入力済み</div>`;
+      }else{
+        const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+        let sub=st==='warn'?'備考あり':(st==='caution'?'点検未':(totalW?totalW+'h':'入力済'));
+        if(rs.length>1)sub=`${rs.length}件 ${sub}`;
+        cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${sub}</div>`;
+      }
+    }else{
+      cell.className='cal-cell';
+      cell.innerHTML=`<div class="cal-day" style="color:#bbb;font-weight:500">${d}</div>`;
+    }
+    cell.onclick=()=>{
+      if(isMultiScope){
+        openDayMultiMachineModal(d,rs||[]);
+      }else{
+        openDayModal(d,rs||[]);
+      }
+    };
+    grid.appendChild(cell);
+  }
+}
+
+let dmCurrent=null;
+let dmDayReports=[];
+function openDayModal(day,rs){
+  const mid=calMachineId;
+  const title=`${calMonth+1}月${day}日　${mid}`;
+  openReportModal(title,rs);
+}
+
+function openDayMultiMachineModal(day,rs){
+  if(!rs||rs.length===0){openReportModal(`${calMonth+1}月${day}日`,[]);return;}
+  const byMachine={};
+  rs.forEach(r=>{if(!byMachine[r.machineId])byMachine[r.machineId]=[];byMachine[r.machineId].push(r);});
+  const mids=Object.keys(byMachine);
+  if(mids.length===1){
+    openReportModal(`${calMonth+1}月${day}日　${mids[0]}`,byMachine[mids[0]]);
+    return;
+  }
+  window.__dmDayMachines=byMachine;
+  const listHtml=mids.map(mid=>{
+    const m=findMachine(mid);
+    const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+    const cnt=byMachine[mid].length;
+    const midSafe=mid.replace(/'/g,"\\'");
+    return `<div class="mrow" style="cursor:pointer" onclick="openDayModalFromList('${midSafe}',${day})">
+      <span class="mrow-id">${mid}</span><span class="mrow-name">${nm}</span><span class="bdg bdg-blue">${cnt}件</span>
+    </div>`;
+  }).join('');
+  document.getElementById('dm-title').textContent=`${calMonth+1}月${day}日　${mids.length}機体入力済み`;
+  document.getElementById('dm-form').style.display='none';
+  document.getElementById('dm-empty').style.display='none';
+  document.getElementById('dm-multi').innerHTML=`<div class="card">${listHtml}</div>`;
+  document.getElementById('day-modal').classList.add('on');
+}
+function openDayModalFromList(mid,day){
+  const rs=(window.__dmDayMachines&&window.__dmDayMachines[mid])||[];
+  openReportModal(`${calMonth+1}月${day}日　${mid}`,rs);
+}
+
+function openReportModal(title,rs){
+  document.getElementById('dm-title').textContent=title;
+  const form=document.getElementById('dm-form');
+  const empty=document.getElementById('dm-empty');
+  const selWrap=document.getElementById('dm-multi');
+  dmDayReports=rs||[];
+  if(!rs || rs.length===0){
+    form.style.display='none';empty.style.display='block';selWrap.innerHTML='';dmCurrent=null;
+    document.getElementById('day-modal').classList.add('on');
+    return;
+  }
+  if(rs.length>1){
+    selWrap.innerHTML='<div class="fl" style="margin-bottom:6px">この日の日報 '+rs.length+'件（タップで切替）</div>'+
+      rs.map((r,i)=>{
+        const tm=r.savedAt?new Date(r.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'--:--';
+        return `<div class="dm-sel" data-i="${i}" onclick="dmSelect(${i})" style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1.5px solid #d5d5d5;border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fafafa">
+          <span style="font-weight:800;color:#185fa5;font-size:15px">${tm}</span>
+          <span style="font-weight:700;font-size:16px;flex:1">${r.operator||'（運転者未記入）'}</span>
+          <span style="font-size:15px;color:#888">${r.workHours||'—'}h</span>
+        </div>`;
+      }).join('')+'<div style="height:6px"></div>';
+  }else{
+    selWrap.innerHTML='';
+  }
+  dmSelect(rs.length-1);
+  document.getElementById('day-modal').classList.add('on');
+}
+
+function dmSelect(i){
+  const r=dmDayReports[i];
+  if(!r)return;
+  dmCurrent=r;
+  document.querySelectorAll('.dm-sel').forEach(el=>{
+    el.style.borderColor=el.dataset.i==i?'#185fa5':'#d5d5d5';
+    el.style.background=el.dataset.i==i?'#e6f1fb':'#fafafa';
+  });
+  document.getElementById('dm-form').style.display='block';
+  document.getElementById('dm-empty').style.display='none';
+  document.getElementById('dm-date').value=r.date||'';
+  const mSel=document.getElementById('dm-machine');
+  mSel.innerHTML='';
+  YARDS.forEach(y=>{
+    const inY=machines.filter(m=>m.yard===y);
+    if(inY.length===0)return;
+    let grp=`<optgroup label="${y}">`;
+    inY.forEach(m=>{
+      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+      grp+=`<option value="${m.id}">${lbl}</option>`;
+    });
+    grp+='</optgroup>';
+    mSel.innerHTML+=grp;
+  });
+  if(r.machineId && !machines.some(m=>m.id===r.machineId)){
+    mSel.innerHTML=`<option value="${r.machineId}">${r.machineId}（マスタ未登録）</option>`+mSel.innerHTML;
+  }
+  mSel.value=r.machineId||'';
+  const opSel=document.getElementById('dm-operator');
+  opSel.innerHTML='<option value="">（空欄）</option>';
+  const names=[...operators];
+  if(r.operator && !names.includes(r.operator))names.unshift(r.operator);
+  names.forEach(n=>opSel.innerHTML+=`<option value="${n}">${n}</option>`);
+  opSel.value=r.operator||'';
+  document.getElementById('dm-location').value=r.location||'';
+  document.getElementById('dm-contractor').value=r.contractor||'';
+  document.getElementById('dm-hmeter').value=r.hourMeter!==undefined?r.hourMeter:'';
+  document.getElementById('dm-whours').value=r.workHours!==undefined?r.workHours:'';
+  document.getElementById('dm-floc').value=r.fuelLocation||'';
+  document.getElementById('dm-famt').value=r.fuelAmount!==undefined?r.fuelAmount:'';
+  const inspSel=document.getElementById('dm-insp');
+  inspSel.innerHTML='<option value="済">済</option><option value="未">未</option><option value="対象外">対象外（給油のみ）</option>';
+  if(r.inspection && !['済','未','対象外'].includes(r.inspection))inspSel.innerHTML+=`<option value="${r.inspection}">${r.inspection}</option>`;
+  inspSel.value=r.inspection||'未';
+  document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
+  document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
+  document.getElementById('dm-notes').value=r.notes||'';
+  document.getElementById('dm-notetype').value=r.noteType||'';
+  const pw=document.getElementById('dm-photo-wrap');
+  if(r.photoUrl){pw.style.display='block';document.getElementById('dm-photo-link').href=r.photoUrl;}
+  else{pw.style.display='none';}
+  const dmM=findMachine(r.machineId);
+  const isCrusher=dmM&&dmM.type==='crusher';
+  document.getElementById('dm-crusher').style.display=isCrusher?'block':'none';
+  document.getElementById('dm-bit').value=r.bit!==undefined?r.bit:'';
+  document.getElementById('dm-bolt').value=r.bolt!==undefined?r.bolt:'';
+  document.getElementById('dm-nut').value=r.nut!==undefined?r.nut:'';
+  document.getElementById('dm-fuelhour').value=r.fuelHour!==undefined?r.fuelHour:'';
+  document.getElementById('dm-gps-txt').textContent=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
+  const gpsLink=document.getElementById('dm-gps-link');
+  if(r.lat){gpsLink.href=`https://www.google.com/maps?q=${r.lat},${r.lng}`;gpsLink.style.display='inline';}
+  else{gpsLink.style.display='none';}
+  const noid=!r.id;
+  document.getElementById('dm-noid').style.display=noid?'block':'none';
+  document.getElementById('dm-save').style.display=noid?'none':'block';
+  document.getElementById('dm-delete').style.display=noid?'none':'block';
+}
+function closeDayModal(){document.getElementById('day-modal').classList.remove('on');}
+
+async function saveDayModal(){
+  if(!dmCurrent||!dmCurrent.id){showToast('編集できないデータです','err');return;}
+  if(!navigator.onLine){showToast('編集はオンライン時のみ可能です','err');return;}
+  const newDate=document.getElementById('dm-date').value;
+  const newMachine=document.getElementById('dm-machine').value;
+  if(!newDate){showToast('日付を入力してください','err');return;}
+  if(!newMachine){showToast('重機番号を選択してください','err');return;}
+  const moved = (newDate!==dmCurrent.date) || (newMachine!==dmCurrent.machineId);
+  if(moved && !confirm(`日付/重機番号を変更します。\n${dmCurrent.date} ${dmCurrent.machineId} → ${newDate} ${newMachine}\nよろしいですか？`))return;
+  const upd={
+    id:dmCurrent.id,
+    date:newDate,
+    machineId:newMachine,
+    operator:document.getElementById('dm-operator').value,
+    contractor:document.getElementById('dm-contractor').value.trim(),
+    location:document.getElementById('dm-location').value.trim(),
+    hourMeter:document.getElementById('dm-hmeter').value,
+    workHours:document.getElementById('dm-whours').value,
+    fuelLocation:document.getElementById('dm-floc').value,
+    fuelAmount:document.getElementById('dm-famt').value,
+    inspection:document.getElementById('dm-insp').value,
+    grease:document.getElementById('dm-grease').classList.contains('on')?'済':'未',
+    transfer:document.getElementById('dm-trans').classList.contains('on')?'有':'無',
+    notes:document.getElementById('dm-notes').value.trim(),
+    noteType:document.getElementById('dm-notetype').value,
+    bit:document.getElementById('dm-bit').value,
+    bolt:document.getElementById('dm-bolt').value,
+    nut:document.getElementById('dm-nut').value,
+    fuelHour:document.getElementById('dm-fuelhour').value
+  };
+  showToast('保存中...','');
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'editReport',report:upd})});
+    const data=await res.json();
+    if(data.success){
+      const newYard=(findMachine(newMachine)||{}).yard||'';
+      [pending,synced].forEach(arr=>{
+        const idx=arr.findIndex(r=>r.id===upd.id);
+        if(idx>=0)Object.assign(arr[idx],upd,{yard:newYard});
+      });
+      serverToday=serverToday.map(r=>r.id===upd.id?Object.assign({},r,upd,{yard:newYard}):r);
+      saveData();
+      closeDayModal();
+      showToast('日報を更新しました','ok');
+      loadCalMonth();refreshTodayList(false);refreshDashMonth();
+    }else{
+      showToast(data.error||'更新に失敗しました','err');
+    }
+  }catch(e){showToast('通信エラー: '+e.message,'err');}
+}
+
+async function deleteDayModal(){
+  if(!dmCurrent||!dmCurrent.id){showToast('削除できないデータです','err');return;}
+  if(!navigator.onLine){showToast('削除はオンライン時のみ可能です','err');return;}
+  const tm=dmCurrent.savedAt?new Date(dmCurrent.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'';
+  if(!confirm(`${dmCurrent.operator||'（運転者未記入）'} ${tm} の日報を削除しますか？\nこの操作は取り消せません。`))return;
+  showToast('削除中...','');
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteReport',id:dmCurrent.id})});
+    const data=await res.json();
+    if(data.success){
+      const delId=dmCurrent.id;
+      pending=pending.filter(r=>r.id!==delId);
+      synced=synced.filter(r=>r.id!==delId);
+      serverToday=serverToday.filter(r=>r.id!==delId);
+      saveData();
+      closeDayModal();
+      showToast('日報を削除しました','ok');
+      loadCalMonth();refreshTodayList(false);refreshDashMonth();
+    }else{
+      showToast(data.error||'削除に失敗しました','err');
+    }
+  }catch(e){showToast('通信エラー: '+e.message,'err');}
+}
+function openOpModal(){renderOps();document.getElementById('op-modal').classList.add('on');}
+function closeOpModal(){document.getElementById('op-modal').classList.remove('on');}
+function renderOps(){
+  document.getElementById('op-cnt').textContent=operators.length+'名';
+  const el=document.getElementById('op-list');
+  if(operators.length===0){el.innerHTML='<div class="empty"><div class="empty-txt">運転者が登録されていません</div></div>';return;}
+  el.innerHTML=operators.map(n=>`<div class="mrow"><span class="mrow-name" style="font-size:15px">${n}</span><span class="btn btn-sm btn-d" onclick="deleteOperator('${n}')">削除</span></div>`).join('');
+}
+function addOperator(){
+  const inp=document.getElementById('op-new');
+  const name=inp.value.trim();
+  if(!name){showToast('氏名を入力してください','err');return;}
+  if(operators.includes(name)){showToast(name+' は既に登録されています','err');return;}
+  operators.push(name);saveData();populateForms();renderOps();
+  inp.value='';
+  showToast(name+' を追加しました','ok');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'addOperator',name})}).catch(()=>{});
+  }
+}
+function deleteOperator(name){
+  if(!confirm(name+' を削除しますか？'))return;
+  operators=operators.filter(n=>n!==name);saveData();populateForms();renderOps();
+  showToast(name+' を削除しました','');
+  if(navigator.onLine&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:gasBody({action:'deleteOperator',name})}).catch(()=>{});
+  }
+}
+
+function openCsvModal(){
+  const sel=document.getElementById('csv-machine');
+  sel.innerHTML='<option value="">全機体</option>';
+  YARDS.forEach(y=>{
+    const inY=machines.filter(m=>m.yard===y);
+    if(inY.length===0)return;
+    let grp=`<optgroup label="${y}">`;
+    inY.forEach(m=>{
+      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+      grp+=`<option value="${m.id}">${lbl}</option>`;
+    });
+    grp+='</optgroup>';
+    sel.innerHTML+=grp;
+  });
+  const t=todayStr();
+  const firstOfMonth=t.slice(0,8)+'01';
+  document.getElementById('csv-from').value=firstOfMonth;
+  document.getElementById('csv-to').value=t;
+  document.getElementById('csv-modal').classList.add('on');
+}
+function closeCsvModal(){document.getElementById('csv-modal').classList.remove('on');}
+
+async function exportCsv(){
+  const mid=document.getElementById('csv-machine').value;
+  const from=document.getElementById('csv-from').value;
+  const to=document.getElementById('csv-to').value;
+  if(!from||!to){showToast('開始日と終了日を指定してください','err');return;}
+  if(from>to){showToast('開始日は終了日より前にしてください','err');return;}
+
+  showToast('データを集計中...','');
+  let rows=[];
+  if(navigator.onLine && GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE'){
+    const months=new Set();
+    let cur=new Date(from+'T00:00:00');
+    const end=new Date(to+'T00:00:00');
+    while(cur<=end){months.add(`${cur.getFullYear()}-${pad(cur.getMonth()+1)}`);cur.setMonth(cur.getMonth()+1);}
+    try{
+      const results=await Promise.all([...months].map(ym=>
+        fetch(gasGet('action=getReports&month='+ym+(mid?'&machineId='+encodeURIComponent(mid):''))).then(r=>r.json())
+      ));
+      results.forEach(d=>{if(d.reports)rows.push(...d.reports);});
+    }catch(e){
+      showToast('サーバー取得に失敗。端末内データのみで出力します','err');
+      rows=allReports();
+    }
+  }else{
+    rows=allReports();
+  }
+
+  rows=rows.filter(r=>r.date>=from && r.date<=to);
+  if(mid)rows=rows.filter(r=>String(r.machineId)===String(mid));
+  rows.sort((a,b)=>(a.date+String(a.savedAt||'')).localeCompare(b.date+String(b.savedAt||'')));
+
+  if(rows.length===0){showToast('該当データがありません','err');return;}
+
+  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油元','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考区分','備考','写真URL','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
+  const csvRows=[headers.join(',')];
+  rows.forEach(r=>{
+    const vals=[
+      r.date, r.machineId, r.yard, r.operator, r.contractor, r.location,
+      r.hourMeter, r.workHours, r.fuelLocation, r.fuelAmount,
+      r.inspection, r.grease, r.transfer, r.lat, r.lng, r.noteType, r.notes, r.photoUrl,
+      r.bit, r.bolt, r.nut, r.fuelHour
+    ].map(v=>{
+      const s=(v===undefined||v===null)?'':String(v);
+      return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+    });
+    csvRows.push(vals.join(','));
+  });
+  const csvContent='\uFEFF'+csvRows.join('\r\n');
+
+  const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const mLabel=mid?mid:'全機体';
+  a.href=url;
+  a.download=`重機日報_${mLabel}_${from}_${to}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  closeCsvModal();
+  showToast(`${rows.length}件をCSV出力しました`,'ok');
+}
+
+function printMonth(){
+  const mid=calMachineId;
+  if(!mid){showToast('印刷するには機体を選択してください','err');return;}
+  const m=findMachine(mid);
+  if(m&&m.type==='crusher'){printCrusherMonth(mid,m);return;}
+  printStandardMonth(mid,m);
+}
+
+function printCrusherMonth(mid,m){
+  const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+  const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  const byDay={};
+  calReports.forEach(r=>{
+    const d=parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d))return;
+    if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
+  });
+  let monthStart='';
+  const firstDay=Object.keys(byDay).map(Number).sort((a,b)=>a-b)[0];
+  if(firstDay){
+    const fr=byDay[firstDay];
+    const h=parseFloat(fr.hourMeter), w=parseFloat(fr.workHours);
+    if(!isNaN(h)&&!isNaN(w))monthStart=Math.round((h-w)*10)/10;
+    else if(!isNaN(h))monthStart='';
+  }
+  const notes=[];
+  let monthlyChecked=false;
+  Object.entries(byDay).forEach(([d,r])=>{
+    if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
+    if(r.inspection==='済')monthlyChecked=true;
+  });
+  const mkRows=(from,to,padTo)=>{
+    let h='';
+    for(let d=from;d<=to;d++){
+      const r=byDay[d];
+      if(r){
+        h+=`<tr><td>${d}</td><td>${r.hourMeter!==''&&r.hourMeter!==undefined?r.hourMeter:''}</td><td>${r.workHours!==''&&r.workHours!==undefined?r.workHours:''}</td><td>${r.bit||''}</td><td>${r.bolt||''}</td><td>${r.nut||''}</td><td>${r.fuelAmount||''}</td><td>${r.fuelHour||''}</td><td>${r.inspection==='済'?'☑':'☐'}</td></tr>`;
+      }else{
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>☐</td></tr>`;
+      }
+    }
+    for(let i=(to-from+1);i<padTo;i++){
+      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    }
+    return h;
+  };
+  const tableHead=`<tr><th style="width:6%">日</th><th style="width:12%">終了</th><th style="width:9%">稼働</th><th style="width:8%">ﾋﾞｯﾄ</th><th style="width:8%">ﾎﾞﾙﾄ</th><th style="width:8%">ﾅｯﾄ</th><th style="width:11%">給油量</th><th style="width:13%">給油時ｱﾜ</th><th style="width:6%">点検</th></tr>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
+<style>
+@page{size:A4 portrait;margin:10mm}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}
+.title{font-size:14px;font-weight:700}
+.ym{font-size:20px;font-weight:800}
+.mstart{font-size:10px;margin-bottom:2mm}
+.cols{display:flex;gap:4mm}
+.col{flex:1}
+table{width:100%;border-collapse:collapse;font-size:7.5px}
+th,td{border:1px solid #333;padding:2px 2px;text-align:center;height:14px}
+th{background:#eee}
+.foot{margin-top:4mm;font-size:9px}
+.notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
+@media print{.noprint{display:none}}
+.noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
+</style></head><body>
+<button class="noprint" onclick="window.print()">🖨 印刷する</button>
+<div class="head">
+  <span class="title">運転日報　破砕機 ${mid}（${nm}）</span>
+  <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
+</div>
+<div class="mstart">月初アワメータ: ${monthStart!==''?monthStart+' h':'＿＿＿＿＿'}</div>
+<div class="cols">
+  <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
+  <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
+</div>
+<div class="foot">
+  <div>備考（故障・注意事項等）　※燃費目安 1H/約60L</div>
+  <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
+  <div style="margin-top:3mm">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
+  <div style="margin-top:2mm;font-size:8px;color:#555">※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+</div>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(!w){showToast('ポップアップがブロックされました。許可してください','err');return;}
+  w.document.write(html);
+  w.document.close();
+}
+
+function printStandardMonth(mid,m){
+  const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
+  const daysIn=new Date(calYear,calMonth+1,0).getDate();
+  // その日の全件を保持（従来は最新1件のみだったため、複数入力時に給油量等が欠落していた）
+  const byDay={};
+  calReports.forEach(r=>{
+    const d=parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d))return;
+    if(!byDay[d])byDay[d]=[];
+    byDay[d].push(r);
+  });
+  Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
+
+  const notes=[];
+  let monthlyChecked=false;
+  Object.entries(byDay).forEach(([d,arr])=>{
+    arr.forEach(r=>{
+      if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
+      if(r.inspection==='済')monthlyChecked=true;
+    });
+  });
+
+  const mkRows=(from,to,padTo)=>{
+    let h='';
+    for(let d=from;d<=to;d++){
+      const arr=byDay[d];
+      if(arr&&arr.length>0){
+        // アワメータ: 最新（savedAtが最も新しい）値を採用
+        let hm=''; for(const r of arr){const v=parseFloat(r.hourMeter);if(!isNaN(v))hm=v;}
+        // 稼働時間: 合算
+        const totalW=arr.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+        // 現場名ごとに、その現場での最後の運転者を対応付け
+        const byLoc={}; // 現場名 → 最後のレコード
+        arr.forEach(r=>{
+          const locKey=r.location||'';
+          byLoc[locKey]=r; // 配列はsavedAt昇順なので、後勝ちで最後の人になる
+        });
+        const locEntries=Object.entries(byLoc);
+        const contractorText=[...new Set(locEntries.map(([,r])=>r.contractor).filter(Boolean))].join('/');
+        const locText=locEntries.map(([loc])=>loc).filter(Boolean).join(' / ')||'';
+        const opText=locEntries.map(([,r])=>r.operator).filter(Boolean).join('・');
+        // 給油: 合算＋給油元を列挙
+        const totalFuel=arr.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
+        const fuelLocs=[...new Set(arr.map(r=>r.fuelLocation).filter(Boolean))].join('/');
+        const fuelAmtText=totalFuel>0?(Math.round(totalFuel*10)/10)+'L':'';
+        const inspOk=arr.some(r=>r.inspection==='済');
+        const transOk=arr.some(r=>r.transfer==='有');
+        h+=`<tr>
+          <td>${d}</td>
+          <td class="stack"><div>${hm}</div><div class="sub">${totalW||''}</div></td>
+          <td class="stack tl"><div>${contractorText}</div><div class="sub">${locText}</div></td>
+          <td class="tl">${opText}</td>
+          <td class="stack"><div>${fuelLocs}</div><div class="sub">${fuelAmtText}</div></td>
+          <td class="chk">${inspOk?'☑':'☐'}</td>
+          <td class="chk">${transOk?'☑':'☐'}</td>
+        </tr>`;
+      }else{
+        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td class="chk">☐</td><td class="chk">☐</td></tr>`;
+      }
+    }
+    for(let i=(to-from+1);i<padTo;i++){
+      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    }
+    return h;
+  };
+  const tableHead=`<tr><th style="width:6%">日</th><th style="width:13%">ｱﾜﾒｰﾀ<br>稼働h</th><th style="width:24%">元請<br>現場名</th><th style="width:13%">運転者</th><th style="width:16%">給油元<br>給油量</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
+<style>
+@page{size:A4 portrait;margin:4mm}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:10px;margin:0;width:100%;height:100%}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}
+.title{font-size:20px;font-weight:800}
+.machine-name{font-size:15px;font-weight:700;margin-left:2mm}
+.ym{font-size:16px;font-weight:700;color:#444}
+.cols{display:flex;gap:3mm}
+.col{flex:1}
+table{width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed}
+th,td{border:1px solid #333;padding:3px 4px;text-align:center;height:28px}
+td.stack{height:auto;min-height:34px}
+th{background:#eee;line-height:1.25;padding:3px 2px;font-size:8.5px}
+.tl{text-align:left}
+.stack{padding:1px 3px;line-height:1.2}
+.stack div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stack .sub{color:#555;font-size:8.5px;border-top:1px dotted #ccc;margin-top:1px;padding-top:1px}
+.stack.tl div{text-align:left}
+.chk{font-size:14px;font-weight:700}
+.foot{margin-top:1.5mm;font-size:11px}
+.notes{border:1px solid #333;padding:1.5mm;min-height:8mm;margin-top:1mm}
+@media print{.noprint{display:none}}
+.noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
+</style></head><body>
+<button class="noprint" onclick="window.print()">🖨 印刷する</button>
+<div class="head">
+  <span><span class="title">運転日報</span><span class="machine-name">${mid}（${nm}）</span></span>
+  <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
+</div>
+<div class="cols">
+  <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
+  <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
+</div>
+<div class="foot">
+  <div>備考（故障・注意事項等）</div>
+  <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
+  <div style="margin-top:2mm;font-size:13px;font-weight:700">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
+  <div style="margin-top:1.5mm;font-size:11px;color:#333">※回送した時は回送の欄にチェック✓　※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+</div>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(!w){showToast('ポップアップがブロックされました。許可してください','err');return;}
+  w.document.write(html);
+  w.document.close();
+}
+
+function showTab(name){
+  const tabs=['list','input','machines','jikensa','dash'];
+  tabs.forEach((t,i)=>{
+    const scr=document.getElementById('scr-'+t);
+    scr.className='scr'+(t===name?' on':'');
+    document.querySelectorAll('.tab')[i].className='tab'+(t===name?' on':'');
+    const fx=scr.querySelector('.scr-fixed');
+    if(fx)fx.classList.toggle('on',t===name);
+  });
+  if(name==='list'){refreshTodayList(false);renderList();updateSyncRow();}
+  if(name==='machines')renderMachines();
+  if(name==='jikensa')renderJikensa();
+  if(name==='dash'){renderDash();renderCalYardChips();renderCalMachineChips();renderMlYardChips();loadCalMonth();refreshDashMonth();}
+  if(name==='input')updateNet();
+  window.scrollTo(0,0);
+  requestAnimationFrame(syncStickyOffset);
+}
+
+let _tt;
+function showToast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show'+(type?' t-'+type:'');
+  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ================================================================
+// まとめて入力（複数機体一括登録）
+// ================================================================
+let bulkMode = false;
+let bkYard = '';
+let bkPicked = {};      // { machineId: true }
+let bkRowData = {};     // { machineId: {operator, hmeter, whours, floc, famt, insp, grease, trans, notes} }
+let bkInspType = {};    // { machineId: type }
+
+function setInputMode(mode) {
+  bulkMode = (mode === 'bulk');
+  document.getElementById('mode-single').className = 'chip' + (bulkMode ? '' : ' on');
+  document.getElementById('mode-bulk').className = 'chip' + (bulkMode ? ' on' : '');
+
+  // 通常フォーム一式とまとめて入力一式を、それぞれのラップdiv単位で排他表示
+  document.getElementById('single-input-wrap').style.display = bulkMode ? 'none' : 'block';
+  document.getElementById('bulk-input-wrap').style.display = bulkMode ? 'block' : 'none';
+
+  if (bulkMode) {
+    document.getElementById('bk-date').value = document.getElementById('f-date').value || todayStr();
+    renderBkYardChips();
+    renderBkMachinePicker();
+    renderBkRows();
+  }
+  updateGpsBar();
+  requestAnimationFrame(syncStickyOffset);
+}
+
+function renderBkYardChips() {
+  let h = `<div class="chip ${bkYard===''?'on':''}" onclick="setBkYard('')">全拠点</div>`;
+  YARDS.forEach(y => {
+    const n = machines.filter(m => m.yard === y).length;
+    if (n > 0) h += `<div class="chip ${bkYard===y?'on':''}" onclick="setBkYard('${y}')">${y}</div>`;
+  });
+  document.getElementById('bk-yard-chips').innerHTML = h;
+}
+function setBkYard(y) {
+  bkYard = y;
+  renderBkYardChips();
+  renderBkMachinePicker();
+}
+
+// 共通日付が変更されたとき、選択済み全機体の前回終了アワメータを取り直す
+function bkRefetchAllPrevHours() {
+  Object.keys(bkPicked).forEach(mid => {
+    if (bkRowData[mid]) {
+      bkRowData[mid].prevHour = null;
+      bkRowData[mid].prevHourLabel = '取得中...';
+      bkFetchPrevHour(mid);
+    }
+  });
+  renderBkRows();
+}
+
+function renderBkMachinePicker() {
+  let ms = machines;
+  if (bkYard) ms = ms.filter(m => m.yard === bkYard);
+  const el = document.getElementById('bk-machine-picker');
+  if (ms.length === 0) { el.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-txt">該当する重機がありません</div></div>'; return; }
+  el.innerHTML = ms.map(m => {
+    const nm = m.attachment ? `${m.model}・${m.attachment}` : m.model;
+    const on = bkPicked[m.id] ? 'on' : '';
+    return `<div class="mrow" style="cursor:pointer" onclick="toggleBkMachine('${m.id}')">
+      <div class="insp-chk ${on}"></div>
+      <span class="mrow-id">${m.id}</span>
+      <span class="mrow-name" style="font-size:15px">${nm}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleBkMachine(mid) {
+  if (bkPicked[mid]) {
+    delete bkPicked[mid];
+    delete bkRowData[mid];
+  } else {
+    bkPicked[mid] = true;
+    const m = findMachine(mid);
+    bkInspType[mid] = m ? (m.type || 'backhoe') : 'backhoe';
+    if (!bkRowData[mid]) {
+      bkRowData[mid] = {
+        operator:'', hmeter:'', whours:'', floc:'', famt:'',
+        insp:'未', inspChecks:{}, grease:false, trans:false, noteType:'', notes:'',
+        bit:'', bolt:'', nut:'', fuelhour:'',
+        prevHour:null, prevHourLabel:'取得中...'
+      };
+      bkFetchPrevHour(mid);
+    }
+  }
+  renderBkMachinePicker();
+  renderBkRows();
+}
+
+// 通常入力のupdatePrevHourと同ロジックで、機体ごとの前回終了アワメータを取得
+async function bkFetchPrevHour(mid) {
+  const selDate = document.getElementById('bk-date').value || todayStr();
+  const consider = (r, best) => {
+    const h = parseFloat(r.hourMeter);
+    if (isNaN(h)) return best;
+    if (String(r.date) > selDate) return best;
+    const key = String(r.date) + String(r.savedAt || '');
+    if (!best || key > best.key) return { key, h, date: r.date };
+    return best;
+  };
+  let best = null;
+  [...allReports(), ...serverToday].filter(r => r.machineId === mid).forEach(r => { best = consider(r, best); });
+  if (navigator.onLine && GAS_URL !== 'YOUR_GAS_WEB_APP_URL_HERE') {
+    try {
+      const d = new Date(selDate + 'T00:00:00');
+      const thisM = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm = new Date(d.getFullYear(), d.getMonth()-1, 1);
+      const prevM = `${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results = await Promise.all([thisM, prevM].map(ym =>
+        fetch(gasGet('action=getReports&month='+ym+'&machineId='+encodeURIComponent(mid))).then(r=>r.json()).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd => { (dd.reports||[]).forEach(r => { best = consider(r, best); }); });
+    } catch(e) {}
+  }
+  // 取得中にユーザーが機体を選択解除していたら反映しない
+  if (!bkRowData[mid]) return;
+  if (best) {
+    bkRowData[mid].prevHour = best.h;
+    const dd = String(best.date);
+    bkRowData[mid].prevHourLabel = `${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+  } else {
+    bkRowData[mid].prevHour = null;
+    bkRowData[mid].prevHourLabel = '記録なし';
+  }
+  const label = document.getElementById('bk-prevh-'+mid);
+  if (label) label.textContent = '前回終了: ' + bkRowData[mid].prevHourLabel;
+  bkCalcWorkHours(mid);
+}
+
+// アワメータ入力時に前回値との差から稼働時間を自動計算（通常入力のcalcWorkHoursと同ロジック）
+function bkCalcWorkHours(mid) {
+  const d = bkRowData[mid];
+  if (!d || d.prevHour === null || d.prevHour === undefined) return;
+  const curEl = document.getElementById('bk-hmeter-'+mid);
+  if (!curEl) return;
+  const cur = parseFloat(curEl.value);
+  if (isNaN(cur)) return;
+  const diff = Math.round((cur - d.prevHour) * 10) / 10;
+  if (diff >= 0 && diff < 48) {
+    d.whours = diff;
+    const wEl = document.getElementById('bk-whours-'+mid);
+    if (wEl) wEl.value = diff;
+  }
+}
+
+function renderBkRows() {
+  const ids = Object.keys(bkPicked);
+  document.getElementById('bk-picked-count').textContent = `${ids.length}台選択中`;
+  document.getElementById('bk-submit-btn').style.display = ids.length > 0 ? 'block' : 'none';
+  document.getElementById('bk-empty-hint').style.display = ids.length > 0 ? 'none' : 'flex';
+
+  const wrap = document.getElementById('bk-rows');
+  wrap.innerHTML = ids.map(mid => {
+    const m = findMachine(mid);
+    const nm = m ? (m.attachment ? `${m.model}・${m.attachment}` : m.model) : '';
+    const d = bkRowData[mid];
+    const isCrusher = m && m.type === 'crusher';
+    const opOptions = ['<option value="">選択（空欄可）</option>']
+      .concat(operators.map(op => `<option value="${op}" ${d.operator===op?'selected':''}>${op}</option>`)).join('');
+
+    return `<div class="card" data-bkrow="${mid}">
+      <div class="card-h">
+        <div class="mname">${mid}　${nm}</div>
+        <span style="color:#c0392b;font-size:20px;cursor:pointer;padding:4px 8px" onclick="toggleBkMachine('${mid}')">✕</span>
+      </div>
+      <div class="card-b">
+        <div class="fg">
+          <label class="fl">運転者</label>
+          <select class="fc" onchange="bkSet('${mid}','operator',this.value)">${opOptions}</select>
+        </div>
+
+        <!-- 始業前点検（通常入力と同じバー形式、タップでモーダル） -->
+        <div class="gps-bar" onclick="openBkInspModal('${mid}')" style="background:#fff;border-color:#d5d5d5;margin-bottom:11px">
+          <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span class="gps-bar-st" id="bk-insp-status-${mid}" style="color:${Object.values(d.inspChecks||{}).some(Boolean)?'#185fa5':'#555'}">${bkInspLabel(d, m)}</span>
+        </div>
+
+        <div class="frow" style="margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">アワーメータ終了(h)</label>
+            <input class="fc" type="number" inputmode="decimal" value="${d.hmeter}" oninput="bkSet('${mid}','hmeter',this.value);bkCalcWorkHours('${mid}')" id="bk-hmeter-${mid}">
+            <div id="bk-prevh-${mid}" style="font-size:15px;color:#888;margin-top:5px">前回終了: ${d.prevHourLabel || '取得中...'}</div>
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">稼働時間(h)</label>
+            <input class="fc" type="number" step="0.5" inputmode="decimal" value="${d.whours}" oninput="bkSet('${mid}','whours',this.value)" id="bk-whours-${mid}">
+            <div style="font-size:15px;color:#888;margin-top:5px">前回差で自動計算</div>
+          </div>
+        </div>
+        <div class="frow" style="margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">給油元</label>
+            <input class="fc" type="text" list="dl-floc" autocomplete="off" value="${d.floc}" oninput="bkSet('${mid}','floc',this.value)">
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">給油量(L)</label>
+            <input class="fc" type="number" inputmode="decimal" value="${d.famt}" oninput="bkSet('${mid}','famt',this.value)">
+          </div>
+        </div>
+        ${isCrusher ? `
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#185fa5">破砕機 部品・消耗品交換</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0"><label class="fl">ビット(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.bit}" oninput="bkSet('${mid}','bit',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ボルト(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.bolt}" oninput="bkSet('${mid}','bolt',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ナット(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.nut}" oninput="bkSet('${mid}','nut',this.value)"></div>
+        </div>
+        <div class="fg" style="margin-bottom:11px"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" inputmode="decimal" value="${d.fuelhour}" oninput="bkSet('${mid}','fuelhour',this.value)"></div>
+        ` : ''}
+        <div class="frow" style="margin-bottom:0">
+          <div class="trow" style="padding:6px 0;border:none">
+            <span class="tlbl">グリス充填</span>
+            <div class="tog ${d.grease?'on':'off'}" onclick="bkToggle('${mid}','grease',this)"><div class="tog-k"></div></div>
+          </div>
+          <div class="trow" style="padding:6px 0;border:none">
+            <span class="tlbl">回送あり</span>
+            <div class="tog ${d.trans?'on':'off'}" onclick="bkToggle('${mid}','trans',this)"><div class="tog-k"></div></div>
+          </div>
+        </div>
+        <div class="fg" style="margin-top:11px;margin-bottom:0">
+          <label class="fl">備考・故障報告</label>
+          <select class="fc" style="margin-bottom:8px" onchange="bkSet('${mid}','noteType',this.value)">
+            <option value="" ${d.noteType===''?'selected':''}>選んでいない</option>
+            <option value="備考" ${d.noteType==='備考'?'selected':''}>備考</option>
+            <option value="故障" ${d.noteType==='故障'?'selected':''}>故障</option>
+            <option value="備考と故障" ${d.noteType==='備考と故障'?'selected':''}>備考と故障</option>
+          </select>
+          <textarea class="fc" rows="2" placeholder="任意" oninput="bkSet('${mid}','notes',this.value)">${d.notes}</textarea>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// まとめて入力の行に表示する始業前点検ラベル（通常入力のsetInspBar相当）
+function bkInspLabel(d, m) {
+  const type = m ? (m.type || 'backhoe') : 'backhoe';
+  const total = INSPECTION_DATA[type] ? INSPECTION_DATA[type].items.length : 0;
+  const done = Object.values(d.inspChecks || {}).filter(Boolean).length;
+  if (done === 0) return `始業前点検（${total}項目）`;
+  if (done === total) return `点検済（全${total}項目）`;
+  return `点検 ${done}/${total}項目`;
+}
+
+function bkSet(mid, key, val) {
+  if (!bkRowData[mid]) return;
+  bkRowData[mid][key] = val;
+}
+function bkToggle(mid, key, el) {
+  if (!bkRowData[mid]) return;
+  bkRowData[mid][key] = !bkRowData[mid][key];
+  el.classList.toggle('on');
+  el.classList.toggle('off');
+}
+
+function submitBulkReports() {
+  const date = document.getElementById('bk-date').value || todayStr();
+  const contractor = document.getElementById('bk-contractor').value.trim();
+  const location = document.getElementById('bk-location').value.trim();
+  const bkSkipGps = document.getElementById('bk-gps-skip') && document.getElementById('bk-gps-skip').checked;
+  const ids = Object.keys(bkPicked);
+  if (ids.length === 0) { showToast('重機を選択してください', 'err'); return; }
+
+  let count = 0;
+  ids.forEach(mid => {
+    const m = findMachine(mid);
+    const d = bkRowData[mid];
+    const hasWork = d.whours !== '' || d.hmeter !== '';
+    const type = m ? (m.type || 'backhoe') : 'backhoe';
+    const total = INSPECTION_DATA[type] ? INSPECTION_DATA[type].items.length : 0;
+    const done = Object.values(d.inspChecks || {}).filter(Boolean).length;
+    const inspStatus = !hasWork ? '対象外' : (done===0?'未':(done===total?'済':`一部(${done}/${total})`));
+    const report = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6) + count,
+      date, machineId: mid, yard: m ? m.yard : '', operator: d.operator, contractor, location,
+      hourMeter: d.hmeter, workHours: d.whours,
+      fuelLocation: d.floc, fuelAmount: d.famt,
+      inspection: inspStatus,
+      grease: d.grease ? '済' : '未',
+      transfer: d.trans ? '有' : '無',
+      notes: d.notes.trim(), noteType: d.noteType, photo: '',
+      bit: d.bit, bolt: d.bolt, nut: d.nut, fuelHour: d.fuelhour,
+      lat: bkSkipGps ? '' : (gpsLat || ''), lng: bkSkipGps ? '' : (gpsLng || ''), accuracy: bkSkipGps ? '' : (gpsAcc || ''),
+      savedAt: new Date().toISOString(), synced: false, deviceId: getDeviceId()
+    };
+    pending.push(report);
+    count++;
+  });
+  saveData();
+  updateSyncRow();
+  showToast(`${count}件の日報を保存しました`, 'ok');
+  renderSuggestLists([...allReports()]);
+
+  bkPicked = {}; bkRowData = {}; bkInspType = {};
+  document.getElementById('bk-contractor').value = '';
+  document.getElementById('bk-location').value = '';
+  renderBkMachinePicker();
+  renderBkRows();
+
+  if (navigator.onLine) autoSync();
+}
+
+window.addEventListener('DOMContentLoaded',initApp);
+
+</script>
+</div>
+</body>
+</html>
