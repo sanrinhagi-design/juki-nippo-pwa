@@ -811,14 +811,31 @@ function getDeviceToken(){ return localStorage.getItem('jukiDeviceToken') || '';
 function setDeviceToken(t){ localStorage.setItem('jukiDeviceToken', t); }
 function clearDeviceToken(){ localStorage.removeItem('jukiDeviceToken'); }
 
+let _authOverlayErrMsg = '';
 function showAuthOverlay(errMsg){
   document.getElementById('auth-overlay').style.display='flex';
   const errEl=document.getElementById('auth-error');
-  if(errMsg){errEl.textContent=errMsg;errEl.style.display='block';}
+  if(errMsg){_authOverlayErrMsg=errMsg;errEl.textContent=errMsg;errEl.style.display='block';}
   else{errEl.style.display='none';}
+  renderGoogleSignInButton();
+}
+// Google Identity Servicesのスクリプトはasync読み込みのため、
+// showAuthOverlay()が呼ばれた時点でまだ読み込み中の場合がある。
+// その場合は準備できるまで再試行し、ボタンが表示されない状態を防ぐ。
+let _gsiRetryCount = 0;
+function renderGoogleSignInButton(){
+  const container = document.getElementById('g_id_signin_container');
   if(window.google && google.accounts && google.accounts.id){
+    container.innerHTML = '';
     google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:onGoogleSignIn});
-    google.accounts.id.renderButton(document.getElementById('g_id_signin_container'), {theme:'filled_blue', size:'large', text:'signin_with', locale:'ja'});
+    google.accounts.id.renderButton(container, {theme:'filled_blue', size:'large', text:'signin_with', locale:'ja'});
+    _gsiRetryCount = 0;
+  }else if(_gsiRetryCount < 50){
+    _gsiRetryCount++;
+    container.innerHTML = '<div style="color:#c5cad6;font-size:14px">読み込み中...</div>';
+    setTimeout(renderGoogleSignInButton, 200);
+  }else{
+    container.innerHTML = '<div style="color:#ff8080;font-size:14px;line-height:1.6">ログイン機能の読み込みに失敗しました。<br>電波状況をご確認のうえ、<br>画面を再読み込みしてください。</div><button class="btn btn-o" style="margin-top:12px;width:auto;padding:10px 20px" onclick="location.reload()">再読み込み</button>';
   }
 }
 function hideAuthOverlay(){ document.getElementById('auth-overlay').style.display='none'; }
