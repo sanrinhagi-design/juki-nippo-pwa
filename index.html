@@ -840,10 +840,41 @@ function renderGoogleSignInButton(){
 }
 function hideAuthOverlay(){ document.getElementById('auth-overlay').style.display='none'; }
 
+// ================================================================
+// ★GAS通信の低レベル送信関数。
+// fetch()だとGAS Webアプリ特有のリダイレクト後にCORSヘッダーが
+// 認識されず "Failed to fetch" になるケースがあるため、
+// より互換性の高い XMLHttpRequest で送信する。
+// ================================================================
+function postToGas(payload, timeoutMs){
+  return new Promise((resolve, reject)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', GAS_URL, true);
+    if(timeoutMs) xhr.timeout = timeoutMs;
+    xhr.onload = function(){
+      if(xhr.status >= 200 && xhr.status < 300){
+        try{
+          resolve(JSON.parse(xhr.responseText));
+        }catch(e){
+          reject(new Error('レスポンスの解析に失敗しました'));
+        }
+      }else{
+        reject(new Error('サーバーエラー (status: '+xhr.status+')'));
+      }
+    };
+    xhr.onerror = function(){
+      reject(new Error('通信に失敗しました'));
+    };
+    xhr.ontimeout = function(){
+      reject(new Error('タイムアウトしました'));
+    };
+    xhr.send(JSON.stringify(payload));
+  });
+}
+
 async function onGoogleSignIn(response){
   try{
-    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'jukiAuth', idToken:response.credential})});
-    const data=await res.json();
+    const data = await postToGas({action:'jukiAuth', idToken:response.credential});
     if(data.ok){
       setDeviceToken(data.deviceToken);
       hideAuthOverlay();
@@ -872,8 +903,7 @@ const JUKI_ACTION_MAP = {
 };
 async function fetchJukiApi(action, params){
   const payload = Object.assign({action: JUKI_ACTION_MAP[action] || action, deviceToken: getDeviceToken()}, params || {});
-  const res = await fetch(GAS_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload)});
-  const data = await res.json();
+  const data = await postToGas(payload);
   if(data && data.status==='error' && /認証|ログイン/.test(data.message||'')){
     clearDeviceToken();
     showAuthOverlay(data.message);
@@ -881,14 +911,12 @@ async function fetchJukiApi(action, params){
   return data;
 }
 
+
 let realOnline=false;
 async function checkRealConnectivity(){
   if(!navigator.onLine){realOnline=false;updateNet();return false;}
   try{
-    const ctrl=new AbortController();
-    const timeout=setTimeout(()=>ctrl.abort(),8000);
-    const data=await fetchJukiApi('ping',{});
-    clearTimeout(timeout);
+    const data=await postToGas({action:'jukiPing', deviceToken:getDeviceToken()}, 8000);
     realOnline = !!data.ok;
   }catch(e){
     realOnline=false;
