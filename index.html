@@ -2604,110 +2604,190 @@ th{background:#eee}
   w.document.close();
 }
 
-function printStandardMonth(mid,m){
-  const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
-  const daysIn=new Date(calYear,calMonth+1,0).getDate();
-  const byDay={};
-  calReports.forEach(r=>{
-    const d=parseInt(String(r.date).slice(8,10),10);
-    if(isNaN(d))return;
-    if(!byDay[d])byDay[d]=[];
+function printStandardMonth(mid, m) {
+  const nm = m ? (m.attachment ? `${m.model}・${m.attachment}` : m.model) : '';
+  const daysIn = new Date(calYear, calMonth + 1, 0).getDate();
+  const byDay = {};
+
+  // 日別データの集計
+  calReports.forEach(r => {
+    const d = parseInt(String(r.date).slice(8, 10), 10);
+    if (isNaN(d)) return;
+    if (!byDay[d]) byDay[d] = [];
     byDay[d].push(r);
   });
-  Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
+  Object.values(byDay).forEach(arr => arr.sort((a, b) => String(a.savedAt || '').localeCompare(String(b.savedAt || ''))));
 
-  const notes=[];
-  let monthlyChecked=false;
-  Object.entries(byDay).forEach(([d,arr])=>{
-    arr.forEach(r=>{
-      if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
-      if(r.inspection==='済')monthlyChecked=true;
+  // 月初アワメータの特定
+  let monthStart = '＿＿＿＿＿';
+  const firstDay = Object.keys(byDay).map(Number).sort((a, b) => a - b)[0];
+  if (firstDay) {
+    const fr = byDay[firstDay][0];
+    const h = parseFloat(fr.hourMeter), w = parseFloat(fr.workHours);
+    if (!isNaN(h) && !isNaN(w)) monthStart = (Math.round((h - w) * 10) / 10) + ' H';
+    else if (!isNaN(h)) monthStart = h + ' H';
+  }
+
+  // 備考の集約と月次点検チェック
+  const notesList = [];
+  let monthlyChecked = false;
+  Object.entries(byDay).forEach(([d, arr]) => {
+    arr.forEach(r => {
+      if (r.notes && String(r.notes).trim() !== '') notesList.push(`${d}日: ${r.notes}`);
+      if (r.inspection === '済') monthlyChecked = true;
     });
   });
 
-  const mkRows=(from,to,padTo)=>{
-    let h='';
-    for(let d=from;d<=to;d++){
-      const arr=byDay[d];
-      if(arr&&arr.length>0){
-        let hm=''; for(const r of arr){const v=parseFloat(r.hourMeter);if(!isNaN(v))hm=v;}
-        const totalW=arr.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
-        const byLoc={};
-        arr.forEach(r=>{
-          const locKey=r.location||'';
-          byLoc[locKey]=r;
-        });
-        const locEntries=Object.entries(byLoc);
-        const contractorText=[...new Set(locEntries.map(([,r])=>r.contractor).filter(Boolean))].join('/');
-        const locText=locEntries.map(([loc])=>loc).filter(Boolean).join(' / ')||'';
-        const opText=locEntries.map(([,r])=>r.operator).filter(Boolean).join('・');
-        const totalFuel=arr.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
-        const fuelLocs=[...new Set(arr.map(r=>r.fuelLocation).filter(Boolean))].join('/');
-        const fuelAmtText=totalFuel>0?(Math.round(totalFuel*10)/10)+'L':'';
-        const inspOk=arr.some(r=>r.inspection==='済');
-        const transOk=arr.some(r=>r.transfer==='有');
-        h+=`<tr>
-          <td>${d}</td>
-          <td class="stack"><div>${hm}</div><div class="sub">${totalW||''}</div></td>
-          <td class="stack tl"><div>${contractorText}</div><div class="sub">${locText}</div></td>
-          <td class="tl">${opText}</td>
-          <td class="stack"><div>${fuelLocs}</div><div class="sub">${fuelAmtText}</div></td>
-          <td class="chk">${inspOk?'☑':'☐'}</td>
-          <td class="chk">${transOk?'☑':'☐'}</td>
-        </tr>`;
-      }else{
-        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td class="chk">☐</td><td class="chk">☐</td></tr>`;
+  // 日付ブロック描画ヘルパー (Excel 1日2行再現)
+  const renderBlockRows = (fromDay, toDay) => {
+    let html = '';
+    for (let d = fromDay; d <= toDay; d++) {
+      const arr = byDay[d];
+      let endH = '', workH = '', siteOp = '', fuelF = '', fuelL = '', isInsp = false, isTrans = false;
+
+      if (arr && arr.length > 0) {
+        const lastR = arr[arr.length - 1];
+        endH = lastR.hourMeter !== undefined && lastR.hourMeter !== '' ? lastR.hourMeter : '';
+        const totalW = arr.reduce((s, r) => s + (parseFloat(r.workHours) || 0), 0);
+        workH = totalW > 0 ? totalW : '';
+
+        const contractors = [...new Set(arr.map(r => r.contractor).filter(Boolean))].join('/');
+        const locations = [...new Set(arr.map(r => r.location).filter(Boolean))].join('/');
+        const siteText = [contractors, locations].filter(Boolean).join(' ');
+        const opText = [...new Set(arr.map(r => r.operator).filter(Boolean))].join('・');
+
+        siteOp = `<div class="cell-top">${siteText}</div><div class="cell-btm">${opText}</div>`;
+
+        const totalFuel = arr.reduce((s, r) => s + (parseFloat(r.fuelAmount) || 0), 0);
+        const fuelLocs = [...new Set(arr.map(r => r.fuelLocation).filter(Boolean))].join('/');
+        fuelF = fuelLocs;
+        fuelL = totalFuel > 0 ? `${totalFuel} L` : '';
+
+        isInsp = arr.some(r => r.inspection === '済');
+        isTrans = arr.some(r => r.transfer === '有');
+      } else {
+        siteOp = `<div class="cell-top"></div><div class="cell-btm"></div>`;
       }
+
+      html += `
+        <tr>
+          <td rowspan="2" class="col-day">${d}</td>
+          <td class="col-lbl">終了:</td>
+          <td class="col-val">${endH}</td>
+          <td rowspan="2" class="col-site">${siteOp}</td>
+          <td class="col-fuel">${fuelF}</td>
+          <td rowspan="2" class="col-chk">${isInsp ? '☑' : '□'}</td>
+          <td rowspan="2" class="col-chk">${isTrans ? '☑' : '□'}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">稼働:</td>
+          <td class="col-val">${workH ? workH + ' H' : ''}</td>
+          <td class="col-fuel">${fuelL}</td>
+        </tr>
+      `;
     }
-    for(let i=(to-from+1);i<padTo;i++){
-      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
-    }
-    return h;
+    return html;
   };
-  const tableHead=`<tr><th style="width:6%">日</th><th style="width:13%">ｱﾜﾒｰﾀ<br>稼働h</th><th style="width:24%">元請<br>現場名</th><th style="width:13%">運転者</th><th style="width:16%">給油元<br>給油量</th><th style="width:7%">点検</th><th style="width:7%">回送</th></tr>`;
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
+
+  const tableHeader = `
+    <tr>
+      <th style="width:6%">日</th>
+      <th colspan="2" style="width:28%">アワメータ</th>
+      <th style="width:34%">現場名 / 運転者</th>
+      <th style="width:18%">給油店<br>給油量</th>
+      <th style="width:7%">点検</th>
+      <th style="width:7%">回送</th>
+    </tr>
+  `;
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>運転日報 ${mid} 令和${calYear - 2018}年${calMonth + 1}月</title>
 <style>
-@page{size:A4 portrait;margin:4mm}
-body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:10px;margin:0;width:100%;height:100%}
-.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}
-.title{font-size:20px;font-weight:800}
-.machine-name{font-size:15px;font-weight:700;margin-left:2mm}
-.ym{font-size:16px;font-weight:700;color:#444}
-.cols{display:flex;gap:3mm}
-.col{flex:1}
-table{width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed}
-th,td{border:1px solid #333;padding:3px 4px;text-align:center;height:28px}
-td.stack{height:auto;min-height:34px}
-th{background:#eee;line-height:1.25;padding:3px 2px;font-size:8.5px}
-.tl{text-align:left}
-.stack{padding:1px 3px;line-height:1.2}
-.stack div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stack .sub{color:#555;font-size:8.5px;border-top:1px dotted #ccc;margin-top:1px;padding-top:1px}
-.stack.tl div{text-align:left}
-.chk{font-size:14px;font-weight:700}
-.foot{margin-top:1.5mm;font-size:11px}
-.notes{border:1px solid #333;padding:1.5mm;min-height:8mm;margin-top:1mm}
-@media print{.noprint{display:none}}
-.noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
-</style></head><body>
-<button class="noprint" onclick="window.print()">🖨 印刷する</button>
-<div class="head">
-  <span><span class="title">運転日報</span><span class="machine-name">${mid}（${nm}）</span></span>
-  <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
+@page { size: A4 portrait; margin: 6mm 7mm; }
+* { box-sizing: border-box; }
+body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color: #000; font-size: 10px; margin: 0; padding: 0; }
+
+.hdr-table { width: 100%; margin-bottom: 4px; border-collapse: collapse; }
+.hdr-title { font-size: 18px; font-weight: bold; text-align: left; }
+.hdr-ym { font-size: 16px; font-weight: bold; text-align: right; }
+
+.mstart-row { font-size: 11px; font-weight: bold; margin-bottom: 4px; }
+
+.main-flex { display: flex; gap: 6px; width: 100%; align-items: flex-start; }
+.col-block { flex: 1; }
+
+table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+table.sheet-tbl th, table.sheet-tbl td { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 1px 2px; }
+table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 22px; font-size: 9px; line-height: 1.1; }
+
+.col-day { font-size: 11px; font-weight: bold; height: 34px; }
+.col-lbl { font-size: 8.5px; text-align: right; padding-right: 2px; width: 32px; height: 17px; }
+.col-val { font-size: 9.5px; text-align: left; padding-left: 2px; }
+.col-site { text-align: left; padding: 0 !important; vertical-align: top; }
+.cell-top { height: 17px; border-bottom: 1px dotted #888; padding: 1px 3px; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell-btm { height: 17px; padding: 1px 3px; font-size: 8.5px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.col-fuel { font-size: 8.5px; height: 17px; white-space: nowrap; overflow: hidden; }
+.col-chk { font-size: 13px; font-weight: bold; }
+
+.notes-box { border: 1px solid #000; margin-top: 4px; height: 68px; padding: 4px; font-size: 9px; }
+.notes-title { font-weight: bold; font-size: 9.5px; border-bottom: 1px solid #ccc; padding-bottom: 2px; margin-bottom: 2px; }
+
+.ftr-row { margin-top: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; }
+.ftr-notice { font-size: 9px; color: #222; margin-top: 2px; }
+
+@media print { .noprint { display: none; } }
+.noprint { background: #185fa5; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: bold; margin: 0 auto 10px; display: block; cursor: pointer; }
+</style>
+</head>
+<body>
+<button class="noprint" onclick="window.print()">🖨 印刷する / PDF保存</button>
+
+<table class="hdr-table">
+  <tr>
+    <td class="hdr-title">運転日報 ${mid} （${nm}）</td>
+    <td class="hdr-ym">令和${calYear - 2018}年${calMonth + 1}月</td>
+  </tr>
+</table>
+
+<div class="mstart-row">月初アワメータ: ${monthStart}</div>
+
+<div class="main-flex">
+  <!-- 左列: 1日〜16日 -->
+  <div class="col-block">
+    <table class="sheet-tbl">
+      ${tableHeader}
+      ${renderBlockRows(1, 16)}
+    </table>
+  </div>
+
+  <!-- 右列: 17日〜31日 & 備考 -->
+  <div class="col-block">
+    <table class="sheet-tbl">
+      ${tableHeader}
+      ${renderBlockRows(17, daysIn)}
+    </table>
+
+    <div class="notes-box">
+      <div class="notes-title">備考（故障・注意事項等）</div>
+      <div>${notesList.join('<br>')}</div>
+    </div>
+  </div>
 </div>
-<div class="cols">
-  <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
-  <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
+
+<div class="ftr-row">
+  <div>※回送した時は回送の欄にチェック✔</div>
+  <div>月次点検 ${monthlyChecked ? '☑' : '□'}  担当印：＿＿＿＿＿＿</div>
 </div>
-<div class="foot">
-  <div>備考（故障・注意事項等）</div>
-  <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
-  <div style="margin-top:2mm;font-size:13px;font-weight:700">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
-  <div style="margin-top:1.5mm;font-size:11px;color:#333">※回送した時は回送の欄にチェック✓　※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
-</div>
-</body></html>`;
-  const w=window.open('','_blank');
-  if(!w){showToast('ポップアップがブロックされました。許可してください','err');return;}
+<div class="ftr-notice">※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { showToast('ポップアップがブロックされました。許可してください', 'err'); return; }
   w.document.write(html);
   w.document.close();
 }
