@@ -2635,6 +2635,7 @@ function printStandardMonth(mid, m) {
     });
   });
 
+  // 日別ブロック描画（上段：元請/現場名の2段表示、下段：運転者）
   const renderBlockRows = (fromDay, toDay) => {
     let html = '';
     for (let d = fromDay; d <= toDay; d++) {
@@ -2649,10 +2650,11 @@ function printStandardMonth(mid, m) {
 
         const contractors = [...new Set(arr.map(r => r.contractor).filter(Boolean))].join('/');
         const locations = [...new Set(arr.map(r => r.location).filter(Boolean))].join('/');
-        const siteText = [contractors, locations].filter(Boolean).join(' ');
         const opText = [...new Set(arr.map(r => r.operator).filter(Boolean))].join('・');
 
-        siteOp = `<div class="cell-top">${siteText}</div><div class="cell-btm">${opText}</div>`;
+        // 上枠内に元請（上）と現場名（下）を2段表示
+        const topText = [contractors, locations].filter(Boolean).join(' / ');
+        siteOp = `<div class="cell-top"><div class="sub-contractor">${contractors}</div><div class="sub-location">${locations}</div></div><div class="cell-btm">${opText}</div>`;
 
         const totalFuel = arr.reduce((s, r) => s + (parseFloat(r.fuelAmount) || 0), 0);
         const fuelLocs = [...new Set(arr.map(r => r.fuelLocation).filter(Boolean))].join('/');
@@ -2662,7 +2664,7 @@ function printStandardMonth(mid, m) {
         isInsp = arr.some(r => r.inspection === '済');
         isTrans = arr.some(r => r.transfer === '有');
       } else {
-        siteOp = `<div class="cell-top"></div><div class="cell-btm"></div>`;
+        siteOp = `<div class="cell-top"><div class="sub-contractor"></div><div class="sub-location"></div></div><div class="cell-btm"></div>`;
       }
 
       html += `
@@ -2702,46 +2704,60 @@ function printStandardMonth(mid, m) {
 <meta charset="UTF-8">
 <title>運転日報 ${mid} 令和${calYear - 2018}年${calMonth + 1}月</title>
 <style>
-@page { size: A4 portrait; margin: 3mm 5mm; }
+@page { size: A4 portrait; margin: 4mm 5mm; }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; padding: 0; }
-body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color: #000; font-size: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+html, body { margin: 0; padding: 0; background: #fff; }
+body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color: #000; font-size: 9.5px; }
 
-.page-container { height: 100vh; max-height: 287mm; display: flex; flex-direction: column; justify-content: space-between; padding: 2mm 0; }
+.page-container { width: 100%; max-height: 275mm; display: flex; flex-direction: column; justify-content: space-between; }
 
 .hdr-table { width: 100%; margin-bottom: 2px; border-collapse: collapse; }
-.hdr-title { font-size: 18px; font-weight: bold; text-align: left; }
-.hdr-ym { font-size: 16px; font-weight: bold; text-align: right; }
+.hdr-title { font-size: 17px; font-weight: bold; text-align: left; }
+.hdr-ym { font-size: 15px; font-weight: bold; text-align: right; }
 
-.mstart-row { font-size: 11px; font-weight: bold; margin-bottom: 4px; }
+.mstart-row { font-size: 10.5px; font-weight: bold; margin-bottom: 3px; }
 
-.main-flex { display: flex; gap: 8px; width: 100%; flex: 1; align-items: stretch; }
-.col-block { flex: 1; display: flex; flex-direction: column; }
-.col-block-right { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+.main-flex { display: flex; gap: 6px; width: 100%; align-items: flex-start; }
+.col-block { flex: 1; }
+.col-block-right { flex: 1; display: flex; flex-direction: column; }
 
-table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; flex: 1; }
-table.sheet-tbl th, table.sheet-tbl td { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 1px 2px; }
-table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 26px; font-size: 10px; line-height: 1.1; }
+table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+table.sheet-tbl th, table.sheet-tbl td { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 0 1px; }
+table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 22px; font-size: 9px; line-height: 1.1; }
 
-.col-day { font-size: 13px; font-weight: bold; height: 56px; }
-.col-lbl { font-size: 9.5px; text-align: right; padding-right: 2px; width: 34px; height: 28px; }
-.col-val { font-size: 10.5px; text-align: left; padding-left: 2px; font-weight: 500; }
+.col-day { font-size: 11.5px; font-weight: bold; height: 48px; }
+.col-lbl { font-size: 8.5px; text-align: right; padding-right: 2px; width: 32px; height: 24px; }
+.col-val { font-size: 9.5px; text-align: left; padding-left: 2px; }
 .col-site { text-align: left; padding: 0 !important; vertical-align: top; }
-.cell-top { height: 28px; border-bottom: 1px dotted #888; padding: 4px 3px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-.cell-btm { height: 28px; padding: 4px 3px; font-size: 9.5px; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-.col-fuel { font-size: 9.5px; height: 28px; white-space: nowrap; overflow: hidden; }
-.col-chk { font-size: 15px; font-weight: bold; }
 
-/* 備考欄を元データのサイズ（68px固定）に復元 */
-.notes-box { border: 1px solid #000; margin-top: 6px; height: 68px; padding: 4px 6px; font-size: 9px; flex-shrink: 0; }
-.notes-title { font-weight: bold; font-size: 9.5px; border-bottom: 1px solid #ccc; padding-bottom: 2px; margin-bottom: 2px; }
+/* 上枠内（元請・現場名）の2段構造 */
+.cell-top { height: 24px; border-bottom: 1px dotted #888; padding: 1px 2px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.sub-contractor { font-size: 8px; color: #444; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub-location { font-size: 9px; font-weight: bold; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.ftr-block { margin-top: 4px; }
-.ftr-row { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; font-weight: bold; }
-.ftr-notice { font-size: 9px; color: #222; margin-top: 2px; }
+/* 下枠（運転者） */
+.cell-btm { height: 24px; padding: 2px 2px; font-size: 8.5px; color: #111; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-@media print { .noprint { display: none; } }
-.noprint { background: #185fa5; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: bold; margin: 0 auto 10px; display: block; cursor: pointer; }
+.col-fuel { font-size: 8.5px; height: 24px; white-space: nowrap; overflow: hidden; }
+.col-chk { font-size: 13px; font-weight: bold; }
+
+/* 備考枠と月次点検の統合 */
+.notes-box { border: 1px solid #000; margin-top: 4px; height: 86px; padding: 4px; font-size: 8.5px; display: flex; flex-direction: column; justify-content: space-between; }
+.notes-title { font-weight: bold; font-size: 9px; border-bottom: 1px solid #ccc; padding-bottom: 1px; margin-bottom: 2px; }
+.notes-content { flex: 1; overflow: hidden; line-height: 1.2; }
+.monthly-check-in-notes { border-top: 1px dotted #000; padding-top: 3px; font-size: 9.5px; font-weight: bold; text-align: right; }
+
+.ftr-block { margin-top: 3px; }
+.ftr-row { display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; font-weight: bold; }
+.ftr-notice { font-size: 8.5px; color: #222; margin-top: 1px; }
+
+/* 印刷時のボタン非表示および改ページ制限 */
+@media print {
+  .noprint { display: none !important; }
+  body, page-container { height: auto; max-height: none; }
+  tr { page-break-inside: avoid; }
+}
+.noprint { background: #185fa5; color: #fff; border: none; padding: 8px 18px; border-radius: 5px; font-size: 12px; font-weight: bold; margin: 0 auto 8px; display: block; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -2774,9 +2790,15 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 26px;
         ${renderBlockRows(17, daysIn)}
       </table>
 
+      <!-- 備考枠内に「月次点検」を統合配置 -->
       <div class="notes-box">
-        <div class="notes-title">備考（故障・注意事項等）</div>
-        <div>${notesList.join('<br>')}</div>
+        <div>
+          <div class="notes-title">備考（故障・注意事項等）</div>
+          <div class="notes-content">${notesList.join('<br>')}</div>
+        </div>
+        <div class="monthly-check-in-notes">
+          月次点検 ${monthlyChecked ? '☑' : '□'}  担当印：＿＿＿＿＿＿
+        </div>
       </div>
     </div>
   </div>
@@ -2784,7 +2806,6 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 26px;
   <div class="ftr-block">
     <div class="ftr-row">
       <div>※回送した時は回送の欄にチェック✔</div>
-      <div>月次点検 ${monthlyChecked ? '☑' : '□'}  担当印：＿＿＿＿＿＿</div>
     </div>
     <div class="ftr-notice">※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
   </div>
