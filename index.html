@@ -676,11 +676,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <a href="#" id="dm-photo-link" target="_blank" class="btn btn-o" style="text-decoration:none">📷 写真を開く（原寸）</a>
       </div>
       <div class="fg">
-        <label class="fl">GPS座標（記録値・変更不可）</label>
-        <div class="fc" id="dm-gps" style="background:#f0f0f0;display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <span id="dm-gps-txt">記録なし</span>
-          <a href="#" id="dm-gps-link" target="_blank" style="display:none;color:#185fa5;font-weight:700;font-size:15px;flex-shrink:0">🗺 地図を開く</a>
+        <label class="fl">GPS位置情報（緯度・経度）</label>
+        <div class="frow" style="margin-bottom:6px">
+          <input class="fc" type="number" step="any" id="dm-lat" placeholder="緯度 (例: 34.397)" inputmode="decimal">
+          <input class="fc" type="number" step="any" id="dm-lng" placeholder="経度 (例: 131.397)" inputmode="decimal">
         </div>
+        <a href="#" id="dm-gps-link" target="_blank" style="display:none;color:#185fa5;font-weight:700;font-size:14px">マップで位置を確認する</a>
       </div>
       <div id="dm-noid" style="display:none;font-size:15px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:10px">旧形式のデータのため編集できません（閲覧のみ）。</div>
       <button class="btn btn-p" id="dm-save" onclick="saveDayModal()">保存する</button>
@@ -2320,9 +2321,15 @@ function dmSelect(i){
   document.getElementById('dm-nut').value=r.nut!==undefined?r.nut:'';
   document.getElementById('dm-fuelhour').value=r.fuelHour!==undefined?r.fuelHour:'';
   document.getElementById('dm-gps-txt').textContent=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
-  const gpsLink=document.getElementById('dm-gps-link');
-  if(r.lat){gpsLink.href=`https://www.google.com/maps?q=${r.lat},${r.lng}`;gpsLink.style.display='inline';}
-  else{gpsLink.style.display='none';}
+  document.getElementById('dm-lat').value = r.lat || '';
+  document.getElementById('dm-lng').value = r.lng || '';
+  const gpsLink = document.getElementById('dm-gps-link');
+  if (r.lat && r.lng) {
+    gpsLink.href = `https://www.google.com/maps?q=${r.lat},${r.lng}`;
+    gpsLink.style.display = 'inline-block';
+  } else {
+    gpsLink.style.display = 'none';
+  }
   const noid=!r.id;
   document.getElementById('dm-noid').style.display=noid?'block':'none';
   document.getElementById('dm-save').style.display=noid?'none':'block';
@@ -2339,26 +2346,28 @@ async function saveDayModal(){
   if(!newMachine){showToast('重機番号を選択してください','err');return;}
   const moved = (newDate!==dmCurrent.date) || (newMachine!==dmCurrent.machineId);
   if(moved && !confirm(`日付/重機番号を変更します。\n${dmCurrent.date} ${dmCurrent.machineId} → ${newDate} ${newMachine}\nよろしいですか？`))return;
-  const upd={
-    id:dmCurrent.id,
-    date:newDate,
-    machineId:newMachine,
-    operator:document.getElementById('dm-operator').value,
-    contractor:document.getElementById('dm-contractor').value.trim(),
-    location:document.getElementById('dm-location').value.trim(),
-    hourMeter:document.getElementById('dm-hmeter').value,
-    workHours:document.getElementById('dm-whours').value,
-    fuelLocation:document.getElementById('dm-floc').value,
-    fuelAmount:document.getElementById('dm-famt').value,
-    inspection:document.getElementById('dm-insp').value,
-    grease:document.getElementById('dm-grease').classList.contains('on')?'済':'未',
-    transfer:document.getElementById('dm-trans').classList.contains('on')?'有':'無',
-    notes:document.getElementById('dm-notes').value.trim(),
-    noteType:document.getElementById('dm-notetype').value,
-    bit:document.getElementById('dm-bit').value,
-    bolt:document.getElementById('dm-bolt').value,
-    nut:document.getElementById('dm-nut').value,
-    fuelHour:document.getElementById('dm-fuelhour').value
+  const upd = {
+    id: dmCurrent.id,
+    date: newDate,
+    machineId: newMachine,
+    operator: document.getElementById('dm-operator').value,
+    contractor: document.getElementById('dm-contractor').value.trim(),
+    location: document.getElementById('dm-location').value.trim(),
+    hourMeter: document.getElementById('dm-hmeter').value,
+    workHours: document.getElementById('dm-whours').value,
+    fuelLocation: document.getElementById('dm-floc').value,
+    fuelAmount: document.getElementById('dm-famt').value,
+    inspection: document.getElementById('dm-insp').value,
+    grease: document.getElementById('dm-grease').classList.contains('on') ? '済' : '未',
+    transfer: document.getElementById('dm-trans').classList.contains('on') ? '有' : '無',
+    notes: document.getElementById('dm-notes').value.trim(),
+    noteType: document.getElementById('dm-notetype').value,
+    bit: document.getElementById('dm-bit').value,
+    bolt: document.getElementById('dm-bolt').value,
+    nut: document.getElementById('dm-nut').value,
+    fuelHour: document.getElementById('dm-fuelhour').value,
+    lat: document.getElementById('dm-lat').value, // 編集値を取得
+    lng: document.getElementById('dm-lng').value  // 編集値を取得
   };
   showToast('保存中...','');
   try{
@@ -2635,7 +2644,7 @@ function printStandardMonth(mid, m) {
     });
   });
 
-  // 日別ブロック描画（上段：元請/現場名の2段表示、下段：運転者）
+  // 日別ブロック描画（上段：元請/現場名、下段：運転者(中央寄せ)）
   const renderBlockRows = (fromDay, toDay) => {
     let html = '';
     for (let d = fromDay; d <= toDay; d++) {
@@ -2652,8 +2661,6 @@ function printStandardMonth(mid, m) {
         const locations = [...new Set(arr.map(r => r.location).filter(Boolean))].join('/');
         const opText = [...new Set(arr.map(r => r.operator).filter(Boolean))].join('・');
 
-        // 上枠内に元請（上）と現場名（下）を2段表示
-        const topText = [contractors, locations].filter(Boolean).join(' / ');
         siteOp = `<div class="cell-top"><div class="sub-contractor">${contractors}</div><div class="sub-location">${locations}</div></div><div class="cell-btm">${opText}</div>`;
 
         const totalFuel = arr.reduce((s, r) => s + (parseFloat(r.fuelAmount) || 0), 0);
@@ -2687,11 +2694,12 @@ function printStandardMonth(mid, m) {
     return html;
   };
 
+  // 幅配分: 日(6%), アワメータ(22%), 現場名/運転者(40%), 給油(18%), 点検(7%), 回送(7%)
   const tableHeader = `
     <tr>
       <th style="width:6%">日</th>
-      <th colspan="2" style="width:28%">アワメータ</th>
-      <th style="width:34%">現場名 / 運転者</th>
+      <th colspan="2" style="width:22%">アワメータ</th>
+      <th style="width:40%">現場名 / 運転者</th>
       <th style="width:18%">給油店<br>給油量</th>
       <th style="width:7%">点検</th>
       <th style="width:7%">回送</th>
@@ -2704,57 +2712,56 @@ function printStandardMonth(mid, m) {
 <meta charset="UTF-8">
 <title>運転日報 ${mid} 令和${calYear - 2018}年${calMonth + 1}月</title>
 <style>
-@page { size: A4 portrait; margin: 4mm 5mm; }
+@page { size: A4 portrait; margin: 3mm 4mm; }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: #fff; }
-body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color: #000; font-size: 9.5px; }
+body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color: #000; font-size: 10.5px; }
 
-.page-container { width: 100%; max-height: 275mm; display: flex; flex-direction: column; justify-content: space-between; }
+.page-container { width: 100%; max-height: 280mm; display: flex; flex-direction: column; justify-content: space-between; }
 
+/* 運転日報タイトルを真ん中に配置 */
 .hdr-table { width: 100%; margin-bottom: 2px; border-collapse: collapse; }
-.hdr-title { font-size: 17px; font-weight: bold; text-align: left; }
-.hdr-ym { font-size: 15px; font-weight: bold; text-align: right; }
+.hdr-title { font-size: 19px; font-weight: bold; text-align: center; width: 70%; padding-left: 15%; }
+.hdr-ym { font-size: 15px; font-weight: bold; text-align: right; width: 15%; vertical-align: bottom; }
 
-.mstart-row { font-size: 10.5px; font-weight: bold; margin-bottom: 3px; }
+.mstart-row { font-size: 11px; font-weight: bold; margin-bottom: 3px; }
 
 .main-flex { display: flex; gap: 6px; width: 100%; align-items: flex-start; }
 .col-block { flex: 1; }
 .col-block-right { flex: 1; display: flex; flex-direction: column; }
 
-table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
 table.sheet-tbl th, table.sheet-tbl td { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 0 1px; }
-table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 22px; font-size: 9px; line-height: 1.1; }
+table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px; font-size: 10px; line-height: 1.1; }
 
-.col-day { font-size: 11.5px; font-weight: bold; height: 48px; }
-.col-lbl { font-size: 8.5px; text-align: right; padding-right: 2px; width: 32px; height: 24px; }
-.col-val { font-size: 9.5px; text-align: left; padding-left: 2px; }
+/* 1日あたり高さを 52px (26px * 2) に拡大 */
+.col-day { font-size: 12.5px; font-weight: bold; height: 52px; }
+.col-lbl { font-size: 9px; text-align: right; padding-right: 1px; width: 28px; height: 26px; }
+.col-val { font-size: 10.5px; text-align: left; padding-left: 1px; font-weight: 500; }
 .col-site { text-align: left; padding: 0 !important; vertical-align: top; }
 
-/* 上枠内（元請・現場名）の2段構造 */
-.cell-top { height: 24px; border-bottom: 1px dotted #888; padding: 1px 2px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
-.sub-contractor { font-size: 8px; color: #444; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sub-location { font-size: 9px; font-weight: bold; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell-top { height: 26px; border-bottom: 1px dotted #888; padding: 1px 2px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.sub-contractor { font-size: 8.5px; color: #444; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub-location { font-size: 10px; font-weight: bold; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 下枠（運転者） */
-.cell-btm { height: 24px; padding: 2px 2px; font-size: 8.5px; color: #111; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 運転者の名前を真ん中に配置 */
+.cell-btm { height: 26px; padding: 1px 2px; font-size: 9.5px; font-weight: bold; color: #111; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.col-fuel { font-size: 8.5px; height: 24px; white-space: nowrap; overflow: hidden; }
-.col-chk { font-size: 13px; font-weight: bold; }
+.col-fuel { font-size: 9px; height: 26px; white-space: nowrap; overflow: hidden; }
+.col-chk { font-size: 14px; font-weight: bold; }
 
-/* 備考枠と月次点検の統合 */
-.notes-box { border: 1px solid #000; margin-top: 4px; height: 86px; padding: 4px; font-size: 8.5px; display: flex; flex-direction: column; justify-content: space-between; }
-.notes-title { font-weight: bold; font-size: 9px; border-bottom: 1px solid #ccc; padding-bottom: 1px; margin-bottom: 2px; }
+.notes-box { border: 1px solid #000; margin-top: 4px; height: 82px; padding: 4px; font-size: 9.5px; display: flex; flex-direction: column; justify-content: space-between; }
+.notes-title { font-weight: bold; font-size: 10px; border-bottom: 1px solid #ccc; padding-bottom: 1px; margin-bottom: 2px; }
 .notes-content { flex: 1; overflow: hidden; line-height: 1.2; }
-.monthly-check-in-notes { border-top: 1px dotted #000; padding-top: 3px; font-size: 9.5px; font-weight: bold; text-align: right; }
+.monthly-check-in-notes { border-top: 1px dotted #000; padding-top: 3px; font-size: 10px; font-weight: bold; text-align: right; }
 
 .ftr-block { margin-top: 3px; }
-.ftr-row { display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; font-weight: bold; }
-.ftr-notice { font-size: 8.5px; color: #222; margin-top: 1px; }
+.ftr-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; }
+.ftr-notice { font-size: 9px; color: #222; margin-top: 1px; }
 
-/* 印刷時のボタン非表示および改ページ制限 */
 @media print {
   .noprint { display: none !important; }
-  body, page-container { height: auto; max-height: none; }
+  body, .page-container { height: auto; max-height: none; }
   tr { page-break-inside: avoid; }
 }
 .noprint { background: #185fa5; color: #fff; border: none; padding: 8px 18px; border-radius: 5px; font-size: 12px; font-weight: bold; margin: 0 auto 8px; display: block; cursor: pointer; }
@@ -2790,7 +2797,6 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 22px;
         ${renderBlockRows(17, daysIn)}
       </table>
 
-      <!-- 備考枠内に「月次点検」を統合配置 -->
       <div class="notes-box">
         <div>
           <div class="notes-title">備考（故障・注意事項等）</div>
