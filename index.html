@@ -2604,6 +2604,7 @@ function printStandardMonth(mid, m) {
     });
   });
 
+  // 1日分（2行構成）のレンダリング
   const renderBlockRows = (fromDay, toDay) => {
     let html = '';
     for (let d = fromDay; d <= toDay; d++) {
@@ -2653,12 +2654,14 @@ function printStandardMonth(mid, m) {
     return html;
   };
 
+  // 列幅配分（アワメータラベル幅固定・数値・現場名列の拡大最適化）
   const tableHeader = `
     <tr>
-      <th style="width:6%">日</th>
-      <th colspan="2" style="width:22%">アワメータ</th>
-      <th style="width:40%">現場名 / 運転者</th>
-      <th style="width:18%">給油店<br>給油量</th>
+      <th style="width:5%">日</th>
+      <th style="width:7%">区分</th>
+      <th style="width:16%">アワメータ</th>
+      <th style="width:42%">現場名 / 運転者</th>
+      <th style="width:16%">給油店<br>給油量</th>
       <th style="width:7%">点検</th>
       <th style="width:7%">回送</th>
     </tr>
@@ -2672,47 +2675,54 @@ function printStandardMonth(mid, m) {
 <style>
 @page { size: A4 portrait; margin: 3mm 4mm; }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: #fff; }
-body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color: #000; font-size: 10.5px; }
+html, body { margin: 0; padding: 0; background: #fff; height: 100%; }
+body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color: #000; font-size: 11px; }
 
-.page-container { width: 100%; max-height: 280mm; display: flex; flex-direction: column; justify-content: space-between; }
+.page-container { width: 100%; height: 282mm; display: flex; flex-direction: column; justify-content: space-between; }
 
 .hdr-table { width: 100%; margin-bottom: 2px; border-collapse: collapse; }
-.hdr-title { font-size: 19px; font-weight: bold; text-align: center; width: 70%; padding-left: 15%; }
+.hdr-title { font-size: 20px; font-weight: bold; text-align: center; width: 70%; padding-left: 15%; }
 .hdr-ym { font-size: 15px; font-weight: bold; text-align: right; width: 15%; vertical-align: bottom; }
 
-.mstart-row { font-size: 11px; font-weight: bold; margin-bottom: 3px; }
+.mstart-row { font-size: 11.5px; font-weight: bold; margin-bottom: 4px; }
 
-.main-flex { display: flex; gap: 6px; width: 100%; align-items: flex-start; }
-.col-block { flex: 1; }
+.main-flex { display: flex; gap: 6px; width: 100%; flex: 1; align-items: stretch; }
+.col-block { flex: 1; display: flex; flex-direction: column; }
 .col-block-right { flex: 1; display: flex; flex-direction: column; }
 
-table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 10.5px; table-layout: fixed; flex: 1; }
 table.sheet-tbl th, table.sheet-tbl td { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 0 1px; }
-table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px; font-size: 10px; line-height: 1.1; }
+table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 26px; font-size: 10.5px; line-height: 1.1; }
 
-.col-day { font-size: 12.5px; font-weight: bold; height: 52px; }
-.col-lbl { font-size: 9px; text-align: right; padding-right: 1px; width: 28px; height: 26px; }
-.col-val { font-size: 10.5px; text-align: left; padding-left: 1px; font-weight: 500; }
+/* 1日あたり高さを 60px (30px * 2) へ拡大して余白を完全消化 */
+.col-day { font-size: 13.5px; font-weight: bold; height: 60px; }
+
+/* ラベル幅の完全最適化（幅詰め） */
+.col-lbl { font-size: 9.5px; text-align: right; padding-right: 2px; height: 30px; white-space: nowrap; }
+
+/* アワメータ数値の強調表示 */
+.col-val { font-size: 13px; font-weight: 700; text-align: left; padding-left: 3px; color: #000; }
+
 .col-site { text-align: left; padding: 0 !important; vertical-align: top; }
 
-.cell-top { height: 26px; border-bottom: 1px dotted #888; padding: 1px 2px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
-.sub-contractor { font-size: 8.5px; color: #444; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sub-location { font-size: 10px; font-weight: bold; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell-top { height: 30px; border-bottom: 1px dotted #888; padding: 1px 3px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.sub-contractor { font-size: 9px; color: #444; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub-location { font-size: 10.5px; font-weight: bold; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.cell-btm { height: 26px; padding: 1px 2px; font-size: 9.5px; font-weight: bold; color: #111; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell-btm { height: 30px; padding: 1px 3px; font-size: 10.5px; font-weight: bold; color: #111; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.col-fuel { font-size: 9px; height: 26px; white-space: nowrap; overflow: hidden; }
-.col-chk { font-size: 14px; font-weight: bold; }
+.col-fuel { font-size: 10px; height: 30px; white-space: nowrap; overflow: hidden; }
+.col-chk { font-size: 15px; font-weight: bold; }
 
-.notes-box { border: 1px solid #000; margin-top: 4px; height: 82px; padding: 4px; font-size: 9.5px; display: flex; flex-direction: column; justify-content: space-between; }
-.notes-title { font-weight: bold; font-size: 10px; border-bottom: 1px solid #ccc; padding-bottom: 1px; margin-bottom: 2px; }
-.notes-content { flex: 1; overflow: hidden; line-height: 1.2; }
-.monthly-check-in-notes { border-top: 1px dotted #000; padding-top: 3px; font-size: 10px; font-weight: bold; text-align: right; }
+/* 右ブロック下の備考欄（柔軟に可変ストレッチ） */
+.notes-box { border: 1px solid #000; margin-top: 4px; flex: 1; min-height: 90px; padding: 5px; font-size: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+.notes-title { font-weight: bold; font-size: 10.5px; border-bottom: 1px solid #ccc; padding-bottom: 2px; margin-bottom: 3px; }
+.notes-content { flex: 1; overflow: hidden; line-height: 1.3; }
+.monthly-check-in-notes { border-top: 1px dotted #000; padding-top: 4px; font-size: 10.5px; font-weight: bold; text-align: right; }
 
-.ftr-block { margin-top: 3px; }
-.ftr-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; }
-.ftr-notice { font-size: 9px; color: #222; margin-top: 1px; }
+.ftr-block { margin-top: 4px; }
+.ftr-row { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; font-weight: bold; }
+.ftr-notice { font-size: 9.5px; color: #222; margin-top: 1px; }
 
 @media print {
   .noprint { display: none !important; }
@@ -2780,7 +2790,7 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px;
   w.document.write(html);
   w.document.close();
 }
-
+  
 function showTab(name){
   const tabs=['list','input','machines','jikensa','dash'];
   tabs.forEach((t,i)=>{
