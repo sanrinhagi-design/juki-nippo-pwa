@@ -73,22 +73,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .btn-o{background:#fff;color:#185fa5;border:1.5px solid #185fa5}
 .btn-g{background:#27ae60;color:#fff}
 .btn-sm{padding:9px 16px;font-size:15px;border-radius:8px;width:auto;display:inline-block}
-.gps-box{background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:10px 12px;margin-bottom:12px;transition:.3s}
-.gps-box.ok{background:#eaf3de;border-color:#97c459}
-.gps-box.err{background:#fcebeb;border-color:#f09595}
-.gps-row{display:flex;align-items:center;gap:8px}
-.gps-st{font-size:16px;font-weight:700;color:#185fa5}
-.gps-box.ok .gps-st{color:#27ae60}.gps-box.err .gps-st{color:#c0392b}
-.gps-coord{font-size:15px;color:#185fa5;margin-top:6px;font-family:monospace;word-break:break-all}
-.gps-box.err .gps-coord{color:#c0392b}
 .gps-bar{display:flex;align-items:center;gap:8px;background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:10px 12px;cursor:pointer;transition:.2s}
-.gps-bar.ok{background:#eaf3de;border-color:#97c459}
-.gps-bar.err{background:#fcebeb;border-color:#f09595}
-.gps-bar.skip{background:#eef0f2;border-color:#d5d5d5;opacity:.75}
 .gps-bar-st{font-size:15px;font-weight:700;color:#185fa5;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gps-bar.ok .gps-bar-st{color:#27ae60}.gps-bar.err .gps-bar-st{color:#c0392b}.gps-bar.skip .gps-bar-st{color:#888}
-.gps-detail{display:none;padding:10px 12px 2px}
-.gps-detail.open{display:block}
 .gps-compact{background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;transition:.2s}
 .gps-compact.ok{background:#eaf3de;border-color:#97c459}
 .gps-compact.err{background:#fcebeb;border-color:#f09595}
@@ -100,8 +86,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .gps-compact.skip .gps-compact-txt{color:#888}
 .gps-compact-refresh{flex-shrink:0;font-size:14px;color:#185fa5;font-weight:700;cursor:pointer;padding:4px 8px;white-space:nowrap}
 .gps-compact-skiprow{width:100%;display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;color:#555;padding-top:2px}
-.compact-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-@media(max-width:360px){.compact-row{grid-template-columns:1fr}}
 .ml-scroll{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e5e5e5;border-radius:10px;max-width:100%;max-height:70vh}
 .ml-table{border-collapse:collapse;font-size:14px}
 .ml-table th,.ml-table td{border:1px solid #ececec;padding:0;text-align:center}
@@ -119,13 +103,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .ml-cell-txt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;max-width:100%;margin:0 auto}
 .ml-cell-contractor{font-size:10.5px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .ml-cell-location{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-@media(min-width:900px){
-  .ml-cell{width:64px;height:60px;font-size:13px}
-  .ml-cell-contractor{font-size:11px}
-  .ml-cell-location{font-size:13px}
-  .ml-table th.ml-daynum{width:64px;min-width:64px}
-  .ml-machine-col{width:190px;min-width:190px;max-width:190px;font-size:16px}
-}
 .notice{padding:12px 14px;border-radius:9px;font-size:15px;margin-bottom:14px;display:flex;align-items:flex-start;gap:9px;line-height:1.55}
 .n-info{background:#e6f1fb;color:#0c447c;border:1px solid #b5d4f4}
 .n-warn{background:#faeeda;color:#854f0b;border:1px solid #fac775}
@@ -172,7 +149,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .cal-warn{background:#fcebeb;color:#791f1f;border-color:#f09595}
 .cal-day{font-weight:700}
 .cal-sub{font-size:15px}
-.insp-group{margin-bottom:12px}
 .insp-gh{font-size:15px;font-weight:700;color:#185fa5;padding:6px 0;border-bottom:1.5px solid #e6f1fb;margin-bottom:4px}
 .insp-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #f7f7f7}
 .insp-chk{width:24px;height:24px;border-radius:6px;border:2px solid #ccc;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
@@ -458,7 +434,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <div id="scr-machines" class="scr">
   <div class="scr-fixed">
     <div class="yard-chips" id="m-yards"></div>
-    <div class="slbl">登録重機　<span id="m-cnt" style="color:#185fa5;font-weight:800"></span></div>
+    <div class="slbl">登録重機 <span id="m-cnt" style="color:#185fa5;font-weight:800"></span></div>
   </div>
   <div class="scr-scroll">
   <div class="card" id="m-list"></div>
@@ -620,7 +596,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   </div>
 </div>
 
-<!-- 日報編集モーダル（カレンダーから） -->
+<!-- 日報編集モーダル（集計・カレンダー・月次から） -->
 <div class="modal-bg" id="day-modal">
   <div class="modal">
     <div class="modal-h">
@@ -675,14 +651,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <img id="dm-photo-img" style="width:100%;border-radius:9px;display:block;margin-bottom:8px;cursor:pointer" onclick="window.open(document.getElementById('dm-photo-link').href,'_blank')">
         <a href="#" id="dm-photo-link" target="_blank" class="btn btn-o" style="text-decoration:none">📷 写真を開く（原寸）</a>
       </div>
+
+      <!-- ★GPS座標直接編集欄★ -->
       <div class="fg">
         <label class="fl">GPS位置情報（緯度・経度）</label>
         <div class="frow" style="margin-bottom:6px">
           <input class="fc" type="number" step="any" id="dm-lat" placeholder="緯度 (例: 34.397)" inputmode="decimal">
           <input class="fc" type="number" step="any" id="dm-lng" placeholder="経度 (例: 131.397)" inputmode="decimal">
         </div>
-        <a href="#" id="dm-gps-link" target="_blank" style="display:none;color:#185fa5;font-weight:700;font-size:14px">マップで位置を確認する</a>
+        <a href="#" id="dm-gps-link" target="_blank" style="display:none;color:#185fa5;font-weight:700;font-size:14px;margin-top:4px">🗺 Google Mapsで位置を確認する</a>
       </div>
+
       <div id="dm-noid" style="display:none;font-size:15px;color:#791f1f;background:#fcebeb;border-radius:8px;padding:8px 10px;margin-bottom:10px">旧形式のデータのため編集できません（閲覧のみ）。</div>
       <button class="btn btn-p" id="dm-save" onclick="saveDayModal()">保存する</button>
       <button class="btn btn-d" id="dm-delete" onclick="deleteDayModal()" style="margin-top:8px">この日報を削除する</button>
@@ -759,7 +738,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <span class="modal-t">運転者マスタ管理</span>
       <span class="modal-x" onclick="closeOpModal()">&times;</span>
     </div>
-    <div class="slbl">登録運転者　<span id="op-cnt"></span></div>
+    <div class="slbl">登録運転者 <span id="op-cnt"></span></div>
     <div class="card" id="op-list"></div>
     <div class="fg" style="margin-top:12px">
       <label class="fl">運転者を追加</label>
@@ -805,9 +784,6 @@ let gpsLat=null, gpsLng=null, gpsAcc=null, syncBusy=false;
 let listYard='', mYard='', jiYard='';
 let curInspType=null, curInspChecks={};
 
-// ================================================================
-// ★認証：Google Sign-In + deviceToken方式
-// ================================================================
 function getDeviceToken(){ return localStorage.getItem('jukiDeviceToken') || ''; }
 function setDeviceToken(t){ localStorage.setItem('jukiDeviceToken', t); }
 function clearDeviceToken(){ localStorage.removeItem('jukiDeviceToken'); }
@@ -820,9 +796,7 @@ function showAuthOverlay(errMsg){
   else{errEl.style.display='none';}
   renderGoogleSignInButton();
 }
-// Google Identity Servicesのスクリプトはasync読み込みのため、
-// showAuthOverlay()が呼ばれた時点でまだ読み込み中の場合がある。
-// その場合は準備できるまで再試行し、ボタンが表示されない状態を防ぐ。
+
 let _gsiRetryCount = 0;
 function renderGoogleSignInButton(){
   const container = document.getElementById('g_id_signin_container');
@@ -841,12 +815,6 @@ function renderGoogleSignInButton(){
 }
 function hideAuthOverlay(){ document.getElementById('auth-overlay').style.display='none'; }
 
-// ================================================================
-// ★GAS通信の低レベル送信関数。
-// fetch()だとGAS Webアプリ特有のリダイレクト後にCORSヘッダーが
-// 認識されず "Failed to fetch" になるケースがあるため、
-// より互換性の高い XMLHttpRequest で送信する。
-// ================================================================
 function postToGas(payload, timeoutMs){
   return new Promise((resolve, reject)=>{
     const xhr = new XMLHttpRequest();
@@ -863,12 +831,8 @@ function postToGas(payload, timeoutMs){
         reject(new Error('サーバーエラー (status: '+xhr.status+')'));
       }
     };
-    xhr.onerror = function(){
-      reject(new Error('通信に失敗しました'));
-    };
-    xhr.ontimeout = function(){
-      reject(new Error('タイムアウトしました'));
-    };
+    xhr.onerror = function(){ reject(new Error('通信に失敗しました')); };
+    xhr.ontimeout = function(){ reject(new Error('タイムアウトしました')); };
     xhr.send(JSON.stringify(payload));
   });
 }
@@ -889,12 +853,6 @@ async function onGoogleSignIn(response){
   }
 }
 
-// ================================================================
-// ★GAS通信の共通関数。全ての重機日報API呼び出しはこの1関数を経由する。
-// action名は 'getReports'・'addMachine' のような分かりやすい旧名で渡し、
-// ここでポータルGAS側の 'jukiGetReports'・'jukiAddMachine' 等に変換して
-// deviceTokenを付与してPOST送信する。認証エラー時は自動的にログイン画面へ戻す。
-// ================================================================
 const JUKI_ACTION_MAP = {
   getMachines:'jukiGetMachines', getOperators:'jukiGetOperators', getInspections:'jukiGetInspections',
   getReports:'jukiGetReports', ping:'jukiPing', batchAddReports:'jukiBatchAddReports',
@@ -911,7 +869,6 @@ async function fetchJukiApi(action, params){
   }
   return data;
 }
-
 
 let realOnline=false;
 async function checkRealConnectivity(){
@@ -979,7 +936,6 @@ function syncStickyOffset(){
   const activeFixed=document.querySelector('.scr-fixed.on');
   document.querySelectorAll('.scr-fixed').forEach(el=>el.style.top=headerH+'px');
   const fixedH=activeFixed?activeFixed.offsetHeight:0;
-  const total=headerH+fixedH;
   const bodyPad=document.getElementById('body-pad');
   if(bodyPad)bodyPad.style.height=headerH+'px';
   document.querySelectorAll('.scr-scroll').forEach(el=>{el.style.paddingTop=(fixedH>0?fixedH+8:0)+'px';});
@@ -1029,7 +985,6 @@ function allReports(){return [...pending,...synced];}
 function todayReports(){const t=todayStr();return allReports().filter(r=>r.date===t);}
 function findMachine(id){return machines.find(m=>m.id===id);}
 
-// ===== 元請・現場名サジェスト（直近1ヶ月・全端末共通） =====
 function daysAgoStr(n){
   const d=new Date();d.setDate(d.getDate()-n);
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -1601,7 +1556,7 @@ function renderList(){
     }).join('');
     return `<div class="card">
       <div class="card-h" onclick="toggleEntries(this)" style="cursor:pointer">
-        <div><div class="mname">${mid}　${nm}</div><div class="msub">${yard}</div></div>
+        <div><div class="mname">${mid} ${nm}</div><div class="msub">${yard}</div></div>
         <div style="display:flex;align-items:center;gap:9px">
           ${multi?`<span class="cnt-badge">${rs.length}件</span>`:''}
           ${bdg}
@@ -1630,7 +1585,7 @@ function toggleEntries(h){
 
 function openListEntryModal(mid,nm){
   const rs=(window.listGroups&&window.listGroups[mid])?window.listGroups[mid].slice().sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))):[];
-  const title=`${mid}　${nm}（本日）`;
+  const title=`${mid} ${nm}（本日）`;
   openReportModal(title,rs);
 }
 
@@ -1749,7 +1704,7 @@ function renderJikensa(){
     }
     return `<div class="card">
       <div class="card-h">
-        <div><div class="mname">${m.id}　${nm}</div><div class="msub">${m.yard}</div></div>
+        <div><div class="mname">${m.id} ${nm}</div><div class="msub">${m.yard}</div></div>
         ${dueTag}
       </div>
       <div class="card-b">
@@ -1816,7 +1771,7 @@ async function refreshDashMonth(){
 
 function renderDash(){
   const d=new Date();
-  document.getElementById('dash-month').textContent=`令和${d.getFullYear()-2018}年${d.getMonth()+1}月　月次集計`;
+  document.getElementById('dash-month').textContent=`令和${d.getFullYear()-2018}年${d.getMonth()+1}月 月次集計`;
   const rpts=dashSourceReports();
   const totalL=rpts.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
   const uninsp=rpts.filter(r=>r.inspection==='未').length;
@@ -1871,7 +1826,7 @@ function renderDash(){
     const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
     return `<div class="card ${x.st.cls==='due-over'?'card-alert':''}">
       <div class="card-h">
-        <div><div class="mname" style="color:${x.st.cls==='due-over'?'#c0392b':'#854f0b'}">${x.ins.machineId}　${nm}</div><div class="msub">次回: ${x.ins.nextDate}</div></div>
+        <div><div class="mname" style="color:${x.st.cls==='due-over'?'#c0392b':'#854f0b'}">${x.ins.machineId} ${nm}</div><div class="msub">次回: ${x.ins.nextDate}</div></div>
         <span class="due-tag ${x.st.cls}">${x.st.txt}</span>
       </div>
     </div>`;
@@ -1883,7 +1838,7 @@ function renderDash(){
   const warns=Object.entries(latest).filter(([,h])=>h%HOUR_ALERT<15).map(([id,h])=>({id,h,next:Math.ceil(h/HOUR_ALERT)*HOUR_ALERT}));
   alertEl.innerHTML=warns.length>0?warns.map(w=>{
     const m=findMachine(w.id);const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
-    return `<div class="card card-alert"><div class="card-h"><div><div class="mname" style="color:#c0392b">${w.id}　${nm}</div><div class="msub">現在: ${w.h} h</div></div><span class="bdg bdg-warn">⚠ 要点検</span></div><div class="card-b" style="font-size:15px;color:#666">${w.next}h定期点検まで あと ${w.next-w.h} h</div></div>`;
+    return `<div class="card card-alert"><div class="card-h"><div><div class="mname" style="color:#c0392b">${w.id} ${nm}</div><div class="msub">現在: ${w.h} h</div></div><span class="bdg bdg-warn">⚠ 要点検</span></div><div class="card-b" style="font-size:15px;color:#666">${w.next}h定期点検まで あと ${w.next-w.h} h</div></div>`;
   }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ アワー警告なし</div></div>';
 }
 
@@ -2146,7 +2101,7 @@ function openMlCell(mid, day){
     const d=parseInt(String(r.date).slice(8,10),10);
     return r.machineId===mid && d===day;
   }).sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||'')));
-  openReportModal(`${calMonth+1}月${day}日　${mid}`, rs);
+  openReportModal(`${calMonth+1}月${day}日 ${mid}`, rs);
 }
 
 function renderCalendar(){
@@ -2200,7 +2155,7 @@ let dmCurrent=null;
 let dmDayReports=[];
 function openDayModal(day,rs){
   const mid=calMachineId;
-  const title=`${calMonth+1}月${day}日　${mid}`;
+  const title=`${calMonth+1}月${day}日 ${mid}`;
   openReportModal(title,rs);
 }
 
@@ -2210,7 +2165,7 @@ function openDayMultiMachineModal(day,rs){
   rs.forEach(r=>{if(!byMachine[r.machineId])byMachine[r.machineId]=[];byMachine[r.machineId].push(r);});
   const mids=Object.keys(byMachine);
   if(mids.length===1){
-    openReportModal(`${calMonth+1}月${day}日　${mids[0]}`,byMachine[mids[0]]);
+    openReportModal(`${calMonth+1}月${day}日 ${mids[0]}`,byMachine[mids[0]]);
     return;
   }
   window.__dmDayMachines=byMachine;
@@ -2223,7 +2178,7 @@ function openDayMultiMachineModal(day,rs){
       <span class="mrow-id">${mid}</span><span class="mrow-name">${nm}</span><span class="bdg bdg-blue">${cnt}件</span>
     </div>`;
   }).join('');
-  document.getElementById('dm-title').textContent=`${calMonth+1}月${day}日　${mids.length}機体入力済み`;
+  document.getElementById('dm-title').textContent=`${calMonth+1}月${day}日 ${mids.length}機体入力済み`;
   document.getElementById('dm-form').style.display='none';
   document.getElementById('dm-empty').style.display='none';
   document.getElementById('dm-multi').innerHTML=`<div class="card">${listHtml}</div>`;
@@ -2231,7 +2186,7 @@ function openDayMultiMachineModal(day,rs){
 }
 function openDayModalFromList(mid,day){
   const rs=(window.__dmDayMachines&&window.__dmDayMachines[mid])||[];
-  openReportModal(`${calMonth+1}月${day}日　${mid}`,rs);
+  openReportModal(`${calMonth+1}月${day}日 ${mid}`,rs);
 }
 
 function openReportModal(title,rs){
@@ -2320,7 +2275,8 @@ function dmSelect(i){
   document.getElementById('dm-bolt').value=r.bolt!==undefined?r.bolt:'';
   document.getElementById('dm-nut').value=r.nut!==undefined?r.nut:'';
   document.getElementById('dm-fuelhour').value=r.fuelHour!==undefined?r.fuelHour:'';
-  document.getElementById('dm-gps-txt').textContent=r.lat?`${r.lat}, ${r.lng}`:'記録なし';
+
+  // ★集計画面編集モーダル内のGPS読み込み処理★
   document.getElementById('dm-lat').value = r.lat || '';
   document.getElementById('dm-lng').value = r.lng || '';
   const gpsLink = document.getElementById('dm-gps-link');
@@ -2330,6 +2286,7 @@ function dmSelect(i){
   } else {
     gpsLink.style.display = 'none';
   }
+
   const noid=!r.id;
   document.getElementById('dm-noid').style.display=noid?'block':'none';
   document.getElementById('dm-save').style.display=noid?'none':'block';
@@ -2346,28 +2303,30 @@ async function saveDayModal(){
   if(!newMachine){showToast('重機番号を選択してください','err');return;}
   const moved = (newDate!==dmCurrent.date) || (newMachine!==dmCurrent.machineId);
   if(moved && !confirm(`日付/重機番号を変更します。\n${dmCurrent.date} ${dmCurrent.machineId} → ${newDate} ${newMachine}\nよろしいですか？`))return;
-  const upd = {
-    id: dmCurrent.id,
-    date: newDate,
-    machineId: newMachine,
-    operator: document.getElementById('dm-operator').value,
-    contractor: document.getElementById('dm-contractor').value.trim(),
-    location: document.getElementById('dm-location').value.trim(),
-    hourMeter: document.getElementById('dm-hmeter').value,
-    workHours: document.getElementById('dm-whours').value,
-    fuelLocation: document.getElementById('dm-floc').value,
-    fuelAmount: document.getElementById('dm-famt').value,
-    inspection: document.getElementById('dm-insp').value,
-    grease: document.getElementById('dm-grease').classList.contains('on') ? '済' : '未',
-    transfer: document.getElementById('dm-trans').classList.contains('on') ? '有' : '無',
-    notes: document.getElementById('dm-notes').value.trim(),
-    noteType: document.getElementById('dm-notetype').value,
-    bit: document.getElementById('dm-bit').value,
-    bolt: document.getElementById('dm-bolt').value,
-    nut: document.getElementById('dm-nut').value,
-    fuelHour: document.getElementById('dm-fuelhour').value,
-    lat: document.getElementById('dm-lat').value, // 編集値を取得
-    lng: document.getElementById('dm-lng').value  // 編集値を取得
+  
+  // ★集計画面からのGPS保存オブジェクト構築★
+  const upd={
+    id:dmCurrent.id,
+    date:newDate,
+    machineId:newMachine,
+    operator:document.getElementById('dm-operator').value,
+    contractor:document.getElementById('dm-contractor').value.trim(),
+    location:document.getElementById('dm-location').value.trim(),
+    hourMeter:document.getElementById('dm-hmeter').value,
+    workHours:document.getElementById('dm-whours').value,
+    fuelLocation:document.getElementById('dm-floc').value,
+    fuelAmount:document.getElementById('dm-famt').value,
+    inspection:document.getElementById('dm-insp').value,
+    grease:document.getElementById('dm-grease').classList.contains('on')?'済':'未',
+    transfer:document.getElementById('dm-trans').classList.contains('on')?'有':'無',
+    notes:document.getElementById('dm-notes').value.trim(),
+    noteType:document.getElementById('dm-notetype').value,
+    bit:document.getElementById('dm-bit').value,
+    bolt:document.getElementById('dm-bolt').value,
+    nut:document.getElementById('dm-nut').value,
+    fuelHour:document.getElementById('dm-fuelhour').value,
+    lat:document.getElementById('dm-lat').value,
+    lng:document.getElementById('dm-lng').value
   };
   showToast('保存中...','');
   try{
@@ -2411,6 +2370,7 @@ async function deleteDayModal(){
     }
   }catch(e){showToast('通信エラー: '+e.message,'err');}
 }
+
 function openOpModal(){renderOps();document.getElementById('op-modal').classList.add('on');}
 function closeOpModal(){document.getElementById('op-modal').classList.remove('on');}
 function renderOps(){
@@ -2587,12 +2547,12 @@ th,td{border:1px solid #333;padding:2px 2px;text-align:center;height:14px}
 th{background:#eee}
 .foot{margin-top:4mm;font-size:9px}
 .notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
-@media print{.noprint{display:none}}
+@media print{.noprint{display:none !important;}}
 .noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
 </style></head><body>
 <button class="noprint" onclick="window.print()">🖨 印刷する</button>
 <div class="head">
-  <span class="title">運転日報　破砕機 ${mid}（${nm}）</span>
+  <span class="title">運転日報 破砕機 ${mid}（${nm}）</span>
   <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
 </div>
 <div class="mstart">月初アワメータ: ${monthStart!==''?monthStart+' h':'＿＿＿＿＿'}</div>
@@ -2601,9 +2561,9 @@ th{background:#eee}
   <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
 </div>
 <div class="foot">
-  <div>備考（故障・注意事項等）　※燃費目安 1H/約60L</div>
+  <div>備考（故障・注意事項等） ※燃費目安 1H/約60L</div>
   <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
-  <div style="margin-top:3mm">月次点検　${monthlyChecked?'☑':'☐'}　　担当：＿＿＿＿＿＿＿＿</div>
+  <div style="margin-top:3mm">月次点検 ${monthlyChecked?'☑':'☐'}  担当：＿＿＿＿＿＿＿＿</div>
   <div style="margin-top:2mm;font-size:8px;color:#555">※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
 </div>
 </body></html>`;
@@ -2644,7 +2604,6 @@ function printStandardMonth(mid, m) {
     });
   });
 
-  // 日別ブロック描画（上段：元請/現場名、下段：運転者(中央寄せ)）
   const renderBlockRows = (fromDay, toDay) => {
     let html = '';
     for (let d = fromDay; d <= toDay; d++) {
@@ -2694,7 +2653,6 @@ function printStandardMonth(mid, m) {
     return html;
   };
 
-  // 幅配分: 日(6%), アワメータ(22%), 現場名/運転者(40%), 給油(18%), 点検(7%), 回送(7%)
   const tableHeader = `
     <tr>
       <th style="width:6%">日</th>
@@ -2719,7 +2677,6 @@ body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color
 
 .page-container { width: 100%; max-height: 280mm; display: flex; flex-direction: column; justify-content: space-between; }
 
-/* 運転日報タイトルを真ん中に配置 */
 .hdr-table { width: 100%; margin-bottom: 2px; border-collapse: collapse; }
 .hdr-title { font-size: 19px; font-weight: bold; text-align: center; width: 70%; padding-left: 15%; }
 .hdr-ym { font-size: 15px; font-weight: bold; text-align: right; width: 15%; vertical-align: bottom; }
@@ -2734,7 +2691,6 @@ table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 10px; table
 table.sheet-tbl th, table.sheet-tbl td { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 0 1px; }
 table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px; font-size: 10px; line-height: 1.1; }
 
-/* 1日あたり高さを 52px (26px * 2) に拡大 */
 .col-day { font-size: 12.5px; font-weight: bold; height: 52px; }
 .col-lbl { font-size: 9px; text-align: right; padding-right: 1px; width: 28px; height: 26px; }
 .col-val { font-size: 10.5px; text-align: left; padding-left: 1px; font-weight: 500; }
@@ -2744,7 +2700,6 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px;
 .sub-contractor { font-size: 8.5px; color: #444; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sub-location { font-size: 10px; font-weight: bold; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 運転者の名前を真ん中に配置 */
 .cell-btm { height: 26px; padding: 1px 2px; font-size: 9.5px; font-weight: bold; color: #111; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .col-fuel { font-size: 9px; height: 26px; white-space: nowrap; overflow: hidden; }
@@ -3011,7 +2966,7 @@ function renderBkRows() {
 
     return `<div class="card" data-bkrow="${mid}">
       <div class="card-h">
-        <div class="mname">${mid}　${nm}</div>
+        <div class="mname">${mid} ${nm}</div>
         <span style="color:#c0392b;font-size:20px;cursor:pointer;padding:4px 8px" onclick="toggleBkMachine('${mid}')">✕</span>
       </div>
       <div class="card-b">
