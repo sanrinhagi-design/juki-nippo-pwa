@@ -784,9 +784,9 @@ let gpsLat=null, gpsLng=null, gpsAcc=null, syncBusy=false;
 let listYard='', mYard='', jiYard='';
 let curInspType=null, curInspChecks={};
 
-function getDeviceToken(){ return localStorage.getItem('jukiDeviceToken') || ''; }
-function setDeviceToken(t){ localStorage.setItem('jukiDeviceToken', t); }
-function clearDeviceToken(){ localStorage.removeItem('jukiDeviceToken'); }
+function getDeviceToken(){ return localStorage.getItem('portalDeviceToken') || ''; }
+function setDeviceToken(t){ localStorage.setItem('portalDeviceToken', t); }
+function clearDeviceToken(){ localStorage.removeItem('portalDeviceToken'); }
 
 let _authOverlayErrMsg = '';
 function showAuthOverlay(errMsg){
@@ -839,12 +839,20 @@ function postToGas(payload, timeoutMs){
 
 async function onGoogleSignIn(response){
   try{
-    const data = await postToGas({action:'jukiAuth', idToken:response.credential});
+    const data = await postToGas({action:'portalAuth', idToken:response.credential});
     if(data.ok){
+      // ポータルへのログインは成功。ここで重機日報(juki)権限があるかも確認する。
+      const access = (data.access || '').split(',').map(function(a){return a.trim();});
+      if(data.rank !== 'admin' && access.indexOf('juki') === -1){
+        showAuthOverlay('重機日報へのアクセス権限がありません（'+data.email+'）。業務ポータルから利用申請をしてください。');
+        return;
+      }
       setDeviceToken(data.deviceToken);
       hideAuthOverlay();
       showToast(data.name+'さん、ログインしました','ok');
       initApp();
+    }else if(data.needsRequest){
+      showAuthOverlay('ユーザー登録がありません（'+data.email+'）。業務ポータルから利用申請をしてください。');
     }else{
       showAuthOverlay(data.message||'ログインに失敗しました');
     }
