@@ -906,6 +906,10 @@ function initApp(){
   syncStickyOffset();
   window.addEventListener('resize', syncStickyOffset);
   document.getElementById('f-hmeter').addEventListener('input', calcWorkHours);
+  // 元請・現場名を社員が手で編集したら、自動入力フラグを解除する
+  // （そうしないと、手入力後に機体を行き来した際に誤って消えてしまうため）
+  document.getElementById('f-contractor').addEventListener('input', function(){ delete this.dataset.autofilled; });
+  document.getElementById('f-location').addEventListener('input', function(){ delete this.dataset.autofilled; });
   document.getElementById('f-date').value=todayStr();
   document.getElementById('f-date').addEventListener('change',()=>{const mid=document.getElementById('f-machine').value;if(mid)updatePrevHour(mid);});
   window.addEventListener('online', async ()=>{
@@ -1112,6 +1116,14 @@ function onMachineChange(){
   const m=findMachine(id);
   curInspChecks={};
   document.getElementById('crusher-fields').style.display=(m&&m.type==='crusher')?'block':'none';
+
+  // 前の機体選択時に自動入力された元請・現場名は、機体を切り替えたらクリアする。
+  // ただし社員が手で編集した場合（自動入力フラグが立っていない場合）は保持する。
+  const contractorEl=document.getElementById('f-contractor');
+  const locationEl=document.getElementById('f-location');
+  if(contractorEl.dataset.autofilled==='1'){ contractorEl.value=''; delete contractorEl.dataset.autofilled; }
+  if(locationEl.dataset.autofilled==='1'){ locationEl.value=''; delete locationEl.dataset.autofilled; }
+
   if(!m){
     setInspBar('idle');
     curInspType=null;
@@ -1121,6 +1133,45 @@ function onMachineChange(){
   curInspType=m.type||'backhoe';
   setInspBar('ready');
   updatePrevHour(id);
+  updatePrevSiteInfo(id);
+}
+
+// ★機体選択時に、前回その機体を使った日報の「元請」「現場名」を自動で入力欄に反映する。
+// 既に社員が手入力している場合は上書きしない（空欄の時だけ自動入力する）。
+// 自動入力した欄には data-autofilled="1" を付け、次に機体を切り替えたときにだけ消せるようにする。
+let _prevSiteFetchToken = 0;
+async function updatePrevSiteInfo(mid){
+  const myToken = ++_prevSiteFetchToken;
+  const selDate=document.getElementById('f-date').value||todayStr();
+  const consider=(r,best)=>{
+    if(String(r.date)>selDate)return best;
+    if(!r.contractor && !r.location)return best; // 元請・現場名どちらも空の記録は無視
+    const key=String(r.date)+String(r.savedAt||'');
+    if(!best||key>best.key)return {key,contractor:r.contractor||'',location:r.location||'',date:r.date};
+    return best;
+  };
+  let best=null;
+  [...allReports(),...serverToday].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
+  if(navigator.onLine){
+    try{
+      const d=new Date(selDate+'T00:00:00');
+      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results=await Promise.all([thisM,prevM].map(ym=>
+        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
+    }catch(e){}
+  }
+  // 選択中の機体が途中で変わっていたら（連続でタップした場合など）反映しない
+  if(document.getElementById('f-machine').value!==mid || myToken!==_prevSiteFetchToken)return;
+  if(!best)return;
+  const contractorEl=document.getElementById('f-contractor');
+  const locationEl=document.getElementById('f-location');
+  // 既に何か入力されていれば上書きしない（社員が既に編集している場合を尊重する）
+  if(!contractorEl.value.trim() && best.contractor){ contractorEl.value = best.contractor; contractorEl.dataset.autofilled='1'; }
+  if(!locationEl.value.trim() && best.location){ locationEl.value = best.location; locationEl.dataset.autofilled='1'; }
 }
 
 function setInspBar(state){
@@ -1413,6 +1464,8 @@ function submitReport(){
 
 function resetForm(){
   ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes','f-bit','f-bolt','f-nut','f-fuelhour'].forEach(id=>document.getElementById(id).value='');
+  delete document.getElementById('f-contractor').dataset.autofilled;
+  delete document.getElementById('f-location').dataset.autofilled;
   document.getElementById('f-date').value=todayStr();
   document.getElementById('crusher-fields').style.display='none';
   prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
