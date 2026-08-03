@@ -982,7 +982,7 @@ function initApp(){
       });
     }).catch(e=>console.warn('SW:',e));
   }
-  checkRealConnectivity().then(()=>{fetchRemote();refreshSuggestLists();});
+  checkRealConnectivity().then(()=>{fetchRemote().then(()=>{ applyNfcMachineParam(); }); refreshSuggestLists();});
 }
 
 function syncStickyOffset(){
@@ -1131,6 +1131,7 @@ async function refreshTodayList(showMsg){
 
 function populateForms(){
   const ms=document.getElementById('f-machine');
+  const currentSelected = ms.value; // 再構築前の選択値を保存（NFC選択などが消えないようにする）
   if(machines.length===0){
     ms.innerHTML='<option value="">'+(navigator.onLine?'重機マスタを読込中...':'圏外: 重機マスタ未取得')+'</option>';
   }else{
@@ -1147,6 +1148,10 @@ function populateForms(){
     grp+='</optgroup>';
     ms.innerHTML+=grp;
   });
+  // 再構築後、以前選択していた機体がまだ存在すれば復元する
+  if(currentSelected && Array.from(ms.options).some(o => o.value === currentSelected)){
+    ms.value = currentSelected;
+  }
   const os=document.getElementById('f-operator');
   os.innerHTML='<option value="">選択してください</option>';
   operators.forEach(op=>os.innerHTML+=`<option value="${op}">${op}</option>`);
