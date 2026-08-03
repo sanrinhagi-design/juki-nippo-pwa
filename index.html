@@ -891,6 +891,41 @@ async function checkRealConnectivity(){
   return realOnline;
 }
 
+// ★NFCタグからの機体自動選択。
+// URLに ?machine=H-3 のようなパラメータが付いていれば、
+// 日報入力タブを開いて、その重機番号をあらかじめ選択した状態にする。
+function applyNfcMachineParam(){
+  const params = new URLSearchParams(location.search);
+  const mid = params.get('machine');
+  if(!mid) return;
+  // 重機マスタの取得を待ってから選択する（初回起動時はまだmachinesが空のことがあるため）
+  const trySelect = (retriesLeft) => {
+    const sel = document.getElementById('f-machine');
+    const hasOption = Array.from(sel.options).some(o => o.value === mid);
+    if(hasOption){
+      sel.value = mid;
+      showTab('input');
+      onMachineChange();
+      applyLastOperator();
+      showToast(mid + ' を選択しました', 'ok');
+      // URLのクエリだけ綺麗にしておく（再読み込み時に毎回反応しないように）
+      history.replaceState(null, '', location.pathname);
+    }else if(retriesLeft > 0){
+      setTimeout(() => trySelect(retriesLeft - 1), 300);
+    }
+  };
+  trySelect(15); // 最大 15回 x 300ms ＝ 4.5秒ほど重機マスタの読み込みを待つ
+}
+
+// ★この端末で最後に選んだ運転者を、運転者欄にあらかじめ選択しておく
+function applyLastOperator(){
+  const last = localStorage.getItem('lastOperator');
+  if(!last) return;
+  const sel = document.getElementById('f-operator');
+  const hasOption = Array.from(sel.options).some(o => o.value === last);
+  if(hasOption) sel.value = last;
+}
+
 function initApp(){
   const token = getDeviceToken();
   if(!token){
@@ -912,6 +947,15 @@ function initApp(){
   document.getElementById('f-location').addEventListener('input', function(){ delete this.dataset.autofilled; });
   document.getElementById('f-date').value=todayStr();
   document.getElementById('f-date').addEventListener('change',()=>{const mid=document.getElementById('f-machine').value;if(mid)updatePrevHour(mid);});
+
+  // ★NFCタグ経由のURL（例: ?machine=H-3）から機体を自動選択し、日報入力タブを開く
+  applyNfcMachineParam();
+
+  // ★運転者の記憶：この端末で最後に選んだ運転者を記憶し、次回起動時に自動選択する
+  document.getElementById('f-operator').addEventListener('change', function(){
+    if(this.value) localStorage.setItem('lastOperator', this.value);
+  });
+
   window.addEventListener('online', async ()=>{
     await checkRealConnectivity();
     if(realOnline){autoSync();refreshTodayList(false);refreshSuggestLists();}
@@ -1106,6 +1150,7 @@ function populateForms(){
   const os=document.getElementById('f-operator');
   os.innerHTML='<option value="">選択してください</option>';
   operators.forEach(op=>os.innerHTML+=`<option value="${op}">${op}</option>`);
+  applyLastOperator();
   const ny=document.getElementById('nm-yard');
   ny.innerHTML='';
   YARDS.forEach(y=>ny.innerHTML+=`<option value="${y}">${y}</option>`);
@@ -1466,6 +1511,7 @@ function resetForm(){
   ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes','f-bit','f-bolt','f-nut','f-fuelhour'].forEach(id=>document.getElementById(id).value='');
   delete document.getElementById('f-contractor').dataset.autofilled;
   delete document.getElementById('f-location').dataset.autofilled;
+  applyLastOperator();
   document.getElementById('f-date').value=todayStr();
   document.getElementById('crusher-fields').style.display='none';
   prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
