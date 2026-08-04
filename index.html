@@ -982,7 +982,7 @@ function initApp(){
       });
     }).catch(e=>console.warn('SW:',e));
   }
-  checkRealConnectivity().then(()=>{fetchRemote().then(()=>{ applyNfcMachineParam(); }); refreshSuggestLists();});
+  checkRealConnectivity().then(()=>{fetchRemote();refreshSuggestLists();});
 }
 
 function syncStickyOffset(){
@@ -1032,6 +1032,12 @@ function saveData(){
   localStorage.setItem('pending',JSON.stringify(pending));
   localStorage.setItem('synced',JSON.stringify(synced));
   localStorage.setItem('inspections',JSON.stringify(inspections));
+}
+// ★軽量版：日報の保存直後は pending/synced だけ書き込めば十分なので、
+// machines/operators/inspections までは毎回シリアライズしない（保存の体感速度向上）
+function savePendingOnly(){
+  localStorage.setItem('pending',JSON.stringify(pending));
+  localStorage.setItem('synced',JSON.stringify(synced));
 }
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
 function monthStr(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}`;}
@@ -1500,15 +1506,16 @@ function submitReport(){
     savedAt:new Date().toISOString(), synced:false, deviceId:getDeviceId()
   };
   try{
-    pending.push(report);saveData();
+    pending.push(report);savePendingOnly();
   }catch(e){
     report.photo='';
-    try{saveData();}catch(e2){pending.pop();showToast('端末の保存容量が不足しています','err');return;}
+    try{savePendingOnly();}catch(e2){pending.pop();showToast('端末の保存容量が不足しています','err');return;}
     showToast('容量不足のため写真は保存できませんでした（本文は保存済）','err');
   }
   updateSyncRow();
   showToast('日報を保存しました','ok');resetForm();
-  renderSuggestLists([...allReports()]);
+  // ★サジェストリストの再構築は描画をブロックしない程度に遅延させる（体感速度向上）
+  setTimeout(()=>renderSuggestLists([...allReports()]), 0);
   if(navigator.onLine)autoSync();
 }
 
@@ -1536,7 +1543,9 @@ async function autoSync(){
   clearTimeout(syncDebounce);
   syncDebounce=setTimeout(()=>doSync(),150);
 }
-async function doSync(){
+let _postSyncDebounce=null;
+async function doSync(retryCount){
+  retryCount = retryCount || 0;
   if(syncBusy||pending.length===0||!realOnline)return;
   syncBusy=true;
   const batch=[...pending];
@@ -1549,10 +1558,20 @@ async function doSync(){
       pending=pending.filter(r=>!ids.has(r.id));
       saveData();updateSyncRow();renderList();
       if(batch.length>0)showToast(`${batch.length}件を送信しました`,'ok');
-      refreshDashMonth();
-      refreshSuggestLists();
+      // ★軽量化：集計・サジェストの再取得は保存の都度ではなく、
+      // 少し間を置いてまとめて1回だけ行う（連続保存された場合の負荷軽減）
+      clearTimeout(_postSyncDebounce);
+      _postSyncDebounce = setTimeout(()=>{ refreshDashMonth(); refreshSuggestLists(); }, 1500);
     }
-  }catch(e){console.warn('Sync:',e);}finally{syncBusy=false;}
+  }catch(e){
+    console.warn('Sync:',e);
+    // ★一時的なネットワークエラー（404含む）の場合、間隔を空けて1回だけ自動リトライする
+    if(retryCount < 1){
+      syncBusy=false;
+      setTimeout(()=>doSync(retryCount+1), 2000);
+      return;
+    }
+  }finally{syncBusy=false;}
 }
 async function syncNow(){
   showToast('接続確認中...','');
