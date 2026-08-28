@@ -74,6 +74,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .btn-g{background:#27ae60;color:#fff}
 .btn-sm{padding:9px 16px;font-size:15px;border-radius:8px;width:auto;display:inline-block}
 .gps-bar{display:flex;align-items:center;gap:8px;background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:10px 12px;cursor:pointer;transition:.2s}
+.save-sticky{position:sticky;z-index:20;background:#f0f0f0;padding:8px 0 6px}
 .gps-bar-st{font-size:15px;font-weight:700;color:#185fa5;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gps-compact{background:#e6f1fb;border:1.5px solid #b5d4f4;border-radius:9px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;transition:.2s}
 .gps-compact.ok{background:#eaf3de;border-color:#97c459}
@@ -243,6 +244,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 </div></div>
 
   <div id="single-input-wrap">
+  <div class="save-sticky" id="save-sticky-wrap">
+    <button class="btn btn-p" onclick="submitReport()">保存する（電波回復時に自動送信）</button>
+  </div>
   <div class="notice n-info" id="inp-notice">
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     <span id="inp-notice-txt">圏外のため端末に保存します。電波回復時に自動送信されます。</span>
@@ -280,11 +284,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
   </div></div>
 
-  <div class="gps-bar" id="insp-bar" onclick="openInspModal()" style="background:#fff;border-color:#d5d5d5;margin-bottom:10px">
-    <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-    <span class="gps-bar-st" id="insp-status" style="color:#555">始業前点検</span>
-  </div>
-
   <div class="gps-compact" id="gps-compact">
     <span class="gps-compact-icon"><svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
     <span class="gps-compact-txt" id="gps-compact-txt">GPS取得中...</span>
@@ -296,6 +295,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   </div>
 
   <div class="card"><div class="card-b">
+    <div class="fg">
+      <label class="fl">始業前点検</label>
+      <div class="fc" id="insp-bar" onclick="openInspModal()" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#fff;border-color:#d5d5d5">
+        <svg width="17" height="17" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span id="insp-status" style="color:#555;flex:1;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">始業前点検</span>
+        <svg width="16" height="16" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
     <div class="frow" style="margin-bottom:11px">
       <div class="fg" style="margin-bottom:0">
         <label class="fl">アワーメータ終了 (h)</label>
@@ -379,7 +386,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
   </div></div>
 
-  <button class="btn btn-p" onclick="submitReport()">保存する（電波回復時に自動送信）</button>
   <div style="height:20px"></div>
   </div>
 
@@ -991,6 +997,7 @@ function syncStickyOffset(){
   const headerH=topFixed.offsetHeight;
   const activeFixed=document.querySelector('.scr-fixed.on');
   document.querySelectorAll('.scr-fixed').forEach(el=>el.style.top=headerH+'px');
+  document.querySelectorAll('.save-sticky').forEach(el=>el.style.top=headerH+'px');
   const fixedH=activeFixed?activeFixed.offsetHeight:0;
   const bodyPad=document.getElementById('body-pad');
   if(bodyPad)bodyPad.style.height=headerH+'px';
