@@ -1587,6 +1587,65 @@ function resetForm(){
   gpsLat=null;gpsLng=null;gpsAcc=null;getGPS();
 }
 
+// ★オフライン保存→自動送信の際に、稼働時間（前回アワメーター差分）と
+// 元請・現場名（前回データ）が未入力なら自動補完する（画面入力時の自動計算/自動入力と同じロジック）
+async function autofillPendingReport(r){
+  const key=String(r.date)+String(r.savedAt||'');
+  const needHour = r.hourMeter!=='' && r.hourMeter!=null && (r.workHours===''||r.workHours==null);
+  const needSite = (!r.contractor || !String(r.contractor).trim()) || (!r.location || !String(r.location).trim());
+  if(!needHour && !needSite) return;
+  const considerHour=(rec,best)=>{
+    if(rec.id===r.id)return best;
+    if(rec.machineId!==r.machineId)return best;
+    const h=parseFloat(rec.hourMeter);
+    if(isNaN(h))return best;
+    const k=String(rec.date)+String(rec.savedAt||'');
+    if(k>=key)return best;
+    if(!best||k>best.key)return {key:k,h};
+    return best;
+  };
+  const considerSite=(rec,best)=>{
+    if(rec.id===r.id)return best;
+    if(rec.machineId!==r.machineId)return best;
+    if(!rec.contractor && !rec.location)return best;
+    const k=String(rec.date)+String(rec.savedAt||'');
+    if(k>=key)return best;
+    if(!best||k>best.key)return {key:k,contractor:rec.contractor||'',location:rec.location||''};
+    return best;
+  };
+  let bestHour=null, bestSite=null;
+  [...allReports(),...serverToday].forEach(rec=>{
+    if(needHour)bestHour=considerHour(rec,bestHour);
+    if(needSite)bestSite=considerSite(rec,bestSite);
+  });
+  if(needHour||needSite){
+    try{
+      const d=new Date(String(r.date)+'T00:00:00');
+      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results=await Promise.all([thisM,prevM].map(ym=>
+        fetchJukiApi('getReports',{month:ym, machineId:r.machineId}).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd=>{(dd.reports||[]).forEach(rec=>{
+        if(needHour)bestHour=considerHour(rec,bestHour);
+        if(needSite)bestSite=considerSite(rec,bestSite);
+      });});
+    }catch(e){}
+  }
+  if(needHour && bestHour){
+    const cur=parseFloat(r.hourMeter);
+    if(!isNaN(cur)){
+      const diff=Math.round((cur-bestHour.h)*10)/10;
+      if(diff>=0&&diff<48)r.workHours=String(diff);
+    }
+  }
+  if(needSite && bestSite){
+    if((!r.contractor||!String(r.contractor).trim()) && bestSite.contractor)r.contractor=bestSite.contractor;
+    if((!r.location||!String(r.location).trim()) && bestSite.location)r.location=bestSite.location;
+  }
+}
+
 let syncDebounce=null;
 async function autoSync(){
   if(syncBusy||pending.length===0||!realOnline)return;
@@ -1598,6 +1657,10 @@ async function doSync(retryCount){
   retryCount = retryCount || 0;
   if(syncBusy||pending.length===0||!realOnline)return;
   syncBusy=true;
+  try{
+    await Promise.all(pending.map(r=>autofillPendingReport(r).catch(e=>console.warn('Autofill:',e))));
+    savePendingOnly();
+  }catch(e){}
   const batch=[...pending];
   try{
     const data = await fetchJukiApi('batchAddReports', {reports: batch});
