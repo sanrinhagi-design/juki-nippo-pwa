@@ -1350,7 +1350,7 @@ let bkModalMid=null;
 
 function openInspModal(){
   bkModalMid=null;
-  if(!curInspType)return;
+  if(!curInspType){showToast('先に重機番号を選択してください','err');return;}
   renderInspModalBody(curInspType, curInspChecks);
   document.getElementById('insp-modal').classList.add('on');
 }
@@ -2632,84 +2632,199 @@ function printMonth(){
 }
 
 function printCrusherMonth(mid,m){
-  const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
-  const daysIn=new Date(calYear,calMonth+1,0).getDate();
-  const byDay={};
-  calReports.forEach(r=>{
-    const d=parseInt(String(r.date).slice(8,10),10);
-    if(isNaN(d))return;
-    if(!byDay[d] || String(r.savedAt||'')>String(byDay[d].savedAt||''))byDay[d]=r;
+  const nm = m ? (m.attachment ? `${m.model}・${m.attachment}` : m.model) : '';
+  const yard = m ? (m.yard || '') : '';
+  const daysIn = new Date(calYear, calMonth + 1, 0).getDate();
+  const byDay = {};
+
+  calReports.forEach(r => {
+    const d = parseInt(String(r.date).slice(8, 10), 10);
+    if (isNaN(d)) return;
+    if (!byDay[d] || String(r.savedAt || '') > String(byDay[d].savedAt || '')) byDay[d] = r;
   });
-  let monthStart='';
-  const firstDay=Object.keys(byDay).map(Number).sort((a,b)=>a-b)[0];
-  if(firstDay){
-    const fr=byDay[firstDay];
-    const h=parseFloat(fr.hourMeter), w=parseFloat(fr.workHours);
-    if(!isNaN(h)&&!isNaN(w))monthStart=Math.round((h-w)*10)/10;
-    else if(!isNaN(h))monthStart='';
+
+  let monthStart = '＿＿＿＿＿';
+  const firstDay = Object.keys(byDay).map(Number).sort((a, b) => a - b)[0];
+  if (firstDay) {
+    const fr = byDay[firstDay];
+    const h = parseFloat(fr.hourMeter), w = parseFloat(fr.workHours);
+    if (!isNaN(h) && !isNaN(w)) monthStart = (Math.round((h - w) * 10) / 10) + ' H';
+    else if (!isNaN(h)) monthStart = h + ' H';
   }
-  const notes=[];
-  let monthlyChecked=false;
-  Object.entries(byDay).forEach(([d,r])=>{
-    if(r.notes&&String(r.notes).trim()!=='')notes.push(`${d}日: ${r.notes}`);
-    if(r.inspection==='済')monthlyChecked=true;
+
+  const notesList = [];
+  let monthlyChecked = false;
+  Object.entries(byDay).forEach(([d, r]) => {
+    if (r.notes && String(r.notes).trim() !== '') notesList.push(`${d}日: ${r.notes}`);
+    if (r.inspection === '済') monthlyChecked = true;
   });
-  const mkRows=(from,to,padTo)=>{
-    let h='';
-    for(let d=from;d<=to;d++){
-      const r=byDay[d];
-      if(r){
-        h+=`<tr><td>${d}</td><td>${r.hourMeter!==''&&r.hourMeter!==undefined?r.hourMeter:''}</td><td>${r.workHours!==''&&r.workHours!==undefined?r.workHours:''}</td><td>${r.bit||''}</td><td>${r.bolt||''}</td><td>${r.nut||''}</td><td>${r.fuelAmount||''}</td><td>${r.fuelHour||''}</td><td>${r.inspection==='済'?'☑':'☐'}</td></tr>`;
-      }else{
-        h+=`<tr><td>${d}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>☐</td></tr>`;
+
+  const renderBlockRows = (fromDay, toDay) => {
+    let html = '';
+    for (let d = fromDay; d <= toDay; d++) {
+      const r = byDay[d];
+      let endH = '', workH = '', bit = '', bolt = '', nut = '', notes = '', fuelHour = '', fuelAmt = '', isInsp = false;
+
+      if (r) {
+        endH = r.hourMeter !== undefined && r.hourMeter !== '' ? r.hourMeter : '';
+        workH = r.workHours !== undefined && r.workHours !== '' ? r.workHours : '';
+        bit = r.bit || '';
+        bolt = r.bolt || '';
+        nut = r.nut || '';
+        notes = r.notes || '';
+        fuelHour = r.fuelHour !== undefined && r.fuelHour !== '' ? r.fuelHour : '';
+        fuelAmt = r.fuelAmount !== undefined && r.fuelAmount !== '' ? r.fuelAmount : '';
+        isInsp = r.inspection === '済';
       }
+
+      html += `
+        <tr>
+          <td rowspan="2" class="col-day">${d}</td>
+          <td class="col-lbl">終了:</td>
+          <td class="col-val">${endH}</td>
+          <td rowspan="2" class="col-part">${bit}</td>
+          <td rowspan="2" class="col-part">${bolt}</td>
+          <td rowspan="2" class="col-part">${nut}</td>
+          <td rowspan="2" class="col-notes">${notes}</td>
+          <td class="col-fuel">${fuelHour}</td>
+          <td rowspan="2" class="col-chk">${isInsp ? '☑' : '□'}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">稼働:</td>
+          <td class="col-val">${workH ? workH + ' H' : ''}</td>
+          <td class="col-fuel">${fuelAmt ? fuelAmt + ' L' : ''}</td>
+        </tr>
+      `;
     }
-    for(let i=(to-from+1);i<padTo;i++){
-      h+=`<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
-    }
-    return h;
+    return html;
   };
-  const tableHead=`<tr><th style="width:6%">日</th><th style="width:12%">終了</th><th style="width:9%">稼働</th><th style="width:8%">ﾋﾞｯﾄ</th><th style="width:8%">ﾎﾞﾙﾄ</th><th style="width:8%">ﾅｯﾄ</th><th style="width:11%">給油量</th><th style="width:13%">給油時ｱﾜ</th><th style="width:6%">点検</th></tr>`;
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>運転日報 ${mid} 令和${calYear-2018}年${calMonth+1}月</title>
+
+  const tableHeader = `
+    <tr>
+      <th style="width:5%">日</th>
+      <th style="width:7%">区分</th>
+      <th style="width:12%">アワメータ</th>
+      <th style="width:6%">ﾋﾞｯﾄ</th>
+      <th style="width:6%">ﾎﾞﾙﾄ</th>
+      <th style="width:6%">ﾅｯﾄ</th>
+      <th style="width:28%">備考</th>
+      <th style="width:12%">給油時ｱﾜﾒｰﾀ<br>給油量</th>
+      <th style="width:6%">点検</th>
+    </tr>
+  `;
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>運転日報 破砕機 ${mid} 令和${calYear - 2018}年${calMonth + 1}月</title>
 <style>
-@page{size:A4 portrait;margin:10mm}
-body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#111;font-size:9px;margin:0}
-.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}
-.title{font-size:14px;font-weight:700}
-.ym{font-size:20px;font-weight:800}
-.mstart{font-size:10px;margin-bottom:2mm}
-.cols{display:flex;gap:4mm}
-.col{flex:1}
-table{width:100%;border-collapse:collapse;font-size:7.5px}
-th,td{border:1px solid #333;padding:2px 2px;text-align:center;height:14px}
-th{background:#eee}
-.foot{margin-top:4mm;font-size:9px}
-.notes{border:1px solid #333;padding:3mm;min-height:15mm;margin-top:2mm}
-@media print{.noprint{display:none !important;}}
-.noprint{background:#185fa5;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;margin:10px auto;display:block;cursor:pointer}
-</style></head><body>
-<button class="noprint" onclick="window.print()">🖨 印刷する</button>
-<div class="head">
-  <span class="title">運転日報 破砕機 ${mid}（${nm}）</span>
-  <span class="ym">令和${calYear-2018}年${calMonth+1}月</span>
+@page { size: A4 portrait; margin: 10mm 4mm 3mm 4mm; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; height: 100%; }
+body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; color: #000; font-size: 11px; }
+
+.page-container { width: 100%; height: 270mm; display: flex; flex-direction: column; justify-content: space-between; }
+
+.hdr-table { width: 100%; margin-bottom: 2px; border-collapse: collapse; }
+.hdr-title { font-size: 19px; font-weight: bold; text-align: center; width: 70%; padding-left: 15%; }
+.hdr-ym { font-size: 15px; font-weight: bold; text-align: right; width: 15%; vertical-align: bottom; }
+
+.mstart-row { font-size: 11px; font-weight: bold; margin-bottom: 3px; }
+
+.main-flex { display: flex; gap: 6px; width: 100%; flex: 1; align-items: stretch; }
+.col-block { flex: 1; display: flex; flex-direction: column; }
+.col-block-right { flex: 1; display: flex; flex-direction: column; }
+
+table.sheet-tbl { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; flex: 1; }
+table.sheet-tbl th, table.sheet-tbl td { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 0 1px; }
+table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px; font-size: 9.5px; line-height: 1.1; }
+
+.col-day { font-size: 13px; font-weight: bold; height: 57px; }
+
+.col-lbl { font-size: 9px; text-align: right; padding-right: 2px; height: 28.5px; white-space: nowrap; }
+.col-val { font-size: 12.5px; font-weight: 700; text-align: left; padding-left: 3px; color: #000; }
+
+.col-part { font-size: 12px; font-weight: 700; }
+
+.col-notes { text-align: left; padding: 1px 3px !important; font-size: 9.5px; font-weight: 600; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.col-fuel { font-size: 11px; height: 28.5px; white-space: nowrap; overflow: hidden; font-weight: 700; }
+.col-chk { font-size: 14.5px; font-weight: bold; }
+
+.notes-box { border: 1px solid #000; margin-top: 4px; flex: 1; min-height: 80px; padding: 4px; font-size: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+.notes-title { font-weight: bold; font-size: 10px; border-bottom: 1px solid #ccc; padding-bottom: 2px; margin-bottom: 2px; }
+.notes-content { flex: 1; overflow: hidden; line-height: 1.25; }
+.monthly-check-in-notes { border-top: 1px dotted #000; padding-top: 3px; font-size: 10px; font-weight: bold; text-align: right; }
+
+.ftr-block { margin-top: 3px; }
+.ftr-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; }
+.ftr-notice { font-size: 9px; color: #222; margin-top: 1px; }
+
+@media print {
+  .noprint { display: none !important; }
+  body, .page-container { height: auto; max-height: none; }
+  tr { page-break-inside: avoid; }
+}
+.noprint { background: #185fa5; color: #fff; border: none; padding: 8px 18px; border-radius: 5px; font-size: 12px; font-weight: bold; margin: 0 auto 8px; display: block; cursor: pointer; }
+</style>
+</head>
+<body>
+<button class="noprint" onclick="window.print()">🖨 印刷する / PDF保存</button>
+
+<div class="page-container">
+  <div>
+    <table class="hdr-table">
+      <tr>
+        <td class="hdr-title">運転日報 破砕機 ${mid}（${nm}${yard ? '・' + yard : ''}）</td>
+        <td class="hdr-ym">令和${calYear - 2018}年${calMonth + 1}月</td>
+      </tr>
+    </table>
+    <div class="mstart-row">月初アワメータ: ${monthStart}</div>
+  </div>
+
+  <div class="main-flex">
+    <!-- 左列: 1日〜16日 -->
+    <div class="col-block">
+      <table class="sheet-tbl">
+        ${tableHeader}
+        ${renderBlockRows(1, 16)}
+      </table>
+    </div>
+
+    <!-- 右列: 17日〜31日 & 備考 -->
+    <div class="col-block-right">
+      <table class="sheet-tbl">
+        ${tableHeader}
+        ${renderBlockRows(17, daysIn)}
+      </table>
+
+      <div class="notes-box">
+        <div>
+          <div class="notes-title">備考（故障・注意事項等） ※燃費目安 1H/約60L</div>
+          <div class="notes-content">${notesList.join('<br>')}</div>
+        </div>
+        <div class="monthly-check-in-notes">
+          月次点検 ${monthlyChecked ? '☑' : '□'}  担当印：＿＿＿＿＿＿
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ftr-block">
+    <div class="ftr-notice">※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
+  </div>
 </div>
-<div class="mstart">月初アワメータ: ${monthStart!==''?monthStart+' h':'＿＿＿＿＿'}</div>
-<div class="cols">
-  <div class="col"><table>${tableHead}${mkRows(1,16,16)}</table></div>
-  <div class="col"><table>${tableHead}${mkRows(17,daysIn,16)}</table></div>
-</div>
-<div class="foot">
-  <div>備考（故障・注意事項等） ※燃費目安 1H/約60L</div>
-  <div class="notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
-  <div style="margin-top:3mm">月次点検 ${monthlyChecked?'☑':'☐'}  担当：＿＿＿＿＿＿＿＿</div>
-  <div style="margin-top:2mm;font-size:8px;color:#555">※月初に総務部へ提出（給油伝票も合わせてまわす事）</div>
-</div>
-</body></html>`;
-  const w=window.open('','_blank');
-  if(!w){showToast('ポップアップがブロックされました。許可してください','err');return;}
+
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { showToast('ポップアップがブロックされました。許可してください', 'err'); return; }
   w.document.write(html);
   w.document.close();
 }
+
 
 function printStandardMonth(mid, m) {
   const nm = m ? (m.attachment ? `${m.model}・${m.attachment}` : m.model) : '';
