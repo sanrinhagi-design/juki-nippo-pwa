@@ -2684,17 +2684,24 @@ function loadPrintLibs(){
 }
 
 // 印刷用HTMLを非表示iframeに描画し、html2canvasでキャンバス化する
-// （A4用紙の内容幅にほぼ合わせた幅で描画し、実際の紙面比率に近づける）
+// （元のCSSはブラウザの実際の印刷時にA4用紙の印字可能幅＝約202mmに収まる想定で
+// 行の高さ等をpx固定で作ってあるため、iframeの幅もその想定幅（202mm≒764px）に
+// 合わせることで、印刷プレビューと同じ枠の大きさ・比率で描画されるようにする）
 function renderHtmlToCanvas(html){
   return new Promise((resolve,reject)=>{
     const iframe=document.createElement('iframe');
-    iframe.style.cssText='position:fixed;left:-99999px;top:0;width:794px;height:1400px;border:0';
+    iframe.style.cssText='position:fixed;left:-99999px;top:0;width:764px;height:1600px;border:0';
     document.body.appendChild(iframe);
     iframe.onload=async ()=>{
       try{
         await new Promise(r=>setTimeout(r,150));
         const doc=iframe.contentDocument;
         const target=doc.querySelector('.page-container')||doc.body;
+        // ★元のCSSは「実際の印刷」を前提に page-container の高さを270mmに固定しているが、
+        // iframe内でそのまま切り取ると、その固定高さからはみ出した部分（下部の余白注記など）が
+        // キャプチャされずに欠けてしまう。ここで高さ指定を解除し、中身の実際の高さぶんだけ
+        // 正しく取り込めるようにする。
+        if(target && target.style) target.style.height='auto';
         const canvas=await window.html2canvas(target,{scale:2,backgroundColor:'#ffffff'});
         document.body.removeChild(iframe);
         resolve(canvas);
@@ -2727,7 +2734,7 @@ async function confirmPrintPdf(){
       const imgData=canvas.toDataURL('image/jpeg',0.92);
       let w=maxW, h=(canvas.height/canvas.width)*maxW;
       if(h>maxH){ h=maxH; w=(canvas.width/canvas.height)*maxH; }
-      const x=(pageW-w)/2, y=margin;
+      const x=(pageW-w)/2, y=(pageH-h)/2;
       if(i>0)pdf.addPage();
       pdf.addImage(imgData,'JPEG',x,y,w,h);
     }
