@@ -539,7 +539,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div class="ml-scroll"><table class="ml-table" id="ml-table"></table></div>
     <div style="font-size:15px;color:#6b6b6b;margin-top:10px;line-height:1.5">セル上段＝元請／下段＝現場名。緑＝入力済み／黄＝点検未実施／赤＝備考あり。同じ元請・現場名が連続する日はセルを結合表示します（同日に複数件入力がある場合は結合せず件数を表示）。セルをタップで編集できます。横にスクロールできます。</div>
     <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn btn-o" style="flex:1" onclick="printMonth()">🖨 印刷 / PDF保存</button>
+      <button class="btn btn-o" style="flex:1" onclick="openPrintModal()">🖨 印刷 / PDF保存</button>
       <button class="btn btn-o" style="flex:1" onclick="openCsvModal()">📊 CSV出力</button>
     </div>
   </div></div>
@@ -550,6 +550,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="slbl" style="margin-top:4px">アワーメーター警告</div>
   <div id="dash-alerts"></div>
   <div style="height:20px"></div>
+</div>
+
+<!-- 印刷/PDF出力 機体選択モーダル -->
+<div class="modal-bg" id="print-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t">印刷する機体を選択</span>
+      <span class="modal-x" onclick="closePrintModal()">&times;</span>
+    </div>
+    <div style="font-size:15px;color:#5a5a5a;margin-bottom:12px;line-height:1.5">選んだ機体の月次日報をまとめて1つのPDFにして、端末にダウンロードします。</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn btn-sm btn-o" onclick="printPickAll(true)" style="flex:1">全て選択</button>
+      <button class="btn btn-sm btn-o" onclick="printPickAll(false)" style="flex:1">全て解除</button>
+    </div>
+    <div id="print-machine-list"></div>
+    <button class="btn btn-p" id="print-go-btn" onclick="confirmPrintPdf()" style="margin-top:14px">📄 PDFを作成してダウンロード</button>
+    <div id="print-progress" style="display:none;text-align:center;font-size:15px;color:#5a5a5a;margin-top:12px">PDFを作成中…しばらくお待ちください</div>
+    <div style="height:10px"></div>
+  </div>
 </div>
 
 <!-- 始業前点検モーダル -->
@@ -2571,21 +2590,168 @@ async function exportCsv(){
   showToast(`${rows.length}件をCSV出力しました`,'ok');
 }
 
-function printMonth(){
-  const mid=calMachineId;
-  if(!mid){showToast('印刷するには機体を選択してください','err');return;}
-  const m=findMachine(mid);
-  if(m&&m.type==='crusher'){printCrusherMonth(mid,m);return;}
-  printStandardMonth(mid,m);
+// ================================================================
+// 印刷 / PDF出力（複数機体まとめてPDFダウンロード）
+// ================================================================
+
+async function fetchMonthReportsForMachine(mid){
+  const ym=calYM();
+  const local=allReports().filter(r=>r.machineId===mid && String(r.date).startsWith(ym));
+  let reports=local;
+  if(navigator.onLine){
+    try{
+      const data=await fetchJukiApi('getReports',{month:ym, machineId:mid});
+      if(data.reports){
+        const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
+        const localOnly=local.filter(r=>!sids.has(r.id));
+        reports=[...data.reports,...localOnly];
+      }
+    }catch(e){console.warn('printFetch:',e);}
+  }
+  return reports;
 }
 
-function printCrusherMonth(mid,m){
+let printSelectedIds=new Set();
+
+function printScopeMachines(){
+  return calScope==='all' ? machines.slice() : machines.filter(m=>m.yard===calScope);
+}
+
+function openPrintModal(){
+  const list=printScopeMachines();
+  if(list.length===0){showToast('印刷できる機体がありません','err');return;}
+  printSelectedIds=new Set(calMachineId ? [calMachineId] : list.map(m=>m.id));
+  renderPrintMachineList();
+  document.getElementById('print-progress').style.display='none';
+  document.getElementById('print-go-btn').disabled=false;
+  document.getElementById('print-modal').classList.add('on');
+}
+function closePrintModal(){
+  document.getElementById('print-modal').classList.remove('on');
+}
+
+function renderPrintMachineList(){
+  const list=printScopeMachines();
+  const wrap=document.getElementById('print-machine-list');
+  wrap.innerHTML=list.map(m=>{
+    const nm=m.attachment?`${m.model}・${m.attachment}`:m.model;
+    const on=printSelectedIds.has(m.id);
+    return `<div class="trow">
+      <span class="tlbl">${m.id}<span style="font-weight:500;color:#5a5a5a;font-size:14px;margin-left:6px">${nm}</span><span class="tog-state" id="print-state-${m.id}">${on?'あり':'なし'}</span></span>
+      <div class="tog ${on?'on':'off'}" id="print-tog-${m.id}" onclick="togglePrintPick('${m.id}',this)"><div class="tog-k"></div></div>
+    </div>`;
+  }).join('');
+  list.forEach(m=>{
+    const el=document.getElementById('print-tog-'+m.id);
+    if(el)syncTogState(el);
+  });
+}
+
+function togglePrintPick(mid, el){
+  if(printSelectedIds.has(mid))printSelectedIds.delete(mid); else printSelectedIds.add(mid);
+  el.classList.toggle('on');el.classList.toggle('off');
+  syncTogState(el);
+}
+
+function printPickAll(on){
+  const list=printScopeMachines();
+  printSelectedIds=new Set(on?list.map(m=>m.id):[]);
+  list.forEach(m=>{
+    const el=document.getElementById('print-tog-'+m.id);
+    if(!el)return;
+    el.className='tog '+(on?'on':'off');
+    syncTogState(el);
+  });
+}
+
+// jsPDF / html2canvas は印刷実行時にだけ読み込む（オフライン起動を妨げないため）
+let _printLibsPromise=null;
+function loadPrintLibs(){
+  if(window.jspdf && window.html2canvas)return Promise.resolve();
+  if(_printLibsPromise)return _printLibsPromise;
+  _printLibsPromise=new Promise((resolve,reject)=>{
+    let remaining=2;
+    const done=()=>{remaining--;if(remaining===0)resolve();};
+    const fail=()=>reject(new Error('PDFライブラリの読み込みに失敗しました。電波の良い場所でお試しください'));
+    const s1=document.createElement('script');
+    s1.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s1.onload=done;s1.onerror=fail;document.head.appendChild(s1);
+    const s2=document.createElement('script');
+    s2.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s2.onload=done;s2.onerror=fail;document.head.appendChild(s2);
+  });
+  return _printLibsPromise;
+}
+
+// 印刷用HTMLを非表示iframeに描画し、html2canvasでキャンバス化する
+// （A4用紙の内容幅にほぼ合わせた幅で描画し、実際の紙面比率に近づける）
+function renderHtmlToCanvas(html){
+  return new Promise((resolve,reject)=>{
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:fixed;left:-99999px;top:0;width:794px;height:1400px;border:0';
+    document.body.appendChild(iframe);
+    iframe.onload=async ()=>{
+      try{
+        await new Promise(r=>setTimeout(r,150));
+        const doc=iframe.contentDocument;
+        const target=doc.querySelector('.page-container')||doc.body;
+        const canvas=await window.html2canvas(target,{scale:2,backgroundColor:'#ffffff'});
+        document.body.removeChild(iframe);
+        resolve(canvas);
+      }catch(e){
+        document.body.removeChild(iframe);
+        reject(e);
+      }
+    };
+    iframe.srcdoc=html;
+  });
+}
+
+async function confirmPrintPdf(){
+  const ids=Array.from(printSelectedIds);
+  if(ids.length===0){showToast('機体を1つ以上選択してください','err');return;}
+  document.getElementById('print-go-btn').disabled=true;
+  document.getElementById('print-progress').style.display='block';
+  try{
+    await loadPrintLibs();
+    const { jsPDF } = window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pageW=210, pageH=297, margin=4;
+    const maxW=pageW-margin*2, maxH=pageH-margin*2;
+    for(let i=0;i<ids.length;i++){
+      const mid=ids[i];
+      const m=findMachine(mid);
+      const reports=await fetchMonthReportsForMachine(mid);
+      const built=(m&&m.type==='crusher')?buildCrusherMonthHtml(mid,m,reports):buildStandardMonthHtml(mid,m,reports);
+      const canvas=await renderHtmlToCanvas(built.html);
+      const imgData=canvas.toDataURL('image/jpeg',0.92);
+      let w=maxW, h=(canvas.height/canvas.width)*maxW;
+      if(h>maxH){ h=maxH; w=(canvas.width/canvas.height)*maxH; }
+      const x=(pageW-w)/2, y=margin;
+      if(i>0)pdf.addPage();
+      pdf.addImage(imgData,'JPEG',x,y,w,h);
+    }
+    const label=ids.length===1?ids[0]:(calScope==='all'?'全体':calScope);
+    const filename=`重機日報_${label}_令和${calYear-2018}年${calMonth+1}月.pdf`;
+    pdf.save(filename);
+    showToast('PDFをダウンロードしました','ok');
+    closePrintModal();
+  }catch(e){
+    console.error(e);
+    showToast(e&&e.message?e.message:'PDF作成に失敗しました','err');
+  }finally{
+    document.getElementById('print-go-btn').disabled=false;
+    document.getElementById('print-progress').style.display='none';
+  }
+}
+
+function buildCrusherMonthHtml(mid,m,reports){
   const nm = m ? (m.attachment ? `${m.model}・${m.attachment}` : m.model) : '';
   const yard = m ? (m.yard || '') : '';
   const daysIn = new Date(calYear, calMonth + 1, 0).getDate();
   const byDay = {};
 
-  calReports.forEach(r => {
+  reports.forEach(r => {
     const d = parseInt(String(r.date).slice(8, 10), 10);
     if (isNaN(d)) return;
     if (!byDay[d] || String(r.savedAt || '') > String(byDay[d].savedAt || '')) byDay[d] = r;
@@ -2718,7 +2884,7 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px;
 </style>
 </head>
 <body>
-<button class="noprint" onclick="window.print()">🖨 印刷する / PDF保存</button>
+
 
 <div class="page-container">
   <div>
@@ -2767,19 +2933,16 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px;
 </body>
 </html>`;
 
-  const w = window.open('', '_blank');
-  if (!w) { showToast('ポップアップがブロックされました。許可してください', 'err'); return; }
-  w.document.write(html);
-  w.document.close();
+  return { html, filenameBase: `破砕機日報_${mid}` };
 }
 
 
-function printStandardMonth(mid, m) {
+function buildStandardMonthHtml(mid, m, reports) {
   const nm = m ? (m.attachment ? `${m.model}・${m.attachment}` : m.model) : '';
   const daysIn = new Date(calYear, calMonth + 1, 0).getDate();
   const byDay = {};
 
-  calReports.forEach(r => {
+  reports.forEach(r => {
     const d = parseInt(String(r.date).slice(8, 10), 10);
     if (isNaN(d)) return;
     if (!byDay[d]) byDay[d] = [];
@@ -2934,7 +3097,7 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px;
 </style>
 </head>
 <body>
-<button class="noprint" onclick="window.print()">🖨 印刷する / PDF保存</button>
+
 
 <div class="page-container">
   <div>
@@ -2986,12 +3149,9 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px;
 </body>
 </html>`;
 
-  const w = window.open('', '_blank');
-  if (!w) { showToast('ポップアップがブロックされました。許可してください', 'err'); return; }
-  w.document.write(html);
-  w.document.close();
-}  
-  
+  return { html, filenameBase: `運転日報_${mid}` };
+}
+
 function showTab(name){
   const tabs=['list','input','machines','jikensa','dash'];
   tabs.forEach((t,i)=>{
