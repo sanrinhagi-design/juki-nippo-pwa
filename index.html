@@ -259,17 +259,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   </div>
 
   <div class="card"><div class="card-b">
-    <div class="frow" style="margin-bottom:11px">
-      <div class="fg" style="margin-bottom:0">
-        <label class="fl">日付 <span style="color:#c0392b">*</span></label>
-        <input class="fc" type="date" id="f-date">
-      </div>
-      <div class="fg" style="margin-bottom:0">
-        <label class="fl">重機番号 <span style="color:#c0392b">*</span></label>
-        <select class="fc" id="f-machine" onchange="onMachineChange()">
-          <option value="">選択</option>
-        </select>
-      </div>
+    <div class="fg" style="margin-bottom:11px">
+      <label class="fl">日付 <span style="color:#c0392b">*</span></label>
+      <input class="fc" type="date" id="f-date">
+    </div>
+    <div class="fg" style="margin-bottom:11px">
+      <label class="fl">重機番号 <span style="color:#c0392b">*</span></label>
+      <div class="yard-chips" id="f-yard-chips"></div>
+      <div class="yard-chips" id="f-machine-chips"></div>
+      <select class="fc" id="f-machine" onchange="onMachineChange()" style="display:none">
+        <option value="">選択</option>
+      </select>
     </div>
     <div class="frow" style="margin-bottom:11px;align-items:end;grid-template-columns:1fr auto">
       <div class="fg" style="margin-bottom:0">
@@ -336,6 +336,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <input class="fc" type="number" id="f-famt" placeholder="例: 45" inputmode="decimal">
       </div>
     </div>
+    <div class="fg" id="f-fuelhour-row" style="display:none;margin-bottom:11px">
+      <label class="fl">給油時アワメータ (h)</label>
+      <input class="fc" type="number" id="f-fuelhour" placeholder="例: 4262" inputmode="decimal">
+    </div>
     <div class="frow" style="margin-bottom:0">
       <div class="trow" style="padding:6px 0;border:none">
         <span class="tlbl">グリス充填<span class="tog-state" id="tog-grease-state"></span></span>
@@ -363,10 +367,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <label class="fl">ナット (個)</label>
         <input class="fc" type="number" id="f-nut" placeholder="0" inputmode="numeric">
       </div>
-    </div>
-    <div class="fg" style="margin-bottom:0">
-      <label class="fl">給油時アワメータ (h)</label>
-      <input class="fc" type="number" id="f-fuelhour" placeholder="例: 4262" inputmode="decimal">
     </div>
   </div></div>
 
@@ -935,6 +935,9 @@ function applyNfcMachineParam(){
       showTab('input');
       onMachineChange();
       applyLastOperator();
+      const nm=findMachine(mid);
+      if(nm)fYard=nm.yard;
+      renderFMachineChips();
       showToast(mid + ' を選択しました', 'ok');
       // URLのクエリだけ綺麗にしておく（再読み込み時に毎回反応しないように）
       history.replaceState(null, '', location.pathname);
@@ -1176,6 +1179,39 @@ async function refreshTodayList(showMsg){
   }catch(e){console.warn('refreshToday:',e);if(showMsg)showToast('更新に失敗しました','err');}
 }
 
+let fYard='';
+function setFYard(y){fYard=y;renderFMachineChips();}
+function setFMachine(id){
+  const sel=document.getElementById('f-machine');
+  if(sel.value===id)return;
+  sel.value=id;
+  onMachineChange();
+  renderFMachineChips();
+}
+function renderFMachineChips(){
+  const yw=document.getElementById('f-yard-chips');
+  const mw=document.getElementById('f-machine-chips');
+  if(!yw||!mw)return;
+  let yh=`<div class="chip ${fYard===''?'on':''}" onclick="setFYard('')">全拠点</div>`;
+  YARDS.forEach(y=>{
+    const n=machines.filter(m=>m.yard===y).length;
+    if(n>0)yh+=`<div class="chip ${fYard===y?'on':''}" onclick="setFYard('${y}')">${y}</div>`;
+  });
+  yw.innerHTML=yh;
+  const cur=document.getElementById('f-machine').value;
+  let ms=machines;
+  if(fYard)ms=ms.filter(m=>m.yard===fYard);
+  if(ms.length===0){
+    mw.innerHTML=`<div style="font-size:14px;color:#999;padding:4px 0">${machines.length===0?(navigator.onLine?'重機マスタを読込中...':'圏外: 重機マスタ未取得'):'該当する重機がありません'}</div>`;
+    return;
+  }
+  let mh='';
+  ms.forEach(m=>{
+    const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
+    mh+=`<div class="chip ${cur===m.id?'on':''}" onclick="setFMachine('${m.id}')">${lbl}</div>`;
+  });
+  mw.innerHTML=mh;
+}
 function populateForms(){
   const ms=document.getElementById('f-machine');
   const currentSelected = ms.value; // 再構築前の選択値を保存（NFC選択などが消えないようにする）
@@ -1206,6 +1242,7 @@ function populateForms(){
   const ny=document.getElementById('nm-yard');
   ny.innerHTML='';
   YARDS.forEach(y=>ny.innerHTML+=`<option value="${y}">${y}</option>`);
+  renderFMachineChips();
 }
 
 function onMachineChange(){
@@ -1213,6 +1250,7 @@ function onMachineChange(){
   const m=findMachine(id);
   curInspChecks={};
   document.getElementById('crusher-fields').style.display=(m&&m.type==='crusher')?'block':'none';
+  document.getElementById('f-fuelhour-row').style.display=(m&&m.type==='crusher')?'block':'none';
 
   // 前の機体選択時に自動入力された元請・現場名は、機体を切り替えたらクリアする。
   // ただし社員が手で編集した場合（自動入力フラグが立っていない場合）は保持する。
@@ -1576,6 +1614,8 @@ function resetForm(){
   applyLastOperator();
   document.getElementById('f-date').value=todayStr();
   document.getElementById('crusher-fields').style.display='none';
+  document.getElementById('f-fuelhour-row').style.display='none';
+  renderFMachineChips();
   prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
   clearPhoto();
   document.querySelector('input[name="note-type"][value=""]').checked=true;
