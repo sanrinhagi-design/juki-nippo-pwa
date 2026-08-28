@@ -62,10 +62,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .trow{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f5f5f5}
 .trow:last-child{border-bottom:none}
 .tlbl{font-size:15px;font-weight:500}
-.tog{width:46px;height:26px;border-radius:13px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
-.tog.on{background:#27ae60}.tog.off{background:#ccc}
-.tog-k{width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:2px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.25)}
-.tog.on .tog-k{left:22px}.tog.off .tog-k{left:2px}
+.tog{width:58px;height:32px;border-radius:16px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.tog.on{background:#1f8b4c}.tog.off{background:#c94b4b}
+.tog-k{width:26px;height:26px;border-radius:50%;background:#fff;position:absolute;top:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.tog.on .tog-k{left:29px}.tog.off .tog-k{left:3px}
+.tog-state{font-size:14px;font-weight:800;margin-left:2px}
 .btn{padding:16px;border-radius:11px;font-size:17px;font-weight:700;cursor:pointer;border:none;display:block;width:100%;text-align:center;transition:opacity .15s;letter-spacing:.3px}
 .btn:active{opacity:.82}
 .btn-p{background:#185fa5;color:#fff}
@@ -84,13 +85,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .gps-compact-txt{font-size:15px;font-weight:700;color:#185fa5;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gps-compact.ok .gps-compact-txt{color:#27ae60}
 .gps-compact.err .gps-compact-txt{color:#c0392b}
-.gps-compact.skip .gps-compact-txt{color:#888}
+.gps-compact.skip .gps-compact-txt{color:#5a5a5a}
 .gps-compact-refresh{flex-shrink:0;font-size:14px;color:#185fa5;font-weight:700;cursor:pointer;padding:4px 8px;white-space:nowrap}
 .gps-compact-skiprow{width:100%;display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;color:#555;padding-top:2px}
 .ml-scroll{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e5e5e5;border-radius:10px;max-width:100%;max-height:70vh}
 .ml-table{border-collapse:collapse;font-size:14px}
 .ml-table th,.ml-table td{border:1px solid #ececec;padding:0;text-align:center}
-.ml-table thead th{background:#f7f7f7;color:#888;font-weight:700;font-size:13px;padding:8px 2px;position:sticky;top:0;z-index:3}
+.ml-table thead th{background:#f7f7f7;color:#5a5a5a;font-weight:700;font-size:13px;padding:8px 2px;position:sticky;top:0;z-index:3}
 .ml-table th.ml-daynum{width:52px;min-width:52px}
 .ml-table th.ml-sun{color:#c0392b}.ml-table th.ml-sat{color:#185fa5}
 .ml-machine-col{position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:12px 14px !important;font-weight:700;color:#185fa5;width:170px;min-width:170px;max-width:170px;font-size:15px;border-right:2px solid #ddd}
@@ -124,11 +125,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .prog-wrap{flex:1;padding:0 10px}
 .prog-bg{background:#f0f0f0;border-radius:4px;height:6px;overflow:hidden}
 .prog-fill{height:100%;border-radius:4px;transition:width .3s}
+.bar-row{display:flex;align-items:center;gap:10px;padding:9px 2px}
+.bar-id{font-size:15px;font-weight:800;color:#185fa5;min-width:52px;flex-shrink:0}
+.bar-track{flex:1;background:#f0f0f0;border-radius:5px;height:14px;overflow:hidden}
+.bar-fill{height:100%;border-radius:5px;background:#185fa5;transition:width .3s}
+.bar-val{font-size:14.5px;font-weight:700;color:#333;min-width:46px;text-align:right;flex-shrink:0}
 .card-alert{border-left:3px solid #c0392b}
 .card-alert .card-h{background:#fff5f5}
 .fab{background:#185fa5;color:#fff;border-radius:28px;padding:13px 20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(24,95,165,.35);margin-bottom:12px;transition:opacity .15s}
 .fab:active{opacity:.85}
-.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(26,26,26,.9);color:#fff;padding:9px 20px;border-radius:22px;font-size:15px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(26,26,26,.9);color:#fff;padding:13px 26px;border-radius:24px;font-size:17px;font-weight:700;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
 .toast.show{opacity:1}
 .toast.t-ok{background:rgba(39,174,96,.92)}
 .toast.t-err{background:rgba(192,57,43,.92)}
@@ -169,7 +175,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .due-soon{background:#faeeda;color:#854f0b}
 .due-over{background:#fcebeb;color:#791f1f}
 .info-line{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:15px}
-.info-line .k{color:#888}.info-line .v{font-weight:600;color:#333}
+.info-line .k{color:#5a5a5a}.info-line .v{font-weight:600;color:#333}
 #auth-overlay{position:fixed;inset:0;background:#1a1a2e;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;color:#fff}
 #auth-overlay .a-title{font-size:22px;font-weight:800;margin-bottom:8px}
 #auth-overlay .a-desc{font-size:15px;color:#c5cad6;margin-bottom:28px;line-height:1.7}
@@ -307,12 +313,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <div class="fg" style="margin-bottom:0">
         <label class="fl">アワーメータ終了 (h)</label>
         <input class="fc" type="number" id="f-hmeter" placeholder="例: 2847" inputmode="decimal">
-        <div id="prev-hmeter" style="font-size:15px;color:#888;margin-top:5px">前回終了: —</div>
+        <div id="prev-hmeter" style="font-size:15px;color:#5a5a5a;margin-top:5px">前回終了: —</div>
       </div>
       <div class="fg" style="margin-bottom:0">
         <label class="fl">稼働時間 (h)</label>
         <input class="fc" type="number" id="f-whours" placeholder="例: 7.5" step="0.5" inputmode="decimal">
-        <div style="font-size:15px;color:#888;margin-top:5px" id="whours-hint">前回差で自動計算</div>
+        <div style="font-size:15px;color:#5a5a5a;margin-top:5px" id="whours-hint">前回差で自動計算</div>
       </div>
     </div>
     <div class="frow" style="margin-bottom:11px">
@@ -332,11 +338,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
     <div class="frow" style="margin-bottom:0">
       <div class="trow" style="padding:6px 0;border:none">
-        <span class="tlbl">グリス充填</span>
+        <span class="tlbl">グリス充填<span class="tog-state" id="tog-grease-state"></span></span>
         <div class="tog off" id="tog-grease" onclick="togEl(this)"><div class="tog-k"></div></div>
       </div>
       <div class="trow" style="padding:6px 0;border:none">
-        <span class="tlbl">回送あり</span>
+        <span class="tlbl">回送あり<span class="tog-state" id="tog-trans-state"></span></span>
         <div class="tog off" id="tog-trans" onclick="togEl(this)"><div class="tog-k"></div></div>
       </div>
     </div>
@@ -420,7 +426,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <label class="fl">対象重機を選択</label>
     <div id="bk-yard-chips" class="yard-chips"></div>
     <div id="bk-machine-picker" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px"></div>
-    <div style="font-size:15px;color:#888;margin-top:8px" id="bk-picked-count">0台選択中</div>
+    <div style="font-size:15px;color:#5a5a5a;margin-top:8px" id="bk-picked-count">0台選択中</div>
   </div></div>
 
   <div id="bk-rows"></div>
@@ -506,39 +512,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
 <!-- ===== 集計 ===== -->
 <div id="scr-dash" class="scr">
-  <div class="slbl" id="dash-month"></div>
-  <div class="stat-grid" id="dash-stats"></div>
-  <button class="btn btn-o" onclick="openCsvModal()" style="margin-bottom:14px">📊 CSV出力</button>
-
-  <div class="slbl">機体別カレンダー・月次一覧</div>
-  <div class="yard-chips" style="margin-bottom:8px">
-    <div class="chip on" id="calview-cal" onclick="setCalView('cal')">📅 カレンダー</div>
-    <div class="chip" id="calview-list" onclick="setCalView('list')">📋 月次一覧</div>
-  </div>
-
-  <div class="card" id="cal-view-card"><div class="card-b">
-    <div class="yard-chips" id="cal-yards"></div>
-    <div class="yard-chips" id="cal-machine-chips" style="display:none"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+  <div class="slbl">表示範囲</div>
+  <div class="card" id="dash-scope-card"><div class="card-b">
+    <div class="yard-chips" id="ml-yards"></div>
+    <div class="yard-chips" id="dash-machine-chips" style="display:none"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
       <span style="font-size:28px;color:#185fa5;cursor:pointer;padding:6px 20px;font-weight:700;line-height:1" onclick="calNav(-1)">‹</span>
-      <span style="font-size:22px;font-weight:800" id="cal-title"></span>
+      <span style="font-size:22px;font-weight:800" id="dash-month"></span>
       <span style="font-size:28px;color:#185fa5;cursor:pointer;padding:6px 20px;font-weight:700;line-height:1" onclick="calNav(1)">›</span>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:15px;color:#999;text-align:center;margin-bottom:4px"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px" id="cal-grid"></div>
-    <div style="font-size:15px;color:#999;margin-top:8px;line-height:1.5">緑＝入力済み／黄＝点検未実施／赤＝備考あり／白＝未入力。日付をタップで編集できます。</div>
-    <button class="btn btn-o" style="margin-top:10px" onclick="printMonth()">🖨 この月の日報を印刷 / PDF保存</button>
   </div></div>
 
-  <div class="card" id="ml-view-card" style="display:none"><div class="card-b">
-    <div class="yard-chips" id="ml-yards"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span style="font-size:28px;color:#185fa5;cursor:pointer;padding:6px 20px;font-weight:700;line-height:1" onclick="calNav(-1)">‹</span>
-      <span style="font-size:22px;font-weight:800" id="ml-title"></span>
-      <span style="font-size:28px;color:#185fa5;cursor:pointer;padding:6px 20px;font-weight:700;line-height:1" onclick="calNav(1)">›</span>
-    </div>
+  <div class="stat-grid" id="dash-stats"></div>
+
+  <div class="slbl">機体別 稼働時間</div>
+  <div class="card"><div class="card-b" id="dash-chart"></div></div>
+
+  <div class="slbl">始業前点検 達成率</div>
+  <div class="card"><div class="card-b" id="dash-insp"></div></div>
+
+  <div class="slbl">故障・備考</div>
+  <div id="dash-notes"></div>
+
+  <div class="slbl">月次一覧</div>
+  <div class="card" id="ml-view-card"><div class="card-b">
     <div class="ml-scroll"><table class="ml-table" id="ml-table"></table></div>
-    <div style="font-size:15px;color:#999;margin-top:10px;line-height:1.5">セル上段＝元請／下段＝現場名。緑＝入力済み／黄＝点検未実施／赤＝備考あり。同じ元請・現場名が連続する日はセルを結合表示します（同日に複数件入力がある場合は結合せず件数を表示）。セルをタップで編集できます。横にスクロールできます。</div>
+    <div style="font-size:15px;color:#6b6b6b;margin-top:10px;line-height:1.5">セル上段＝元請／下段＝現場名。緑＝入力済み／黄＝点検未実施／赤＝備考あり。同じ元請・現場名が連続する日はセルを結合表示します（同日に複数件入力がある場合は結合せず件数を表示）。セルをタップで編集できます。横にスクロールできます。</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-o" style="flex:1" onclick="printMonth()">🖨 印刷 / PDF保存</button>
+      <button class="btn btn-o" style="flex:1" onclick="openCsvModal()">📊 CSV出力</button>
+    </div>
   </div></div>
 
   <div class="slbl">特定自主検査 期限警告</div>
@@ -611,7 +614,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
     <input type="hidden" id="dm-id">
     <div id="dm-multi"></div>
-    <div id="dm-empty" style="display:none;font-size:15px;color:#888;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
+    <div id="dm-empty" style="display:none;font-size:15px;color:#5a5a5a;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
     <div id="dm-form">
       <div class="frow" style="margin-bottom:11px">
         <div class="fg" style="margin-bottom:0"><label class="fl">日付</label><input class="fc" type="date" id="dm-date"></div>
@@ -636,8 +639,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <select class="fc" id="dm-insp"><option value="済">済</option><option value="未">未</option></select>
       </div>
       <div class="card"><div class="card-b">
-        <div class="trow"><span class="tlbl">グリス充填実施</span><div class="tog off" id="dm-grease" onclick="togEl(this)"><div class="tog-k"></div></div></div>
-        <div class="trow"><span class="tlbl">回送あり</span><div class="tog off" id="dm-trans" onclick="togEl(this)"><div class="tog-k"></div></div></div>
+        <div class="trow"><span class="tlbl">グリス充填実施<span class="tog-state" id="dm-grease-state"></span></span><div class="tog off" id="dm-grease" onclick="togEl(this)"><div class="tog-k"></div></div></div>
+        <div class="trow"><span class="tlbl">回送あり<span class="tog-state" id="dm-trans-state"></span></span><div class="tog off" id="dm-trans" onclick="togEl(this)"><div class="tog-k"></div></div></div>
       </div></div>
       <div id="dm-crusher" style="display:none">
         <div style="font-size:15px;font-weight:700;margin-bottom:8px;color:#185fa5">破砕機 部品・消耗品交換</div>
@@ -731,7 +734,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <input class="fc" type="date" id="csv-to">
       </div>
     </div>
-    <div style="font-size:15px;color:#888;margin-bottom:14px">オンライン時はサーバー上の全データ、圏外時は端末内データのみが対象になります。</div>
+    <div style="font-size:15px;color:#5a5a5a;margin-bottom:14px">オンライン時はサーバー上の全データ、圏外時は端末内データのみが対象になります。</div>
     <button class="btn btn-p" onclick="exportCsv()">CSVをダウンロード</button>
     <div style="height:8px"></div>
   </div>
@@ -753,7 +756,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <button class="btn btn-p" style="width:auto;padding:10px 18px" onclick="addOperator()">追加</button>
       </div>
     </div>
-    <p style="font-size:15px;color:#999;margin-top:10px;line-height:1.5">
+    <p style="font-size:15px;color:#6b6b6b;margin-top:10px;line-height:1.5">
       スプレッドシートの「運転者マスタ」シートで直接編集も可能です。変更はオンライン時に全端末へ反映されます。
     </p>
     <div style="height:10px"></div>
@@ -888,7 +891,7 @@ let realOnline=false;
 async function checkRealConnectivity(){
   if(!navigator.onLine){realOnline=false;updateNet();return false;}
   try{
-    const data=await postToGas({action:'jukiPing', deviceToken:getDeviceToken()}, 8000);
+    const data=await postToGas({action:'jukiPing', deviceToken:getDeviceToken()}, 5000);
     realOnline = !!data.ok;
   }catch(e){
     realOnline=false;
@@ -941,8 +944,10 @@ function initApp(){
   hideAuthOverlay();
   loadData();
   setDate(); updateNet(); populateForms();
-  renderYardChips(); renderList(); renderMachines(); renderJikensa(); renderDash();
+  renderYardChips(); renderList(); renderMachines(); renderJikensa(); renderDashWarnings();
   setInspBar('idle');
+  syncTogState(document.getElementById('tog-grease'));
+  syncTogState(document.getElementById('tog-trans'));
   getGPS(); updateSyncRow();
   syncStickyOffset();
   window.addEventListener('resize', syncStickyOffset);
@@ -962,17 +967,27 @@ function initApp(){
     if(this.value) localStorage.setItem('lastOperator', this.value);
   });
 
-  window.addEventListener('online', async ()=>{
-    await checkRealConnectivity();
-    if(realOnline){autoSync();refreshTodayList(false);refreshSuggestLists();}
-  });
+  // ★Wi-Fiのみ接続直後は、AP接続はできてもDNS/実際のインターネット到達までに
+  // 数秒かかることがある（DHCP確定待ち・キャプティブポータル等）。
+  // 1回のpingが失敗してもすぐ諦めず、短い間隔で数回リトライしてからしか
+  // 通常間隔に戻さないことで「オンラインになるまでの体感の遅さ」を減らす。
+  function reconnectBurst(){
+    [0,1500,3000,6000,10000].forEach(ms=>{
+      setTimeout(async ()=>{
+        if(realOnline || !navigator.onLine)return;
+        await checkRealConnectivity();
+        if(realOnline){autoSync();refreshTodayList(false);refreshSuggestLists();}
+      }, ms);
+    });
+  }
+  window.addEventListener('online', reconnectBurst);
   window.addEventListener('offline', ()=>{realOnline=false;updateNet();});
   setInterval(async ()=>{
     if(navigator.onLine && !realOnline){
       await checkRealConnectivity();
       if(realOnline){autoSync();refreshTodayList(false);}
     }
-  }, 30000);
+  }, 10000);
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').then(reg=>{
       reg.update();
@@ -1118,7 +1133,7 @@ async function fetchRemote(){
     operators=oR.value.operators;populateForms();
   }
   if(iR.status==='fulfilled'&&iR.value.inspections){
-    inspections=iR.value.inspections;renderJikensa();renderDash();
+    inspections=iR.value.inspections;renderJikensa();renderDashWarnings();
   }
   if(tR.status==='fulfilled'&&tR.value.reports){
     const t=todayStr();
@@ -1243,7 +1258,7 @@ function setInspBar(state){
   if(!bar||!st)return;
   if(state==='idle'){
     bar.style.background='#eef0f2';bar.style.borderColor='#d5d5d5';
-    st.textContent='始業前点検';st.style.color='#888';
+    st.textContent='始業前点検';st.style.color='#5a5a5a';
   }else if(state==='ready'){
     bar.style.background='#fff';bar.style.borderColor='#185fa5';
     const n=INSPECTION_DATA[curInspType].items.length;
@@ -1430,7 +1445,16 @@ function saveInspModal(){
   showToast(`点検 ${done}/${total}項目を記録`,'ok');
 }
 
-function togEl(el){el.classList.toggle('on');el.classList.toggle('off');}
+function syncTogState(tog){
+  if(!tog)return;
+  const wrap=tog.parentElement;
+  const state=wrap?wrap.querySelector('.tog-state'):null;
+  if(!state)return;
+  const on=tog.classList.contains('on');
+  state.textContent=on?'あり':'なし';
+  state.style.color=on?'#1f8b4c':'#c94b4b';
+}
+function togEl(el){el.classList.toggle('on');el.classList.toggle('off');syncTogState(el);}
 
 let photoData=null;
 
@@ -1568,7 +1592,7 @@ async function doSync(retryCount){
       // ★軽量化：集計・サジェストの再取得は保存の都度ではなく、
       // 少し間を置いてまとめて1回だけ行う（連続保存された場合の負荷軽減）
       clearTimeout(_postSyncDebounce);
-      _postSyncDebounce = setTimeout(()=>{ refreshDashMonth(); refreshSuggestLists(); }, 1500);
+      _postSyncDebounce = setTimeout(()=>{ renderDashWarnings(); if(document.getElementById('scr-dash').classList.contains('on'))loadCalMonth(); refreshSuggestLists(); }, 1500);
     }
   }catch(e){
     console.warn('Sync:',e);
@@ -1674,7 +1698,7 @@ function renderList(){
     const nmSafe=(nm||'').replace(/'/g,"\\'");
     const entries=rs.map(r=>{
       const tm=r.savedAt?new Date(r.savedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):(r.receivedAt?String(r.receivedAt).slice(11,16):'--:--');
-      const inspTxt=r.inspection==='済'?'点検済':(r.inspection==='未'?'<span style="color:#854f0b;font-weight:700">点検未</span>':(r.inspection==='対象外'?'<span style="color:#999">点検対象外（給油のみ）</span>':r.inspection));
+      const inspTxt=r.inspection==='済'?'点検済':(r.inspection==='未'?'<span style="color:#854f0b;font-weight:700">点検未</span>':(r.inspection==='対象外'?'<span style="color:#6b6b6b">点検対象外（給油のみ）</span>':r.inspection));
       const dtl=[`稼働 ${r.workHours||'—'}h`,`アワー ${r.hourMeter||'—'}h`,(r.fuelAmount?`給油 ${r.fuelAmount}L`:'給油なし'),inspTxt].join(' ／ ');
       const eBdg=r.synced?'<span class="bdg bdg-ok">✓</span>':'<span class="bdg bdg-pend">⏳</span>';
       const gpsLink=r.lat?` <a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="color:#185fa5;font-size:15px" onclick="event.stopPropagation()">地図</a>`:'';
@@ -1827,7 +1851,7 @@ function renderJikensa(){
     const ins=inspections.find(x=>x.machineId===m.id);
     const nm=m.attachment?`${m.model}・${m.attachment}`:m.model;
     const st=jiStatus(ins?ins.nextDate:'');
-    const dueTag=ins&&ins.nextDate?`<span class="due-tag ${st.cls}">${st.txt}</span>`:'<span class="due-tag" style="background:#eef0f2;color:#888">未登録</span>';
+    const dueTag=ins&&ins.nextDate?`<span class="due-tag ${st.cls}">${st.txt}</span>`:'<span class="due-tag" style="background:#eef0f2;color:#5a5a5a">未登録</span>';
     let body='';
     if(ins){
       body=`
@@ -1877,86 +1901,20 @@ function saveJiModal(){
   };
   const idx=inspections.findIndex(x=>x.machineId===mid);
   if(idx>=0)inspections[idx]=ins;else inspections.push(ins);
-  saveData();closeJiModal();renderJikensa();renderDash();
+  saveData();closeJiModal();renderJikensa();renderDashWarnings();
   showToast(`${mid} の検査記録を保存`,'ok');
   if(navigator.onLine){
     fetchJukiApi('saveInspection',{inspection:ins}).catch(()=>{});
   }
 }
 
-let dashServerReports=null;
-function dashSourceReports(){
-  const mo=monthStr();
-  if(dashServerReports && dashServerReports.month===mo){
-    const sids=new Set(dashServerReports.reports.map(r=>r.id).filter(Boolean));
-    const localOnly=allReports().filter(r=>r.date&&r.date.startsWith(mo) && !sids.has(r.id));
-    return [...dashServerReports.reports,...localOnly];
-  }
-  return allReports().filter(r=>r.date&&r.date.startsWith(mo));
-}
+// ================================================================
+// 集計ダッシュボード（表示中の月・拠点・機体スコープに連動）
+// ================================================================
 
-async function refreshDashMonth(){
-  if(!navigator.onLine)return;
-  const mo=monthStr();
-  try{
-    const data=await fetchJukiApi('getReports',{month:mo});
-    if(data.reports){
-      dashServerReports={month:mo, reports:data.reports};
-      if(document.getElementById('scr-dash').classList.contains('on'))renderDash();
-    }
-  }catch(e){console.warn('dashMonth:',e);}
-}
-
-function renderDash(){
-  const d=new Date();
-  document.getElementById('dash-month').textContent=`令和${d.getFullYear()-2018}年${d.getMonth()+1}月 月次集計`;
-  const rpts=dashSourceReports();
-  const totalL=rpts.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
-  const uninsp=rpts.filter(r=>r.inspection==='未').length;
-
-  const fuelByM={};
-  rpts.forEach(r=>{
-    const amt=parseFloat(r.fuelAmount)||0;
-    if(amt<=0)return;
-    if(!fuelByM[r.machineId])fuelByM[r.machineId]=0;
-    fuelByM[r.machineId]+=amt;
-  });
-  const fuelDetailHtml=Object.keys(fuelByM).length===0
-    ? '<div style="font-size:15px;color:#888;padding:8px 4px">今月の給油記録なし</div>'
-    : Object.entries(fuelByM).sort((a,b)=>b[1]-a[1]).map(([id,l])=>
-        `<div class="mrow"><span class="mrow-id">${id}</span><span class="mrow-name" style="font-size:15px">${Math.round(l*10)/10} L</span></div>`
-      ).join('');
-
-  const inspByM={};
-  rpts.forEach(r=>{
-    if(r.inspection==='対象外')return;
-    if(!inspByM[r.machineId])inspByM[r.machineId]={t:0,ok:0};
-    inspByM[r.machineId].t++;
-    if(r.inspection==='済')inspByM[r.machineId].ok++;
-  });
-  const inspDetailHtml=Object.keys(inspByM).length===0
-    ? '<div style="font-size:15px;color:#888;padding:8px 4px">今月のデータなし</div>'
-    : Object.entries(inspByM).map(([id,v])=>{
-        const pct=Math.round(v.ok/v.t*100);const col=pct===100?'#27ae60':pct>=50?'#e67e22':'#c0392b';
-        return `<div class="mrow"><span class="mrow-id">${id}</span><div class="prog-wrap"><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div></div><span style="font-size:15px;font-weight:700;color:${col};min-width:34px;text-align:right">${v.ok}/${v.t}</span></div>`;
-      }).join('');
-
-  document.getElementById('dash-stats').innerHTML=`
-    <div class="stat-card" style="cursor:pointer" onclick="toggleStatDetail('fuel')">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>
-        <span class="arrow" id="stat-arrow-fuel">▾</span>
-      </div>
-    </div>
-    <div class="stat-card" style="cursor:pointer" onclick="toggleStatDetail('insp')">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div><div class="num" style="color:${uninsp>0?'#e67e22':'#27ae60'}">${uninsp}件</div><div class="lbl">点検未実施</div></div>
-        <span class="arrow" id="stat-arrow-insp">▾</span>
-      </div>
-    </div>
-    <div class="card" id="stat-detail-fuel" style="display:none;grid-column:1/-1">${fuelDetailHtml}</div>
-    <div class="card" id="stat-detail-insp" style="display:none;grid-column:1/-1">${inspDetailHtml}</div>`;
-
+// 特定自主検査の期限警告・アワーメーター警告は「今この瞬間の状態」を示すものなので、
+// 表示中の月に関わらず常に全データ（allReports）から最新値を見る。
+function renderDashWarnings(){
   const jiEl=document.getElementById('dash-jikensa');
   const due=inspections.map(ins=>({ins,st:jiStatus(ins.nextDate)})).filter(x=>x.st.days!==null&&x.st.days<=30).sort((a,b)=>a.st.days-b.st.days);
   jiEl.innerHTML=due.length>0?due.map(x=>{
@@ -1972,7 +1930,7 @@ function renderDash(){
 
   const alertEl=document.getElementById('dash-alerts');
   const latest={};
-  rpts.forEach(r=>{const h=parseFloat(r.hourMeter);if(!isNaN(h)&&(!latest[r.machineId]||h>latest[r.machineId]))latest[r.machineId]=h;});
+  allReports().forEach(r=>{const h=parseFloat(r.hourMeter);if(!isNaN(h)&&(!latest[r.machineId]||h>latest[r.machineId]))latest[r.machineId]=h;});
   const warns=Object.entries(latest).filter(([,h])=>h%HOUR_ALERT<15).map(([id,h])=>({id,h,next:Math.ceil(h/HOUR_ALERT)*HOUR_ALERT}));
   alertEl.innerHTML=warns.length>0?warns.map(w=>{
     const m=findMachine(w.id);const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
@@ -1980,13 +1938,76 @@ function renderDash(){
   }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ アワー警告なし</div></div>';
 }
 
-function toggleStatDetail(key){
-  const el=document.getElementById('stat-detail-'+key);
-  const arrow=document.getElementById('stat-arrow-'+key);
-  if(!el)return;
-  const open=el.style.display!=='none';
-  el.style.display=open?'none':'block';
-  if(arrow)arrow.classList.toggle('open',!open);
+// 表示範囲（全体／拠点／機体）＋表示月のラベルを組み立てる
+function dashScopeLabel(){
+  if(calMachineId){
+    const m=findMachine(calMachineId);
+    return calMachineId+(m?(m.attachment?`（${m.model}・${m.attachment}）`:`（${m.model}）`):'');
+  }
+  return calScope==='all' ? '全体' : calScope;
+}
+
+// カレンダー機体・拠点スコープに連動するダッシュボード本体
+// （データは calReports = 表示中の月・拠点・機体で既に絞り込み済み）
+function renderDashboard(){
+  document.getElementById('dash-month').textContent=`令和${calYear-2018}年${calMonth+1}月　${dashScopeLabel()}`;
+
+  const rpts=calReports;
+  const totalW=rpts.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
+  const totalL=rpts.reduce((s,r)=>s+(parseFloat(r.fuelAmount)||0),0);
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat-card"><div class="num">${Math.round(totalW*10)/10} h</div><div class="lbl">総稼働時間</div></div>
+    <div class="stat-card"><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>`;
+
+  // 機体別 稼働時間の横棒グラフ
+  const workByM={};
+  rpts.forEach(r=>{
+    const w=parseFloat(r.workHours)||0;
+    if(w<=0)return;
+    workByM[r.machineId]=(workByM[r.machineId]||0)+w;
+  });
+  const workEntries=Object.entries(workByM).sort((a,b)=>b[1]-a[1]);
+  const maxW=workEntries.length?workEntries[0][1]:0;
+  document.getElementById('dash-chart').innerHTML=workEntries.length===0
+    ? '<div style="font-size:15px;color:#5a5a5a;padding:8px 4px">この範囲の稼働記録なし</div>'
+    : workEntries.map(([id,w])=>{
+        const pct=maxW>0?Math.max(4,Math.round(w/maxW*100)):0;
+        return `<div class="bar-row"><span class="bar-id">${id}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-val">${Math.round(w*10)/10}h</span></div>`;
+      }).join('');
+
+  // 始業前点検 達成率（機体ごと）
+  const inspByM={};
+  rpts.forEach(r=>{
+    if(r.inspection==='対象外')return;
+    if(!inspByM[r.machineId])inspByM[r.machineId]={t:0,ok:0};
+    inspByM[r.machineId].t++;
+    if(r.inspection==='済')inspByM[r.machineId].ok++;
+  });
+  document.getElementById('dash-insp').innerHTML=Object.keys(inspByM).length===0
+    ? '<div style="font-size:15px;color:#5a5a5a;padding:8px 4px">この範囲のデータなし</div>'
+    : Object.entries(inspByM).map(([id,v])=>{
+        const pct=Math.round(v.ok/v.t*100);const col=pct===100?'#1f8b4c':pct>=50?'#e67e22':'#c0392b';
+        return `<div class="mrow"><span class="mrow-id">${id}</span><div class="prog-wrap"><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div></div><span style="font-size:15px;font-weight:700;color:${col};min-width:34px;text-align:right">${v.ok}/${v.t}</span></div>`;
+      }).join('');
+
+  // 故障・備考フィード（新しい日付が上）
+  const notesEl=document.getElementById('dash-notes');
+  const notesList=rpts.filter(r=>r.notes&&String(r.notes).trim()!=='')
+    .slice()
+    .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.savedAt||'').localeCompare(String(a.savedAt||'')));
+  notesEl.innerHTML=notesList.length===0
+    ? '<div class="card"><div class="card-b" style="font-size:15px;color:#1f8b4c;font-weight:600">⬤ 備考・故障報告なし</div></div>'
+    : notesList.map(r=>{
+        const d=parseInt(String(r.date).slice(8,10),10);
+        const isFault=(r.noteType==='故障'||r.noteType==='備考と故障');
+        const ntPrefix=isFault?'⚠ 故障: ':(r.noteType==='備考'?'📝 ':'');
+        return `<div class="card ${isFault?'card-alert':''}">
+          <div class="card-b">
+            <div class="msub">${calMonth+1}月${isNaN(d)?'?':d}日・${r.machineId}</div>
+            <div style="font-size:15px;margin-top:4px;color:#333">${ntPrefix}${r.notes}</div>
+          </div>
+        </div>`;
+      }).join('');
 }
 
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
@@ -1994,20 +2015,6 @@ let calReports=[];
 let calScope='all';
 let calMachineId='';
 let calViewMode='cal';
-
-function setCalView(mode){
-  calViewMode=mode;
-  document.getElementById('calview-cal').className='chip'+(mode==='cal'?' on':'');
-  document.getElementById('calview-list').className='chip'+(mode==='list'?' on':'');
-  document.getElementById('cal-view-card').style.display=mode==='cal'?'block':'none';
-  document.getElementById('ml-view-card').style.display=mode==='list'?'block':'none';
-  if(mode==='list'){
-    calMachineId='';
-    renderCalMachineChips();
-    renderMlYardChips();
-    loadCalMonth();
-  }
-}
 
 function renderMlYardChips(){
   const wrap=document.getElementById('ml-yards');
@@ -2022,25 +2029,16 @@ function renderMlYardChips(){
 
 function calYM(){return `${calYear}-${pad(calMonth+1)}`;}
 
-function renderCalYardChips(){
-  let h=`<div class="chip ${calScope==='all'?'on':''}" onclick="setCalScope('all')">全体</div>`;
-  YARDS.forEach(y=>{
-    const n=machines.filter(m=>m.yard===y).length;
-    if(n>0)h+=`<div class="chip ${calScope===y?'on':''}" onclick="setCalScope('${y}')">${y}</div>`;
-  });
-  document.getElementById('cal-yards').innerHTML=h;
-}
 function setCalScope(scope){
   calScope=scope;
   calMachineId='';
-  renderCalYardChips();
   renderCalMachineChips();
   renderMlYardChips();
   loadCalMonth();
 }
 
 function renderCalMachineChips(){
-  const wrap=document.getElementById('cal-machine-chips');
+  const wrap=document.getElementById('dash-machine-chips');
   if(calScope==='all'){
     wrap.style.display='none';
     wrap.innerHTML='';
@@ -2123,8 +2121,8 @@ async function loadCalMonth(){
 }
 
 function renderCalView(){
-  if(calViewMode==='list')renderMonthlyList();
-  else renderCalendar();
+  renderMonthlyList();
+  renderDashboard();
 }
 
 function dayStatus(r){
@@ -2134,9 +2132,6 @@ function dayStatus(r){
 }
 
 function renderMonthlyList(){
-  const title=`令和${calYear-2018}年${calMonth+1}月`;
-  document.getElementById('ml-title').textContent=title;
-
   const daysIn=new Date(calYear,calMonth+1,0).getDate();
   const targetMachines = calScope==='all' ? machines : machines.filter(m=>m.yard===calScope);
 
@@ -2179,7 +2174,7 @@ function renderMonthlyList(){
     }
     g.ms.forEach(m=>{
       const nm=m.attachment?`${m.model}・${m.attachment}`:m.model;
-      tbody+=`<tr><td class="ml-machine-col">${m.id}<br><span style="font-size:11px;color:#888;font-weight:500">${nm}</span></td>`;
+      tbody+=`<tr><td class="ml-machine-col">${m.id}<br><span style="font-size:11px;color:#5a5a5a;font-weight:500">${nm}</span></td>`;
 
       const days=[];
       for(let d=1;d<=daysIn;d++){
@@ -2242,53 +2237,6 @@ function openMlCell(mid, day){
   openReportModal(`${calMonth+1}月${day}日 ${mid}`, rs);
 }
 
-function renderCalendar(){
-  document.getElementById('cal-title').textContent=`令和${calYear-2018}年${calMonth+1}月`;
-  const grid=document.getElementById('cal-grid');
-  grid.innerHTML='';
-  const first=new Date(calYear,calMonth,1);
-  const daysIn=new Date(calYear,calMonth+1,0).getDate();
-  for(let i=0;i<first.getDay();i++)grid.appendChild(document.createElement('div'));
-  const byDay={};
-  calReports.forEach(r=>{
-    const d=parseInt(String(r.date).slice(8,10),10);
-    if(isNaN(d))return;
-    if(!byDay[d])byDay[d]=[];
-    byDay[d].push(r);
-  });
-  Object.values(byDay).forEach(arr=>arr.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))));
-  const isMultiScope = !calMachineId;
-  for(let d=1;d<=daysIn;d++){
-    const cell=document.createElement('div');
-    const rs=byDay[d];
-    if(rs&&rs.length>0){
-      let st='ok';
-      rs.forEach(r=>{const s=dayStatus(r);if(s==='warn')st='warn';else if(s==='caution'&&st!=='warn')st='caution';});
-      cell.className='cal-cell cal-'+st;
-      if(isMultiScope){
-        const machineCount=new Set(rs.map(r=>r.machineId)).size;
-        cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${machineCount}機体入力済み</div>`;
-      }else{
-        const totalW=rs.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
-        let sub=st==='warn'?'備考あり':(st==='caution'?'点検未':(totalW?totalW+'h':'入力済'));
-        if(rs.length>1)sub=`${rs.length}件 ${sub}`;
-        cell.innerHTML=`<div class="cal-day">${d}</div><div class="cal-sub">${sub}</div>`;
-      }
-    }else{
-      cell.className='cal-cell';
-      cell.innerHTML=`<div class="cal-day" style="color:#bbb;font-weight:500">${d}</div>`;
-    }
-    cell.onclick=()=>{
-      if(isMultiScope){
-        openDayMultiMachineModal(d,rs||[]);
-      }else{
-        openDayModal(d,rs||[]);
-      }
-    };
-    grid.appendChild(cell);
-  }
-}
-
 let dmCurrent=null;
 let dmDayReports=[];
 function openDayModal(day,rs){
@@ -2345,7 +2293,7 @@ function openReportModal(title,rs){
         return `<div class="dm-sel" data-i="${i}" onclick="dmSelect(${i})" style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1.5px solid #d5d5d5;border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fafafa">
           <span style="font-weight:800;color:#185fa5;font-size:15px">${tm}</span>
           <span style="font-weight:700;font-size:16px;flex:1">${r.operator||'（運転者未記入）'}</span>
-          <span style="font-size:15px;color:#888">${r.workHours||'—'}h</span>
+          <span style="font-size:15px;color:#5a5a5a">${r.workHours||'—'}h</span>
         </div>`;
       }).join('')+'<div style="height:6px"></div>';
   }else{
@@ -2479,7 +2427,7 @@ async function saveDayModal(){
       saveData();
       closeDayModal();
       showToast('日報を更新しました','ok');
-      loadCalMonth();refreshTodayList(false);refreshDashMonth();
+      loadCalMonth();refreshTodayList(false);renderDashWarnings();
     }else{
       showToast(data.error||'更新に失敗しました','err');
     }
@@ -2502,7 +2450,7 @@ async function deleteDayModal(){
       saveData();
       closeDayModal();
       showToast('日報を削除しました','ok');
-      loadCalMonth();refreshTodayList(false);refreshDashMonth();
+      loadCalMonth();refreshTodayList(false);renderDashWarnings();
     }else{
       showToast(data.error||'削除に失敗しました','err');
     }
@@ -3056,7 +3004,7 @@ function showTab(name){
   if(name==='list'){refreshTodayList(false);renderList();updateSyncRow();}
   if(name==='machines')renderMachines();
   if(name==='jikensa')renderJikensa();
-  if(name==='dash'){renderDash();renderCalYardChips();renderCalMachineChips();renderMlYardChips();loadCalMonth();refreshDashMonth();}
+  if(name==='dash'){renderDashWarnings();renderCalMachineChips();renderMlYardChips();loadCalMonth();}
   if(name==='input')updateNet();
   window.scrollTo(0,0);
   requestAnimationFrame(syncStickyOffset);
@@ -3065,8 +3013,14 @@ function showTab(name){
 let _tt;
 function showToast(msg,type=''){
   const el=document.getElementById('toast');
-  el.textContent=msg;el.className='toast show'+(type?' t-'+type:'');
-  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000);
+  // ★成功・エラー時は絵文字アイコンを添えて視認性を上げ、表示時間も長めにする
+  // （保存できたかどうか不安になって再操作してしまうのを防ぐ）
+  const icon=type==='ok'?'✓ ':(type==='err'?'⚠ ':'');
+  el.textContent=icon+msg;
+  el.className='toast show'+(type?' t-'+type:'');
+  clearTimeout(_tt);
+  const dur=type==='ok'?5500:(type==='err'?4500:3000);
+  _tt=setTimeout(()=>el.classList.remove('show'),dur);
 }
 
 // ================================================================
@@ -3247,12 +3201,12 @@ function renderBkRows() {
           <div class="fg" style="margin-bottom:0">
             <label class="fl">アワーメータ終了(h)</label>
             <input class="fc" type="number" inputmode="decimal" value="${d.hmeter}" oninput="bkSet('${mid}','hmeter',this.value);bkCalcWorkHours('${mid}')" id="bk-hmeter-${mid}">
-            <div id="bk-prevh-${mid}" style="font-size:15px;color:#888;margin-top:5px">前回終了: ${d.prevHourLabel || '取得中...'}</div>
+            <div id="bk-prevh-${mid}" style="font-size:15px;color:#5a5a5a;margin-top:5px">前回終了: ${d.prevHourLabel || '取得中...'}</div>
           </div>
           <div class="fg" style="margin-bottom:0">
             <label class="fl">稼働時間(h)</label>
             <input class="fc" type="number" step="0.5" inputmode="decimal" value="${d.whours}" oninput="bkSet('${mid}','whours',this.value)" id="bk-whours-${mid}">
-            <div style="font-size:15px;color:#888;margin-top:5px">前回差で自動計算</div>
+            <div style="font-size:15px;color:#5a5a5a;margin-top:5px">前回差で自動計算</div>
           </div>
         </div>
         <div class="frow" style="margin-bottom:11px">
@@ -3276,11 +3230,11 @@ function renderBkRows() {
         ` : ''}
         <div class="frow" style="margin-bottom:0">
           <div class="trow" style="padding:6px 0;border:none">
-            <span class="tlbl">グリス充填</span>
+            <span class="tlbl">グリス充填<span class="tog-state" style="color:${d.grease?'#1f8b4c':'#c94b4b'}">${d.grease?'あり':'なし'}</span></span>
             <div class="tog ${d.grease?'on':'off'}" onclick="bkToggle('${mid}','grease',this)"><div class="tog-k"></div></div>
           </div>
           <div class="trow" style="padding:6px 0;border:none">
-            <span class="tlbl">回送あり</span>
+            <span class="tlbl">回送あり<span class="tog-state" style="color:${d.trans?'#1f8b4c':'#c94b4b'}">${d.trans?'あり':'なし'}</span></span>
             <div class="tog ${d.trans?'on':'off'}" onclick="bkToggle('${mid}','trans',this)"><div class="tog-k"></div></div>
           </div>
         </div>
@@ -3317,6 +3271,7 @@ function bkToggle(mid, key, el) {
   bkRowData[mid][key] = !bkRowData[mid][key];
   el.classList.toggle('on');
   el.classList.toggle('off');
+  syncTogState(el);
 }
 
 function submitBulkReports() {
