@@ -267,9 +267,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <label class="fl">重機番号 <span style="color:#c0392b">*</span></label>
       <div class="yard-chips" id="f-yard-chips"></div>
       <div class="yard-chips" id="f-machine-chips"></div>
-      <select class="fc" id="f-machine" onchange="onMachineChange()" style="display:none">
-        <option value="">選択</option>
-      </select>
+      <div class="fg" id="f-machine-other-row" style="display:none;margin-top:6px;margin-bottom:0">
+        <input class="fc" type="text" id="f-machine-other" placeholder="リース機体の番号・名称を入力" autocomplete="off" oninput="onMachineOtherInput()">
+      </div>
+      <input type="hidden" id="f-machine" value="">
     </div>
     <div class="frow" style="margin-bottom:11px;align-items:end;grid-template-columns:1fr auto">
       <div class="fg" style="margin-bottom:0">
@@ -655,7 +656,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="fg" style="margin-bottom:0"><label class="fl">給油量(L)</label><input class="fc" type="number" id="dm-famt" inputmode="decimal"></div>
       </div>
       <div class="fg"><label class="fl">始業前点検</label>
-        <select class="fc" id="dm-insp"><option value="済">済</option><option value="未">未</option></select>
+        <div class="fc" id="dm-insp-bar" onclick="openDmInspModal()" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#fff;border-color:#d5d5d5">
+          <svg width="17" height="17" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span id="dm-insp-status" style="color:#555;flex:1;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">始業前点検</span>
+          <svg width="16" height="16" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:15px;color:#5a5a5a">
+          <input type="checkbox" id="dm-insp-na" onchange="toggleDmInspNA()" style="width:18px;height:18px;flex-shrink:0">
+          対象外（給油のみ）
+        </label>
+        <input type="hidden" id="dm-insp" value="未">
       </div>
       <div class="card"><div class="card-b">
         <div class="trow"><span class="tlbl">グリス充填実施<span class="tog-state" id="dm-grease-state"></span></span><div class="tog off" id="dm-grease" onclick="togEl(this)"><div class="tog-k"></div></div></div>
@@ -1180,7 +1190,19 @@ async function refreshTodayList(showMsg){
 }
 
 let fYard='';
-function setFYard(y){fYard=y;renderFMachineChips();}
+function setFYard(y){
+  fYard=y;
+  document.getElementById('f-machine').value='';
+  const otherRow=document.getElementById('f-machine-other-row');
+  if(y==='その他'){
+    otherRow.style.display='block';
+    document.getElementById('f-machine-other').value='';
+  }else{
+    otherRow.style.display='none';
+  }
+  onMachineChange();
+  renderFMachineChips();
+}
 function setFMachine(id){
   const sel=document.getElementById('f-machine');
   if(sel.value===id)return;
@@ -1188,16 +1210,30 @@ function setFMachine(id){
   onMachineChange();
   renderFMachineChips();
 }
+let fOtherDebounce=null;
+function onMachineOtherInput(){
+  clearTimeout(fOtherDebounce);
+  fOtherDebounce=setTimeout(()=>{
+    const v=document.getElementById('f-machine-other').value.trim();
+    document.getElementById('f-machine').value=v;
+    onMachineChange();
+  },400);
+}
 function renderFMachineChips(){
   const yw=document.getElementById('f-yard-chips');
   const mw=document.getElementById('f-machine-chips');
   if(!yw||!mw)return;
-  let yh=`<div class="chip ${fYard===''?'on':''}" onclick="setFYard('')">全拠点</div>`;
+  let yh='';
   YARDS.forEach(y=>{
     const n=machines.filter(m=>m.yard===y).length;
     if(n>0)yh+=`<div class="chip ${fYard===y?'on':''}" onclick="setFYard('${y}')">${y}</div>`;
   });
+  yh+=`<div class="chip ${fYard==='その他'?'on':''}" onclick="setFYard('その他')">その他（リース機体）</div>`;
   yw.innerHTML=yh;
+  if(fYard==='その他'){
+    mw.innerHTML='';
+    return;
+  }
   const cur=document.getElementById('f-machine').value;
   if(machines.length===0){
     mw.innerHTML=`<div style="font-size:14px;color:#999;padding:4px 0">${navigator.onLine?'重機マスタを読込中...':'圏外: 重機マスタ未取得'}</div>`;
@@ -1220,28 +1256,6 @@ function renderFMachineChips(){
   mw.innerHTML=mh;
 }
 function populateForms(){
-  const ms=document.getElementById('f-machine');
-  const currentSelected = ms.value; // 再構築前の選択値を保存（NFC選択などが消えないようにする）
-  if(machines.length===0){
-    ms.innerHTML='<option value="">'+(navigator.onLine?'重機マスタを読込中...':'圏外: 重機マスタ未取得')+'</option>';
-  }else{
-    ms.innerHTML='<option value="">選択してください</option>';
-  }
-  YARDS.forEach(y=>{
-    const inY=machines.filter(m=>m.yard===y);
-    if(inY.length===0)return;
-    let grp=`<optgroup label="${y}">`;
-    inY.forEach(m=>{
-      const lbl=m.attachment?`${m.id}（${m.model}・${m.attachment}）`:`${m.id}（${m.model}）`;
-      grp+=`<option value="${m.id}">${lbl}</option>`;
-    });
-    grp+='</optgroup>';
-    ms.innerHTML+=grp;
-  });
-  // 再構築後、以前選択していた機体がまだ存在すれば復元する
-  if(currentSelected && Array.from(ms.options).some(o => o.value === currentSelected)){
-    ms.value = currentSelected;
-  }
   const os=document.getElementById('f-operator');
   os.innerHTML='<option value="">選択してください</option>';
   operators.forEach(op=>os.innerHTML+=`<option value="${op}">${op}</option>`);
@@ -1254,7 +1268,8 @@ function populateForms(){
 
 function onMachineChange(){
   const id=document.getElementById('f-machine').value;
-  const m=findMachine(id);
+  let m=findMachine(id);
+  if(!m && fYard==='その他' && id) m={id, model:'リース機体', attachment:'', yard:'その他', type:'backhoe'};
   curInspChecks={};
   document.getElementById('crusher-fields').style.display=(m&&m.type==='crusher')?'block':'none';
   document.getElementById('f-fuelhour-row').style.display=(m&&m.type==='crusher')?'block':'none';
@@ -1426,8 +1441,12 @@ function updateGpsBar(){
 }
 
 let bkModalMid=null;
+let inspModalMode='main'; // 'main' | 'bk' | 'dm'（集計画面の日報編集）
+let dmInspType='backhoe';
+let dmInspChecks={};
 
 function openInspModal(){
+  inspModalMode='main';
   bkModalMid=null;
   if(!curInspType){showToast('先に重機番号を選択してください','err');return;}
   renderInspModalBody(curInspType, curInspChecks);
@@ -1437,10 +1456,18 @@ function openInspModal(){
 function openBkInspModal(mid){
   const m=findMachine(mid);
   if(!m)return;
+  inspModalMode='bk';
   bkModalMid=mid;
   const type=m.type||'backhoe';
   if(!bkRowData[mid].inspChecks)bkRowData[mid].inspChecks={};
   renderInspModalBody(type, bkRowData[mid].inspChecks);
+  document.getElementById('insp-modal').classList.add('on');
+}
+
+// ★集計画面の日報編集モーダルから、日報入力画面と同じ始業前点検チェックリストを開く
+function openDmInspModal(){
+  inspModalMode='dm';
+  renderInspModalBody(dmInspType, dmInspChecks);
   document.getElementById('insp-modal').classList.add('on');
 }
 
@@ -1461,10 +1488,13 @@ function renderInspModalBody(type, checks){
 function closeInspModal(){document.getElementById('insp-modal').classList.remove('on');}
 
 function activeInspChecks(){
-  return bkModalMid ? bkRowData[bkModalMid].inspChecks : curInspChecks;
+  if(inspModalMode==='bk')return bkRowData[bkModalMid].inspChecks;
+  if(inspModalMode==='dm')return dmInspChecks;
+  return curInspChecks;
 }
 function activeInspType(){
-  if(bkModalMid){const m=findMachine(bkModalMid);return m?(m.type||'backhoe'):'backhoe';}
+  if(inspModalMode==='bk'){const m=findMachine(bkModalMid);return m?(m.type||'backhoe'):'backhoe';}
+  if(inspModalMode==='dm')return dmInspType;
   return curInspType;
 }
 
@@ -1493,12 +1523,18 @@ function saveInspModal(){
   const checks=activeInspChecks();
   const done=Object.values(checks).filter(Boolean).length;
 
-  if(bkModalMid){
+  if(inspModalMode==='bk'){
     const label=document.getElementById('bk-insp-status-'+bkModalMid);
     if(label){
       label.textContent = done===total?`点検済（全${total}項目）`:(done>0?`点検 ${done}/${total}項目`:bkInspLabel(bkRowData[bkModalMid], findMachine(bkModalMid)));
       label.style.color = done>0?'#185fa5':'#555';
     }
+  }else if(inspModalMode==='dm'){
+    const naCk=document.getElementById('dm-insp-na');
+    if(naCk)naCk.checked=false;
+    const val = done===total?'済':(done>0?`一部(${done}/${total})`:'未');
+    document.getElementById('dm-insp').value=val;
+    updateDmInspBarLabel(done,total,false);
   }else{
     const st=document.getElementById('insp-status');
     if(done===total){st.textContent=`点検済（全${total}項目）`;setInspBar('done');}
@@ -1507,6 +1543,39 @@ function saveInspModal(){
   }
   closeInspModal();
   showToast(`点検 ${done}/${total}項目を記録`,'ok');
+}
+
+// ★集計画面の日報編集モーダル用：始業前点検バーの表示更新と「対象外」チェックボックス
+function updateDmInspBarLabel(done,total,isNA){
+  const st=document.getElementById('dm-insp-status');
+  const bar=document.getElementById('dm-insp-bar');
+  if(!st||!bar)return;
+  if(isNA){
+    bar.style.background='#eef0f2';bar.style.borderColor='#d5d5d5';
+    st.textContent='対象外（給油のみ）';st.style.color='#5a5a5a';
+  }else if(total>0&&done===total){
+    bar.style.background='#eaf3de';bar.style.borderColor='#97c459';
+    st.textContent=`点検済（全${total}項目）`;st.style.color='#3b6d11';
+  }else if(done>0){
+    bar.style.background='#faeeda';bar.style.borderColor='#fac775';
+    st.textContent=`点検 ${done}/${total}項目`;st.style.color='#854f0b';
+  }else{
+    bar.style.background='#fff';bar.style.borderColor='#185fa5';
+    st.textContent=`始業前点検（${total}項目）`;st.style.color='#185fa5';
+  }
+}
+function toggleDmInspNA(){
+  const total=(INSPECTION_DATA[dmInspType]||{items:[]}).items.length;
+  const ck=document.getElementById('dm-insp-na').checked;
+  if(ck){
+    document.getElementById('dm-insp').value='対象外';
+    updateDmInspBarLabel(0,total,true);
+  }else{
+    const done=Object.values(dmInspChecks).filter(Boolean).length;
+    const val = total>0&&done===total?'済':(done>0?`一部(${done}/${total})`:'未');
+    document.getElementById('dm-insp').value=val;
+    updateDmInspBarLabel(done,total,false);
+  }
 }
 
 function syncTogState(tog){
@@ -1582,7 +1651,7 @@ function submitReport(){
 
   const report={
     id:Date.now().toString()+Math.random().toString(36).slice(2,6),
-    date:document.getElementById('f-date').value||todayStr(), machineId, yard:m?m.yard:'', operator, contractor, location,
+    date:document.getElementById('f-date').value||todayStr(), machineId, yard:fYard==='その他'?'その他':(m?m.yard:''), operator, contractor, location,
     hourMeter:document.getElementById('f-hmeter').value,
     workHours:document.getElementById('f-whours').value,
     fuelLocation:document.getElementById('f-floc').value,
@@ -1615,7 +1684,7 @@ function submitReport(){
 }
 
 function resetForm(){
-  ['f-machine','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes','f-bit','f-bolt','f-nut','f-fuelhour'].forEach(id=>document.getElementById(id).value='');
+  ['f-machine','f-machine-other','f-operator','f-contractor','f-location','f-hmeter','f-whours','f-floc','f-famt','f-notes','f-bit','f-bolt','f-nut','f-fuelhour'].forEach(id=>document.getElementById(id).value='');
   delete document.getElementById('f-contractor').dataset.autofilled;
   delete document.getElementById('f-location').dataset.autofilled;
   applyLastOperator();
@@ -2153,7 +2222,20 @@ function renderMlYardChips(){
     const n=machines.filter(m=>m.yard===y).length;
     if(n>0)h+=`<div class="chip ${calScope===y?'on':''}" onclick="setCalScope('${y}')">${y}</div>`;
   });
+  h+=`<div class="chip ${calScope==='その他'?'on':''}" onclick="setCalScope('その他')">その他</div>`;
   wrap.innerHTML=h;
+}
+
+// ★その他（リース機体）スコープ：machines[]に登録が無いため、
+// 表示中の月の日報データ（calReports）から yard==='その他' の機体IDを拾って擬似的な機体一覧を作る
+function scopeOtherMachines(){
+  const seen={};
+  calReports.forEach(r=>{
+    if(r.yard==='その他' && r.machineId && !seen[r.machineId]){
+      seen[r.machineId]={id:r.machineId, model:'リース機体', attachment:'', yard:'その他'};
+    }
+  });
+  return Object.values(seen).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
 }
 
 function calYM(){return `${calYear}-${pad(calMonth+1)}`;}
@@ -2173,7 +2255,7 @@ function renderCalMachineChips(){
     wrap.innerHTML='';
     return;
   }
-  const inY=machines.filter(m=>m.yard===calScope);
+  const inY=calScope==='その他' ? scopeOtherMachines() : machines.filter(m=>m.yard===calScope);
   if(inY.length===0){
     wrap.style.display='none';
     wrap.innerHTML='';
@@ -2228,16 +2310,18 @@ async function loadCalMonth(){
     return;
   }
 
+  const isOther = calScope==='その他';
   const targetIds = calScope==='all' ? machines.map(m=>m.id) : machines.filter(m=>m.yard===calScope).map(m=>m.id);
   const idSet=new Set(targetIds);
-  const local=allReports().filter(r=>idSet.has(r.machineId) && String(r.date).startsWith(ym));
+  const matches = r => isOther ? r.yard==='その他' : idSet.has(r.machineId);
+  const local=allReports().filter(r=>matches(r) && String(r.date).startsWith(ym));
   calReports=local;
   renderCalView();
   if(navigator.onLine){
     try{
       const data=await fetchJukiApi('getReports',{month:ym});
       if(data.reports){
-        const filtered=data.reports.filter(r=>idSet.has(r.machineId));
+        const filtered=data.reports.filter(matches);
         const sids=new Set(filtered.map(r=>r.id).filter(Boolean));
         const localOnly=local.filter(r=>!sids.has(r.id));
         if(!calMachineId && calYM()===ym){
@@ -2252,6 +2336,7 @@ async function loadCalMonth(){
 function renderCalView(){
   renderMonthlyList();
   renderDashboard();
+  if(calScope==='その他' && !calMachineId)renderCalMachineChips();
 }
 
 function dayStatus(r){
@@ -2262,7 +2347,7 @@ function dayStatus(r){
 
 function renderMonthlyList(){
   const daysIn=new Date(calYear,calMonth+1,0).getDate();
-  const targetMachines = calScope==='all' ? machines : machines.filter(m=>m.yard===calScope);
+  const targetMachines = calScope==='all' ? machines : (calScope==='その他' ? scopeOtherMachines() : machines.filter(m=>m.yard===calScope));
 
   const byMachineDay={};
   calReports.forEach(r=>{
@@ -2472,10 +2557,30 @@ function dmSelect(i){
   document.getElementById('dm-whours').value=r.workHours!==undefined?r.workHours:'';
   document.getElementById('dm-floc').value=r.fuelLocation||'';
   document.getElementById('dm-famt').value=r.fuelAmount!==undefined?r.fuelAmount:'';
-  const inspSel=document.getElementById('dm-insp');
-  inspSel.innerHTML='<option value="済">済</option><option value="未">未</option><option value="対象外">対象外（給油のみ）</option>';
-  if(r.inspection && !['済','未','対象外'].includes(r.inspection))inspSel.innerHTML+=`<option value="${r.inspection}">${r.inspection}</option>`;
-  inspSel.value=r.inspection||'未';
+  // ★始業前点検：日報入力画面と同じチェックリストUIに合わせて、機種の項目数から状態を復元する
+  // （保存されているのは「済/未/一部(x/y)/対象外」という集計値のみで項目ごとの記録は無いため、
+  //   「一部(x/y)」はx件を仮にチェック済として表示する＝件数の見た目は一致するが対象項目は近似）
+  dmInspType=(findMachine(r.machineId)||{}).type||'backhoe';
+  dmInspChecks={};
+  const dmTotal=(INSPECTION_DATA[dmInspType]||{items:[]}).items.length;
+  const insp=r.inspection||'未';
+  const naCk=document.getElementById('dm-insp-na');
+  if(insp==='対象外'){
+    naCk.checked=true;
+    document.getElementById('dm-insp').value='対象外';
+    updateDmInspBarLabel(0,dmTotal,true);
+  }else{
+    naCk.checked=false;
+    let done=0;
+    if(insp==='済')done=dmTotal;
+    else{
+      const mm=/([0-9]+)\/([0-9]+)/.exec(insp);
+      if(mm)done=parseInt(mm[1],10);
+    }
+    for(let i=0;i<done;i++)dmInspChecks[i]=true;
+    document.getElementById('dm-insp').value = (dmTotal>0&&done===dmTotal)?'済':(done>0?`一部(${done}/${dmTotal})`:'未');
+    updateDmInspBarLabel(done,dmTotal,false);
+  }
   document.getElementById('dm-grease').className='tog '+(r.grease==='済'?'on':'off');
   document.getElementById('dm-trans').className='tog '+(r.transfer==='有'?'on':'off');
   document.getElementById('dm-notes').value=r.notes||'';
@@ -2547,7 +2652,7 @@ async function saveDayModal(){
   try{
     const data = await fetchJukiApi('editReport', {report: upd});
     if(data.success){
-      const newYard=(findMachine(newMachine)||{}).yard||'';
+      const newYard=(findMachine(newMachine)||{}).yard||(dmCurrent&&dmCurrent.yard==='その他'?'その他':'');
       [pending,synced].forEach(arr=>{
         const idx=arr.findIndex(r=>r.id===upd.id);
         if(idx>=0)Object.assign(arr[idx],upd,{yard:newYard});
@@ -2724,6 +2829,7 @@ async function fetchMonthReportsForMachine(mid){
 let printSelectedIds=new Set();
 
 function printScopeMachines(){
+  if(calScope==='その他')return scopeOtherMachines();
   return calScope==='all' ? machines.slice() : machines.filter(m=>m.yard===calScope);
 }
 
