@@ -3175,16 +3175,20 @@ function buildCrusherMonthHtml(mid,m,reports){
   const daysIn = new Date(calYear, calMonth + 1, 0).getDate();
   const byDay = {};
 
+  // ★同じ日に複数回保存された日報がある場合、最後に保存された1件だけを見るのではなく、
+  // その日の全件をまとめる（給油時アワメータ・給油量が別回の入力で記録されているケースがあるため）
   reports.forEach(r => {
     const d = parseInt(String(r.date).slice(8, 10), 10);
     if (isNaN(d)) return;
-    if (!byDay[d] || String(r.savedAt || '') > String(byDay[d].savedAt || '')) byDay[d] = r;
+    if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(r);
   });
+  Object.values(byDay).forEach(arr => arr.sort((a, b) => String(a.savedAt || '').localeCompare(String(b.savedAt || ''))));
 
   let monthStart = '＿＿＿＿＿';
   const firstDay = Object.keys(byDay).map(Number).sort((a, b) => a - b)[0];
   if (firstDay) {
-    const fr = byDay[firstDay];
+    const fr = byDay[firstDay][0];
     const h = parseFloat(fr.hourMeter), w = parseFloat(fr.workHours);
     if (!isNaN(h) && !isNaN(w)) monthStart = (Math.round((h - w) * 10) / 10) + ' H';
     else if (!isNaN(h)) monthStart = h + ' H';
@@ -3192,27 +3196,42 @@ function buildCrusherMonthHtml(mid,m,reports){
 
   const notesList = [];
   let monthlyChecked = false;
-  Object.entries(byDay).forEach(([d, r]) => {
-    if (r.notes && String(r.notes).trim() !== '') notesList.push(`${d}日: ${r.notes}`);
-    if (r.inspection === '済') monthlyChecked = true;
+  Object.entries(byDay).forEach(([d, arr]) => {
+    arr.forEach(r => {
+      if (r.notes && String(r.notes).trim() !== '') notesList.push(`${d}日: ${r.notes}`);
+      if (r.inspection === '済') monthlyChecked = true;
+    });
   });
 
   const renderBlockRows = (fromDay, toDay) => {
     let html = '';
     for (let d = fromDay; d <= toDay; d++) {
-      const r = byDay[d];
+      const arr = byDay[d];
       let endH = '', workH = '', bit = '', bolt = '', nut = '', notes = '', fuelHour = '', fuelAmt = '', isInsp = false;
 
-      if (r) {
-        endH = r.hourMeter !== undefined && r.hourMeter !== '' ? r.hourMeter : '';
-        workH = r.workHours !== undefined && r.workHours !== '' ? r.workHours : '';
-        bit = r.bit || '';
-        bolt = r.bolt || '';
-        nut = r.nut || '';
-        notes = r.notes || '';
-        fuelHour = r.fuelHour !== undefined && r.fuelHour !== '' ? r.fuelHour : '';
-        fuelAmt = r.fuelAmount !== undefined && r.fuelAmount !== '' ? r.fuelAmount : '';
-        isInsp = r.inspection === '済';
+      if (arr && arr.length > 0) {
+        const lastR = arr[arr.length - 1];
+        endH = lastR.hourMeter !== undefined && lastR.hourMeter !== '' ? lastR.hourMeter : '';
+        const totalW = arr.reduce((s, r) => s + (parseFloat(r.workHours) || 0), 0);
+        workH = totalW > 0 ? totalW : '';
+
+        const sumField = key => arr.reduce((s, r) => s + (parseFloat(r[key]) || 0), 0);
+        const bitN = sumField('bit'), boltN = sumField('bolt'), nutN = sumField('nut');
+        bit = bitN > 0 ? bitN : '';
+        bolt = boltN > 0 ? boltN : '';
+        nut = nutN > 0 ? nutN : '';
+
+        notes = arr.map(r => r.notes).filter(x => x && String(x).trim() !== '').join(' / ');
+
+        // 給油時アワメータはスナップショット値なので、その日の中で最後に記録された値を採用する
+        // （末尾の入力が空欄でも、以前の入力で記録済みなら消えないようにする）
+        const fhR = [...arr].reverse().find(r => r.fuelHour !== undefined && r.fuelHour !== '');
+        fuelHour = fhR ? fhR.fuelHour : '';
+
+        const totalFuel = arr.reduce((s, r) => s + (parseFloat(r.fuelAmount) || 0), 0);
+        fuelAmt = totalFuel > 0 ? totalFuel : '';
+
+        isInsp = arr.some(r => r.inspection === '済');
       }
 
       html += `
