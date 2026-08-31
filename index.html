@@ -1323,10 +1323,14 @@ function scrollToOperatorField(){
   const fg=target.closest('.fg')||target;
   requestAnimationFrame(()=>{
     const topFixed=document.getElementById('top-fixed');
-    const activeFixed=document.querySelector('.scr-fixed.on');
+    const activeFixed=document.querySelector('.scr.on .scr-fixed.on');
+    const activeSaveSticky=document.querySelector('.scr.on .save-sticky');
     const headerH=topFixed?topFixed.offsetHeight:0;
     const fixedH=activeFixed?activeFixed.offsetHeight:0;
-    const offset=headerH+fixedH+8;
+    // ★日報入力画面では保存ボタン（.save-sticky）がヘッダー直下に固定表示されるため、
+    // その高さぶんも避けないと運転者欄が保存ボタンの下に隠れてしまう
+    const saveStickyH=activeSaveSticky?activeSaveSticky.offsetHeight:0;
+    const offset=headerH+fixedH+saveStickyH+12;
     const rect=fg.getBoundingClientRect();
     const targetTop=rect.top+window.scrollY-offset;
     window.scrollTo({top:Math.max(0,targetTop), behavior:'smooth'});
