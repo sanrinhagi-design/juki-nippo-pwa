@@ -303,10 +303,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <div class="card"><div class="card-b">
     <div class="fg">
-      <label class="fl">始業前点検</label>
+      <label class="fl">点検</label>
       <div class="fc" id="insp-bar" onclick="openInspModal()" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#fff;border-color:#d5d5d5">
         <svg width="17" height="17" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <span id="insp-status" style="color:#555;flex:1;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">始業前点検</span>
+        <span id="insp-status" style="color:#555;flex:1;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">点検</span>
         <svg width="16" height="16" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     </div>
@@ -529,7 +529,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="slbl">機体別 稼働時間</div>
   <div class="card"><div class="card-b" id="dash-chart"></div></div>
 
-  <div class="slbl">始業前点検 達成率</div>
+  <div class="slbl">点検達成率</div>
   <div class="card"><div class="card-b" id="dash-insp"></div></div>
 
   <div class="slbl">故障・備考</div>
@@ -572,11 +572,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   </div>
 </div>
 
-<!-- 始業前点検モーダル -->
+<!-- 点検モーダル -->
 <div class="modal-bg" id="insp-modal" style="z-index:1001">
   <div class="modal">
     <div class="modal-h">
-      <span class="modal-t" id="insp-modal-t">始業前点検</span>
+      <span class="modal-t" id="insp-modal-t">点検</span>
       <span class="modal-x" onclick="closeInspModal()">&times;</span>
     </div>
     <div class="insp-linkbar">
@@ -700,10 +700,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         </div>
         <div class="fg" style="margin-bottom:0"><label class="fl">給油量(L)</label><input class="fc" type="number" id="dm-famt" inputmode="decimal"></div>
       </div>
-      <div class="fg"><label class="fl">始業前点検</label>
+      <div class="fg"><label class="fl">点検</label>
         <div class="fc" id="dm-insp-bar" onclick="openDmInspModal()" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#fff;border-color:#d5d5d5">
           <svg width="17" height="17" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          <span id="dm-insp-status" style="color:#555;flex:1;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">始業前点検</span>
+          <span id="dm-insp-status" style="color:#555;flex:1;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">点検</span>
           <svg width="16" height="16" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:15px;color:#5a5a5a">
@@ -1514,11 +1514,11 @@ function setInspBar(state){
   if(!bar||!st)return;
   if(state==='idle'){
     bar.style.background='#eef0f2';bar.style.borderColor='#d5d5d5';
-    st.textContent='始業前点検';st.style.color='#5a5a5a';
+    st.textContent='点検';st.style.color='#5a5a5a';
   }else if(state==='ready'){
     bar.style.background='#fff';bar.style.borderColor='#185fa5';
     const n=INSPECTION_DATA[curInspType].items.length;
-    st.textContent=`始業前点検（${n}項目）`;st.style.color='#185fa5';
+    st.textContent=`点検（${n}項目）`;st.style.color='#185fa5';
   }else if(state==='done'){
     bar.style.background='#eaf3de';bar.style.borderColor='#97c459';
     st.style.color='#3b6d11';
@@ -1655,7 +1655,7 @@ function openDmInspModal(){
 
 function renderInspModalBody(type, checks){
   const data=INSPECTION_DATA[type];
-  document.getElementById('insp-modal-t').textContent=data.name+' 始業前点検';
+  document.getElementById('insp-modal-t').textContent=data.name+' 点検';
   document.getElementById('insp-pdf-link').href=INSPECTION_PDF[type]||'#';
   const el=document.getElementById('insp-list');
   let html='',lastGroup='';
@@ -1721,7 +1721,7 @@ function saveInspModal(){
     const st=document.getElementById('insp-status');
     if(done===total){st.textContent=`点検済（全${total}項目）`;setInspBar('done');}
     else if(done>0){st.textContent=`点検 ${done}/${total}項目`;setInspBar('partial');}
-    else{st.textContent='始業前点検（未実施）';setInspBar('ready');}
+    else{st.textContent='点検（未実施）';setInspBar('ready');}
   }
   closeInspModal();
   showToast(`点検 ${done}/${total}項目を記録`,'ok');
@@ -1743,7 +1743,7 @@ function updateDmInspBarLabel(done,total,isNA){
     st.textContent=`点検 ${done}/${total}項目`;st.style.color='#854f0b';
   }else{
     bar.style.background='#fff';bar.style.borderColor='#185fa5';
-    st.textContent=`始業前点検（${total}項目）`;st.style.color='#185fa5';
+    st.textContent=`点検（${total}項目）`;st.style.color='#185fa5';
   }
 }
 function toggleDmInspNA(){
@@ -2355,7 +2355,7 @@ function renderDashboard(){
         return `<div class="bar-row"><span class="bar-id">${id}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-val">${Math.round(w*10)/10}h</span></div>`;
       }).join('');
 
-  // 始業前点検 達成率（機体ごと）
+  // 点検達成率（機体ごと）
   const inspByM={};
   rpts.forEach(r=>{
     if(r.inspection==='対象外')return;
@@ -2957,7 +2957,7 @@ async function exportCsv(){
 
   if(rows.length===0){showToast('該当データがありません','err');return;}
 
-  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油元','給油量(L)','始業前点検','グリス充填','回送','緯度','経度','備考区分','備考','写真URL','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
+  const headers=['日付','重機番号','拠点','運転者','元請','現場名','アワーメータ(h)','稼働時間(h)','給油元','給油量(L)','点検','グリス充填','回送','緯度','経度','備考区分','備考','写真URL','ビット交換','ボルト交換','ナット交換','給油時アワメータ(h)'];
   const csvRows=[headers.join(',')];
   rows.forEach(r=>{
     const vals=[
@@ -3822,7 +3822,7 @@ function bkInspLabel(d, m) {
   const type = m ? (m.type || 'backhoe') : 'backhoe';
   const total = INSPECTION_DATA[type] ? INSPECTION_DATA[type].items.length : 0;
   const done = Object.values(d.inspChecks || {}).filter(Boolean).length;
-  if (done === 0) return `始業前点検（${total}項目）`;
+  if (done === 0) return `点検（${total}項目）`;
   if (done === total) return `点検済（全${total}項目）`;
   return `点検 ${done}/${total}項目`;
 }
