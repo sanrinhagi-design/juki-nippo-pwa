@@ -626,6 +626,51 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 </div>
 
 <!-- 日報編集モーダル（集計・カレンダー・月次から） -->
+<!-- NFCタグ読み取り時の簡易入力ポップアップ（アワメータ／給油の2タブ） -->
+<div class="modal-bg" id="nfc-quick-modal" style="z-index:1001">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t" id="nq-title">簡単入力</span>
+      <span class="modal-x" onclick="closeNfcQuickModal()">&times;</span>
+    </div>
+    <div class="frow" style="margin-bottom:14px">
+      <div class="chip on" id="nq-tab-hmeter" onclick="setNqTab('hmeter')" style="text-align:center">⏱ アワメータ</div>
+      <div class="chip" id="nq-tab-fuel" onclick="setNqTab('fuel')" style="text-align:center">⛽ 給油</div>
+    </div>
+
+    <div id="nq-panel-hmeter">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">アワーメータ終了 (h)</label>
+        <input class="fc" type="number" id="nq-hmeter" placeholder="例: 2847" inputmode="decimal" oninput="calcNqWorkHoursPreview()">
+        <div id="nq-prev-hmeter" style="font-size:15px;color:#5a5a5a;margin-top:5px">前回終了: —</div>
+        <div id="nq-whours-preview" style="font-size:15px;color:#185fa5;font-weight:700;margin-top:2px"></div>
+      </div>
+    </div>
+
+    <div id="nq-panel-fuel" style="display:none">
+      <div class="frow" style="margin-bottom:11px">
+        <div class="fg" style="margin-bottom:0">
+          <label class="fl">給油元</label>
+          <input class="fc" type="text" id="nq-floc" list="dl-floc" placeholder="事務所" autocomplete="off">
+        </div>
+        <div class="fg" style="margin-bottom:0">
+          <label class="fl">給油量 (L)</label>
+          <input class="fc" type="number" id="nq-famt" placeholder="例: 45" inputmode="decimal">
+        </div>
+      </div>
+      <div class="fg" id="nq-fuelhour-row" style="display:none;margin-bottom:0">
+        <label class="fl">給油時アワメータ (h)</label>
+        <input class="fc" type="number" id="nq-fuelhour" placeholder="例: 4262" inputmode="decimal" oninput="calcNqFuelHourDiff()">
+        <div style="font-size:15px;color:#5a5a5a;margin-top:5px">前回給油時: <span id="nq-prev-fuelhour-val">—</span><span id="nq-fuelhour-diff"></span></div>
+      </div>
+    </div>
+
+    <button class="btn btn-p" onclick="applyNfcQuickModal()" style="margin-top:16px">反映して閉じる</button>
+    <button class="btn btn-o" onclick="closeNfcQuickModal()" style="margin-top:8px">あとで入力する（閉じる）</button>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="day-modal">
   <div class="modal">
     <div class="modal-h">
@@ -937,11 +982,11 @@ function applyNfcMachineParam(){
   const mid = params.get('machine');
   if(!mid) return;
   // 重機マスタの取得を待ってから選択する（初回起動時はまだmachinesが空のことがあるため）
+  // ★f-machineはプルダウンではなく隠しinputのため、machines[]に登録があるかで判定する
   const trySelect = (retriesLeft) => {
-    const sel = document.getElementById('f-machine');
-    const hasOption = Array.from(sel.options).some(o => o.value === mid);
+    const hasOption = machines.some(m => m.id === mid);
     if(hasOption){
-      sel.value = mid;
+      document.getElementById('f-machine').value = mid;
       showTab('input');
       onMachineChange();
       applyLastOperator();
@@ -951,6 +996,8 @@ function applyNfcMachineParam(){
       showToast(mid + ' を選択しました', 'ok');
       // URLのクエリだけ綺麗にしておく（再読み込み時に毎回反応しないように）
       history.replaceState(null, '', location.pathname);
+      // ★NFCタッチ時のみ：アワメータ・給油の簡易入力ポップアップを表示
+      openNfcQuickModal(mid);
     }else if(retriesLeft > 0){
       setTimeout(() => trySelect(retriesLeft - 1), 300);
     }
@@ -1209,6 +1256,7 @@ function setFMachine(id){
   sel.value=id;
   onMachineChange();
   renderFMachineChips();
+  scrollToOperatorField();
 }
 let fOtherDebounce=null;
 function onMachineOtherInput(){
@@ -1217,6 +1265,7 @@ function onMachineOtherInput(){
     const v=document.getElementById('f-machine-other').value.trim();
     document.getElementById('f-machine').value=v;
     onMachineChange();
+    if(v)scrollToOperatorField();
   },400);
 }
 function renderFMachineChips(){
@@ -1264,6 +1313,130 @@ function populateForms(){
   ny.innerHTML='';
   YARDS.forEach(y=>ny.innerHTML+=`<option value="${y}">${y}</option>`);
   renderFMachineChips();
+}
+
+// ★機体選択後、次に入力する「運転者」欄が画面上部（固定ヘッダー＋保存ボタン下）に来るよう自動スクロール
+// 拠点チップの選択（setFYard）では発動させない＝機体そのものが決まった時だけ
+function scrollToOperatorField(){
+  const target=document.getElementById('f-operator');
+  if(!target)return;
+  const fg=target.closest('.fg')||target;
+  requestAnimationFrame(()=>{
+    const topFixed=document.getElementById('top-fixed');
+    const activeFixed=document.querySelector('.scr-fixed.on');
+    const headerH=topFixed?topFixed.offsetHeight:0;
+    const fixedH=activeFixed?activeFixed.offsetHeight:0;
+    const offset=headerH+fixedH+8;
+    const rect=fg.getBoundingClientRect();
+    const targetTop=rect.top+window.scrollY-offset;
+    window.scrollTo({top:Math.max(0,targetTop), behavior:'smooth'});
+  });
+}
+
+// ★NFCタグ読み取りで機体が自動選択された時だけ表示する簡易入力ポップアップ
+// アワメータ／給油の2タブ。両方任意入力で、いつでも「反映して閉じる」できる。
+let prevFuelHour=null;
+function openNfcQuickModal(mid){
+  const m=findMachine(mid);
+  document.getElementById('nq-title').textContent=mid+' 簡単入力';
+  document.getElementById('nq-hmeter').value='';
+  document.getElementById('nq-floc').value='';
+  document.getElementById('nq-famt').value='';
+  document.getElementById('nq-fuelhour').value='';
+  document.getElementById('nq-whours-preview').textContent='';
+  document.getElementById('nq-fuelhour-diff').textContent='';
+  const isCrusher = !!(m && m.type==='crusher');
+  document.getElementById('nq-fuelhour-row').style.display = isCrusher?'block':'none';
+  setNqTab('hmeter');
+  if(isCrusher)updatePrevFuelHour(mid);
+  document.getElementById('nfc-quick-modal').classList.add('on');
+}
+function setNqTab(tab){
+  document.getElementById('nq-tab-hmeter').classList.toggle('on', tab==='hmeter');
+  document.getElementById('nq-tab-fuel').classList.toggle('on', tab==='fuel');
+  document.getElementById('nq-panel-hmeter').style.display = tab==='hmeter'?'block':'none';
+  document.getElementById('nq-panel-fuel').style.display = tab==='fuel'?'block':'none';
+}
+function closeNfcQuickModal(){
+  document.getElementById('nfc-quick-modal').classList.remove('on');
+  scrollToOperatorField();
+}
+function applyNfcQuickModal(){
+  const hv=document.getElementById('nq-hmeter').value;
+  const fl=document.getElementById('nq-floc').value;
+  const fa=document.getElementById('nq-famt').value;
+  const fh=document.getElementById('nq-fuelhour').value;
+  if(hv!==''){
+    document.getElementById('f-hmeter').value=hv;
+    calcWorkHours();
+  }
+  if(fl!=='')document.getElementById('f-floc').value=fl;
+  if(fa!=='')document.getElementById('f-famt').value=fa;
+  if(fh!=='' && document.getElementById('nq-fuelhour-row').style.display!=='none'){
+    document.getElementById('f-fuelhour').value=fh;
+  }
+  document.getElementById('nfc-quick-modal').classList.remove('on');
+  showToast('入力内容を反映しました','ok');
+  scrollToOperatorField();
+}
+function calcNqWorkHoursPreview(){
+  const el=document.getElementById('nq-whours-preview');
+  if(!el)return;
+  if(prevHour===null){el.textContent='';return;}
+  const cur=parseFloat(document.getElementById('nq-hmeter').value);
+  if(isNaN(cur)){el.textContent='';return;}
+  const diff=Math.round((cur-prevHour)*10)/10;
+  el.textContent = (diff>=0&&diff<48) ? `稼働時間 予測: ${diff} h` : '';
+}
+// ★破砕機のみ：前回給油時アワメータとの時間差をポップアップ内に表示
+async function updatePrevFuelHour(mid){
+  prevFuelHour=null;
+  const valEl=document.getElementById('nq-prev-fuelhour-val');
+  const diffEl=document.getElementById('nq-fuelhour-diff');
+  if(!valEl)return;
+  valEl.textContent='取得中...';
+  if(diffEl)diffEl.textContent='';
+  const selDate=document.getElementById('f-date').value||todayStr();
+  const consider=(r,best)=>{
+    const h=parseFloat(r.fuelHour);
+    if(isNaN(h))return best;
+    if(String(r.date)>selDate)return best;
+    const key=String(r.date)+String(r.savedAt||'');
+    if(!best||key>best.key)return {key,h,date:r.date};
+    return best;
+  };
+  let best=null;
+  [...allReports(),...serverToday].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
+  if(navigator.onLine){
+    try{
+      const d=new Date(selDate+'T00:00:00');
+      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results=await Promise.all([thisM,prevM].map(ym=>
+        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
+    }catch(e){}
+  }
+  if(document.getElementById('f-machine').value!==mid)return;
+  if(best){
+    prevFuelHour=best.h;
+    const dd=String(best.date);
+    valEl.textContent=`${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    calcNqFuelHourDiff();
+  }else{
+    valEl.textContent='記録なし';
+  }
+}
+function calcNqFuelHourDiff(){
+  const diffEl=document.getElementById('nq-fuelhour-diff');
+  if(!diffEl)return;
+  if(prevFuelHour===null){diffEl.textContent='';return;}
+  const cur=parseFloat(document.getElementById('nq-fuelhour').value);
+  if(isNaN(cur)){diffEl.textContent='';return;}
+  const diff=Math.round((cur-prevFuelHour)*10)/10;
+  diffEl.textContent = diff>=0 ? `　時間差: ${diff} h` : '';
 }
 
 function onMachineChange(){
@@ -1380,13 +1553,18 @@ async function updatePrevHour(mid){
     }catch(e){}
   }
   if(document.getElementById('f-machine').value!==mid)return;
+  const nqEl=document.getElementById('nq-prev-hmeter');
   if(best){
     prevHour=best.h;
     const dd=String(best.date);
-    el.textContent=`前回終了: ${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    const label=`前回終了: ${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    el.textContent=label;
+    if(nqEl)nqEl.textContent=label;
     calcWorkHours();
+    calcNqWorkHoursPreview();
   }else{
     el.textContent='前回終了: 記録なし';
+    if(nqEl)nqEl.textContent='前回終了: 記録なし';
   }
 }
 
