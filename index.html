@@ -573,7 +573,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 </div>
 
 <!-- 点検モーダル -->
-<div class="modal-bg" id="insp-modal" style="z-index:1001">
+<div class="modal-bg" id="insp-modal" style="z-index:1002">
   <div class="modal">
     <div class="modal-h">
       <span class="modal-t" id="insp-modal-t">点検</span>
@@ -639,6 +639,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
 
     <div id="nq-panel-hmeter">
+      <div class="fg">
+        <label class="fl">点検</label>
+        <div class="fc" id="nq-insp-bar" onclick="openInspModal()" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#fff;border-color:#d5d5d5">
+          <svg width="17" height="17" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span id="nq-insp-status" style="color:#555;flex:1;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">点検</span>
+          <svg width="16" height="16" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
       <div class="fg" style="margin-bottom:0">
         <label class="fl">アワーメータ終了 (h)</label>
         <input class="fc" type="number" id="nq-hmeter" placeholder="例: 2847" inputmode="decimal" oninput="calcNqWorkHoursPreview()">
@@ -1512,20 +1520,26 @@ function setInspBar(state){
   const bar=document.getElementById('insp-bar');
   const st=document.getElementById('insp-status');
   if(!bar||!st)return;
-  if(state==='idle'){
-    bar.style.background='#eef0f2';bar.style.borderColor='#d5d5d5';
-    st.textContent='点検';st.style.color='#5a5a5a';
-  }else if(state==='ready'){
-    bar.style.background='#fff';bar.style.borderColor='#185fa5';
-    const n=INSPECTION_DATA[curInspType].items.length;
-    st.textContent=`点検（${n}項目）`;st.style.color='#185fa5';
-  }else if(state==='done'){
-    bar.style.background='#eaf3de';bar.style.borderColor='#97c459';
-    st.style.color='#3b6d11';
-  }else if(state==='partial'){
-    bar.style.background='#faeeda';bar.style.borderColor='#fac775';
-    st.style.color='#854f0b';
-  }
+  // ★NFC簡易入力ポップアップ内の点検バー（同じcurInspType/curInspChecksを共有）も同じ見た目に揃える
+  const nqBar=document.getElementById('nq-insp-bar');
+  const nqSt=document.getElementById('nq-insp-status');
+  const pairs=[[bar,st],...(nqBar&&nqSt?[[nqBar,nqSt]]:[])];
+  pairs.forEach(([b,s])=>{
+    if(state==='idle'){
+      b.style.background='#eef0f2';b.style.borderColor='#d5d5d5';
+      s.textContent='点検';s.style.color='#5a5a5a';
+    }else if(state==='ready'){
+      b.style.background='#fff';b.style.borderColor='#185fa5';
+      const n=INSPECTION_DATA[curInspType].items.length;
+      s.textContent=`点検（${n}項目）`;s.style.color='#185fa5';
+    }else if(state==='done'){
+      b.style.background='#eaf3de';b.style.borderColor='#97c459';
+      s.style.color='#3b6d11';
+    }else if(state==='partial'){
+      b.style.background='#faeeda';b.style.borderColor='#fac775';
+      s.style.color='#854f0b';
+    }
+  });
 }
 
 let prevHour=null;
@@ -1719,9 +1733,13 @@ function saveInspModal(){
     updateDmInspBarLabel(done,total,false);
   }else{
     const st=document.getElementById('insp-status');
-    if(done===total){st.textContent=`点検済（全${total}項目）`;setInspBar('done');}
-    else if(done>0){st.textContent=`点検 ${done}/${total}項目`;setInspBar('partial');}
-    else{st.textContent='点検（未実施）';setInspBar('ready');}
+    const nqSt=document.getElementById('nq-insp-status');
+    let label;
+    if(done===total){label=`点検済（全${total}項目）`;setInspBar('done');}
+    else if(done>0){label=`点検 ${done}/${total}項目`;setInspBar('partial');}
+    else{label='点検（未実施）';setInspBar('ready');}
+    st.textContent=label;
+    if(nqSt)nqSt.textContent=label;
   }
   closeInspModal();
   showToast(`点検 ${done}/${total}項目を記録`,'ok');
