@@ -88,14 +88,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .gps-compact.skip .gps-compact-txt{color:#5a5a5a}
 .gps-compact-refresh{flex-shrink:0;font-size:14px;color:#185fa5;font-weight:700;cursor:pointer;padding:4px 8px;white-space:nowrap}
 .gps-compact-skiprow{width:100%;display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;color:#555;padding-top:2px}
-.ml-scroll{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e5e5e5;border-radius:10px;max-width:100%;max-height:70vh}
+.ml-scroll{overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;border:1px solid #e5e5e5;border-radius:10px;max-width:100%}
 .ml-table{border-collapse:collapse;font-size:14px}
 .ml-table th,.ml-table td{border:1px solid #ececec;padding:0;text-align:center}
-.ml-table thead th{background:#f7f7f7;color:#5a5a5a;font-weight:700;font-size:13px;padding:8px 2px;position:sticky;top:0;z-index:3}
+.ml-table thead th{background:#f7f7f7;color:#5a5a5a;font-weight:700;font-size:13px;padding:8px 2px}
 .ml-table th.ml-daynum{width:52px;min-width:52px}
 .ml-table th.ml-sun{color:#c0392b}.ml-table th.ml-sat{color:#185fa5}
 .ml-machine-col{position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:12px 14px !important;font-weight:700;color:#185fa5;width:170px;min-width:170px;max-width:170px;font-size:15px;border-right:2px solid #ddd}
-.ml-table thead th.ml-machine-col{z-index:4}
 .ml-yard-row td{background:#eef3f9;color:#185fa5;font-weight:800;text-align:left;padding:10px 14px !important;position:sticky;left:0;font-size:16px}
 .ml-cell{width:52px;height:56px;cursor:pointer;font-size:12px;line-height:1.3;padding:3px 3px !important;overflow:hidden;vertical-align:middle}
 .ml-cell.ml-ok{background:#eaf3de}
@@ -2612,7 +2611,7 @@ function renderMonthlyList(){
       while(i<days.length){
         const cur=days[i];
         if(!cur.has){
-          tbody+=`<td class="ml-cell" onclick="openMlCell('${midSafe}',${cur.d})"></td>`;
+          tbody+=`<td class="ml-cell" onclick="openMlCellClick('${midSafe}',${cur.d},1,event)"></td>`;
           i++;
           continue;
         }
@@ -2633,7 +2632,7 @@ function renderMonthlyList(){
         const inner = (cur.contractor||cur.location)
           ? `<span class="ml-cell-txt">${cur.contractor?`<span class="ml-cell-contractor">${cur.contractor}</span>`:''}${cur.location?`<span class="ml-cell-location">${cur.location}${cnt}</span>`:(cnt?`<span class="ml-cell-location">${cnt}</span>`:'')}</span>`
           : `<span class="ml-cell-txt"><span class="ml-cell-location">入力済${cnt}</span></span>`;
-        tbody+=`<td class="ml-cell ml-${cur.st}${spanCls}"${spanAttr} onclick="openMlCell('${midSafe}',${cur.d})">${inner}</td>`;
+        tbody+=`<td class="ml-cell ml-${cur.st}${spanCls}"${spanAttr} onclick="openMlCellClick('${midSafe}',${cur.d},${span},event)">${inner}</td>`;
         i+=span;
       }
       tbody+='</tr>';
@@ -2644,6 +2643,20 @@ function renderMonthlyList(){
   document.getElementById('ml-table').innerHTML=thead+tbody;
 }
 
+// ★複数日が結合表示されたセル（colspan）では、クリックしたX座標から実際の日を割り出す
+// （結合セルは常に開始日が開いてしまい、別の日の日報を開いてしまう不具合の対策）
+function openMlCellClick(mid, startDay, span, ev){
+  let day = startDay;
+  if(span > 1 && ev && ev.currentTarget){
+    const rect = ev.currentTarget.getBoundingClientRect();
+    const relX = ev.clientX - rect.left;
+    const dayWidth = rect.width / span;
+    let offset = Math.floor(relX / dayWidth);
+    offset = Math.max(0, Math.min(span - 1, offset));
+    day = startDay + offset;
+  }
+  openMlCell(mid, day);
+}
 function openMlCell(mid, day){
   const rs=calReports.filter(r=>{
     const d=parseInt(String(r.date).slice(8,10),10);
