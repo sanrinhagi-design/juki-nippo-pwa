@@ -542,6 +542,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <button class="btn btn-o" style="flex:1" onclick="openPrintModal()">🖨 印刷 / PDF保存</button>
       <button class="btn btn-o" style="flex:1" onclick="openCsvModal()">📊 CSV出力</button>
     </div>
+    <button class="btn btn-o" style="width:100%;margin-top:8px" onclick="openBulkMonthModal()">📋 月末一括登録（未入力日をまとめて記入）</button>
   </div></div>
 
   <div class="slbl">特定自主検査 期限警告</div>
@@ -567,6 +568,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div id="print-machine-list"></div>
     <button class="btn btn-p" id="print-go-btn" onclick="confirmPrintPdf()" style="margin-top:14px">📄 PDFを作成してダウンロード</button>
     <div id="print-progress" style="display:none;text-align:center;font-size:15px;color:#5a5a5a;margin-top:12px">PDFを作成中…しばらくお待ちください</div>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- 月末一括登録モーダル（機体1台×未入力日をまとめて記入） -->
+<div class="modal-bg" id="bulk-month-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t" id="mm-title">月末一括登録</span>
+      <span class="modal-x" onclick="closeBulkMonthModal()">&times;</span>
+    </div>
+    <div style="font-size:15px;color:#5a5a5a;margin-bottom:12px;line-height:1.5">紙の日報から、まだ入力されていない日をまとめて入力できます。入力済みの日は「この日を修正する」から個別に修正できます（修正はオンライン時のみ）。</div>
+    <div id="mm-rows"></div>
+    <div id="mm-empty-hint" style="display:none;text-align:center;color:#5a5a5a;font-size:15px;padding:20px 0">この月に未入力日はありません。</div>
+    <button class="btn btn-p" id="mm-submit-btn" onclick="submitBulkMonthReports()" style="margin-top:14px">まとめて保存する</button>
     <div style="height:10px"></div>
   </div>
 </div>
@@ -690,7 +706,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div id="dm-empty" style="display:none;font-size:15px;color:#5a5a5a;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
     <div id="dm-form">
       <div class="frow" style="margin-bottom:11px">
-        <div class="fg" style="margin-bottom:0"><label class="fl">日付</label><input class="fc" type="date" id="dm-date"></div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">日付</label><input class="fc" type="date" id="dm-date" onchange="updateDmPrevHour()"></div>
         <div class="fg" style="margin-bottom:0"><label class="fl">重機番号</label><select class="fc" id="dm-machine"></select></div>
       </div>
       <div class="fg"><label class="fl">運転者</label>
@@ -699,7 +715,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <div class="fg"><label class="fl">元請</label><input class="fc" id="dm-contractor"></div>
       <div class="fg"><label class="fl">現場名</label><input class="fc" id="dm-location"></div>
       <div class="frow" style="margin-bottom:11px">
-        <div class="fg" style="margin-bottom:0"><label class="fl">アワーメータ終了(h)</label><input class="fc" type="number" id="dm-hmeter" inputmode="decimal"></div>
+        <div class="fg" style="margin-bottom:0">
+          <label class="fl">アワーメータ終了(h)</label>
+          <input class="fc" type="number" id="dm-hmeter" inputmode="decimal" oninput="calcDmWorkHours()">
+          <div id="dm-prevh" style="font-size:13px;color:#5a5a5a;margin-top:5px">前回終了: —</div>
+        </div>
         <div class="fg" style="margin-bottom:0"><label class="fl">稼働時間(h)</label><input class="fc" type="number" id="dm-whours" step="0.5" inputmode="decimal"></div>
       </div>
       <div class="frow" style="margin-bottom:11px">
@@ -1637,9 +1657,10 @@ function updateGpsBar(){
 }
 
 let bkModalMid=null;
-let inspModalMode='main'; // 'main' | 'bk' | 'dm'（集計画面の日報編集）
+let inspModalMode='main'; // 'main' | 'bk' | 'dm' | 'mm'（集計画面の日報編集／月末一括登録）
 let dmInspType='backhoe';
 let dmInspChecks={};
+let mmInspModalDay=null;
 
 function openInspModal(){
   inspModalMode='main';
@@ -1667,6 +1688,18 @@ function openDmInspModal(){
   document.getElementById('insp-modal').classList.add('on');
 }
 
+// ★集計画面「月末一括登録」から、日報入力画面と同じ点検チェックリストを開く
+function openMmInspModal(day){
+  const m=findMachine(mmMid);
+  if(!m||!mmRowData[day])return;
+  inspModalMode='mm';
+  mmInspModalDay=day;
+  const type=m.type||'backhoe';
+  if(!mmRowData[day].inspChecks)mmRowData[day].inspChecks={};
+  renderInspModalBody(type, mmRowData[day].inspChecks);
+  document.getElementById('insp-modal').classList.add('on');
+}
+
 function renderInspModalBody(type, checks){
   const data=INSPECTION_DATA[type];
   document.getElementById('insp-modal-t').textContent=data.name+' 点検';
@@ -1686,11 +1719,13 @@ function closeInspModal(){document.getElementById('insp-modal').classList.remove
 function activeInspChecks(){
   if(inspModalMode==='bk')return bkRowData[bkModalMid].inspChecks;
   if(inspModalMode==='dm')return dmInspChecks;
+  if(inspModalMode==='mm')return mmRowData[mmInspModalDay].inspChecks;
   return curInspChecks;
 }
 function activeInspType(){
   if(inspModalMode==='bk'){const m=findMachine(bkModalMid);return m?(m.type||'backhoe'):'backhoe';}
   if(inspModalMode==='dm')return dmInspType;
+  if(inspModalMode==='mm'){const m=findMachine(mmMid);return m?(m.type||'backhoe'):'backhoe';}
   return curInspType;
 }
 
@@ -1731,6 +1766,12 @@ function saveInspModal(){
     const val = done===total?'済':(done>0?`一部(${done}/${total})`:'未');
     document.getElementById('dm-insp').value=val;
     updateDmInspBarLabel(done,total,false);
+  }else if(inspModalMode==='mm'){
+    const label=document.getElementById('mm-insp-status-'+mmInspModalDay);
+    if(label){
+      label.textContent = done===total?`点検済（全${total}項目）`:(done>0?`点検 ${done}/${total}項目`:mmInspLabel(mmRowData[mmInspModalDay], findMachine(mmMid)));
+      label.style.color = done>0?'#185fa5':'#555';
+    }
   }else{
     const st=document.getElementById('insp-status');
     const nqSt=document.getElementById('nq-insp-status');
@@ -2769,6 +2810,7 @@ function dmSelect(i){
   document.getElementById('dm-contractor').value=r.contractor||'';
   document.getElementById('dm-hmeter').value=r.hourMeter!==undefined?r.hourMeter:'';
   document.getElementById('dm-whours').value=r.workHours!==undefined?r.workHours:'';
+  updateDmPrevHour();
   document.getElementById('dm-floc').value=r.fuelLocation||'';
   document.getElementById('dm-famt').value=r.fuelAmount!==undefined?r.fuelAmount:'';
   // ★始業前点検：日報入力画面と同じチェックリストUIに合わせて、機種の項目数から状態を復元する
@@ -2826,6 +2868,57 @@ function dmSelect(i){
   document.getElementById('dm-save').style.display=noid?'none':'block';
   document.getElementById('dm-delete').style.display=noid?'none':'block';
 }
+let dmPrevHour=null;
+// ★日報入力画面と同じ「前回終了アワメータとの差分で稼働時間を自動計算」を、集計画面の日報編集モーダルでも行う
+async function updateDmPrevHour(){
+  dmPrevHour=null;
+  const el=document.getElementById('dm-prevh');
+  if(!dmCurrent){if(el)el.textContent='前回終了: —';return;}
+  const mid=document.getElementById('dm-machine').value||dmCurrent.machineId;
+  const selDate=document.getElementById('dm-date').value||dmCurrent.date;
+  if(el)el.textContent='前回終了: 取得中...';
+  const consider=(r,best)=>{
+    if(r.id===dmCurrent.id)return best; // 編集中の自分自身は除外
+    const h=parseFloat(r.hourMeter);
+    if(isNaN(h))return best;
+    if(String(r.date)>selDate)return best;
+    const key=String(r.date)+String(r.savedAt||'');
+    if(!best||key>best.key)return {key,h,date:r.date};
+    return best;
+  };
+  let best=null;
+  [...allReports(),...serverToday,...calReports].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
+  if(navigator.onLine){
+    try{
+      const d=new Date(selDate+'T00:00:00');
+      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results=await Promise.all([thisM,prevM].map(ym=>
+        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
+    }catch(e){}
+  }
+  if(!dmCurrent||(document.getElementById('dm-machine').value||dmCurrent.machineId)!==mid)return;
+  if(best){
+    dmPrevHour=best.h;
+    const dd=String(best.date);
+    if(el)el.textContent=`前回終了: ${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    calcDmWorkHours();
+  }else{
+    if(el)el.textContent='前回終了: 記録なし';
+  }
+}
+function calcDmWorkHours(){
+  if(dmPrevHour===null)return;
+  const cur=parseFloat(document.getElementById('dm-hmeter').value);
+  if(isNaN(cur))return;
+  const diff=Math.round((cur-dmPrevHour)*10)/10;
+  if(diff>=0&&diff<48){
+    document.getElementById('dm-whours').value=diff;
+  }
+}
 function closeDayModal(){document.getElementById('day-modal').classList.remove('on');}
 
 async function saveDayModal(){
@@ -2876,6 +2969,7 @@ async function saveDayModal(){
       closeDayModal();
       showToast('日報を更新しました','ok');
       loadCalMonth();refreshTodayList(false);renderDashWarnings();
+      refreshBulkMonthModalIfOpen();
     }else{
       showToast(data.error||'更新に失敗しました','err');
     }
@@ -2899,6 +2993,7 @@ async function deleteDayModal(){
       closeDayModal();
       showToast('日報を削除しました','ok');
       loadCalMonth();refreshTodayList(false);renderDashWarnings();
+      refreshBulkMonthModalIfOpen();
     }else{
       showToast(data.error||'削除に失敗しました','err');
     }
@@ -3892,6 +3987,268 @@ function bkToggle(mid, key, el) {
   el.classList.toggle('on');
   el.classList.toggle('off');
   syncTogState(el);
+}
+
+// ================================================================
+// 月末一括登録（1機体×未入力日をまとめて記入）
+// ================================================================
+let mmMid = null;
+let mmRowData = {};
+
+let mmExistingByDay = {};
+
+// ★日報編集モーダル（既存日の修正）を保存/削除した後、月末一括登録画面が開いていれば内容を再構築する
+function refreshBulkMonthModalIfOpen(){
+  if(!document.getElementById('bulk-month-modal').classList.contains('on'))return;
+  if(!mmMid || mmMid!==calMachineId)return;
+  setTimeout(()=>{ // loadCalMonth()のローカル反映を待ってから再構築
+    mmExistingByDay = {};
+    calReports.forEach(r=>{
+      const d = parseInt(String(r.date).slice(8,10),10);
+      if(isNaN(d)) return;
+      if(!mmExistingByDay[d]) mmExistingByDay[d] = [];
+      mmExistingByDay[d].push(r);
+    });
+    const daysIn = new Date(calYear, calMonth+1, 0).getDate();
+    for(let d=1; d<=daysIn; d++){
+      if(mmExistingByDay[d]){ delete mmRowData[d]; continue; }
+      if(!mmRowData[d]){
+        mmRowData[d] = {
+          contractor:'', location:'', operator:'', hmeter:'', whours:'', floc:'', famt:'',
+          insp:'未', inspChecks:{}, grease:false, trans:false, noteType:'', notes:'',
+          bit:'', bolt:'', nut:'', fuelhour:''
+        };
+      }
+    }
+    renderBulkMonthList();
+  },0);
+}
+
+function openBulkMonthModal(){
+  if(!calMachineId){ showToast('先に機体を1台選択してください', 'err'); return; }
+  mmMid = calMachineId;
+  const m = findMachine(mmMid);
+  if(!m){ showToast('機体情報を取得できませんでした', 'err'); return; }
+  const nm = m.attachment ? `${m.model}・${m.attachment}` : m.model;
+  document.getElementById('mm-title').textContent = `月末一括登録　${mmMid}（${nm}）`;
+
+  const daysIn = new Date(calYear, calMonth+1, 0).getDate();
+  mmExistingByDay = {};
+  calReports.forEach(r=>{
+    const d = parseInt(String(r.date).slice(8,10),10);
+    if(isNaN(d)) return;
+    if(!mmExistingByDay[d]) mmExistingByDay[d] = [];
+    mmExistingByDay[d].push(r);
+  });
+
+  mmRowData = {};
+  for(let d=1; d<=daysIn; d++){
+    if(mmExistingByDay[d]) continue; // 入力済みの日は編集フォームを持たず、既存日報を直接修正するボタンを出す
+    mmRowData[d] = {
+      contractor:'', location:'', operator:'', hmeter:'', whours:'', floc:'', famt:'',
+      insp:'未', inspChecks:{}, grease:false, trans:false, noteType:'', notes:'',
+      bit:'', bolt:'', nut:'', fuelhour:''
+    };
+  }
+  renderBulkMonthList();
+  document.getElementById('bulk-month-modal').classList.add('on');
+}
+
+// 「月末一括登録」画面から、既に入力済みの日を日報編集モーダルで直接修正する
+// （紙の日報と照合すると数値が違うことがあるための修正用。オンライン時のみ利用可）
+function mmEditExistingDay(day){
+  const rs = (mmExistingByDay[day]||[]).slice()
+    .sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||'')));
+  openReportModal(`${calMonth+1}月${day}日 ${mmMid}`, rs);
+}
+
+function closeBulkMonthModal(){
+  document.getElementById('bulk-month-modal').classList.remove('on');
+}
+
+function renderBulkMonthList(){
+  const m = findMachine(mmMid);
+  const isCrusher = m && m.type === 'crusher';
+  const daysIn = new Date(calYear, calMonth+1, 0).getDate();
+  const allDays = [];
+  for(let d=1; d<=daysIn; d++) allDays.push(d);
+  const editableDays = allDays.filter(d=>mmRowData[d]);
+  document.getElementById('mm-empty-hint').style.display = 'none';
+  document.getElementById('mm-submit-btn').style.display = editableDays.length===0 ? 'none' : 'block';
+
+  const opOptionsFor = d => ['<option value="">選択（空欄可）</option>']
+    .concat(operators.map(op => `<option value="${op}" ${d.operator===op?'selected':''}>${op}</option>`)).join('');
+
+  const wrap = document.getElementById('mm-rows');
+  wrap.innerHTML = allDays.map(day=>{
+    const wd = new Date(calYear, calMonth, day).getDay();
+    const wdLbl = ['日','月','火','水','木','金','土'][wd];
+
+    if(!mmRowData[day]){
+      // ★入力済みの日：紙と照合して数値が違う場合に備え、日報編集モーダルで直接修正できるようにする
+      const rs = mmExistingByDay[day] || [];
+      const summary = rs.map(r=>{
+        const parts=[r.contractor,r.location].filter(Boolean).join(' / ');
+        return `${r.operator||'（運転者未記入）'}${parts?'　'+parts:''}　${r.hourMeter!==undefined&&r.hourMeter!==''?r.hourMeter+'h':''}`;
+      }).join('、');
+      return `<div class="card" data-mmrow="${day}" style="background:#f7f7f7">
+        <div class="card-h">
+          <div class="mname">${calMonth+1}月${day}日（${wdLbl}）<span class="bdg bdg-blue" style="margin-left:8px">入力済${rs.length>1?'　'+rs.length+'件':''}</span></div>
+        </div>
+        <div class="card-b">
+          <div style="font-size:14px;color:#5a5a5a;margin-bottom:10px;line-height:1.5">${summary||'（内容なし）'}</div>
+          <button class="btn btn-sm btn-o" style="width:100%" onclick="mmEditExistingDay(${day})">この日を修正する</button>
+        </div>
+      </div>`;
+    }
+
+    const d = mmRowData[day];
+    return `<div class="card" data-mmrow="${day}">
+      <div class="card-h">
+        <div class="mname">${calMonth+1}月${day}日（${wdLbl}）</div>
+      </div>
+      <div class="card-b">
+        <div class="frow" style="margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">元請</label>
+            <input class="fc" type="text" list="dl-contractor" autocomplete="off" value="${d.contractor}" oninput="mmSet(${day},'contractor',this.value)">
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">現場名</label>
+            <input class="fc" type="text" list="dl-location" autocomplete="off" value="${d.location}" oninput="mmSet(${day},'location',this.value)">
+          </div>
+        </div>
+        <div class="fg" style="margin-bottom:11px">
+          <label class="fl">運転者</label>
+          <select class="fc" onchange="mmSet(${day},'operator',this.value)">${opOptionsFor(d)}</select>
+        </div>
+
+        <div class="gps-bar" onclick="openMmInspModal(${day})" style="background:#fff;border-color:#d5d5d5;margin-bottom:11px">
+          <svg width="16" height="16" fill="none" stroke="#185fa5" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span class="gps-bar-st" id="mm-insp-status-${day}" style="color:${Object.values(d.inspChecks||{}).some(Boolean)?'#185fa5':'#555'}">${mmInspLabel(d, m)}</span>
+        </div>
+
+        <div class="frow" style="margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">アワーメータ終了(h)</label>
+            <input class="fc" type="number" inputmode="decimal" value="${d.hmeter}" oninput="mmSet(${day},'hmeter',this.value)">
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">稼働時間(h)</label>
+            <input class="fc" type="number" step="0.5" inputmode="decimal" value="${d.whours}" oninput="mmSet(${day},'whours',this.value)">
+          </div>
+        </div>
+        <div class="frow" style="margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">給油元</label>
+            <input class="fc" type="text" list="dl-floc" autocomplete="off" value="${d.floc}" oninput="mmSet(${day},'floc',this.value)">
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">給油量(L)</label>
+            <input class="fc" type="number" inputmode="decimal" value="${d.famt}" oninput="mmSet(${day},'famt',this.value)">
+          </div>
+        </div>
+        ${isCrusher ? `
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#185fa5">破砕機 部品・消耗品交換</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:11px">
+          <div class="fg" style="margin-bottom:0"><label class="fl">ビット(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.bit}" oninput="mmSet(${day},'bit',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ボルト(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.bolt}" oninput="mmSet(${day},'bolt',this.value)"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">ナット(個)</label><input class="fc" type="number" inputmode="numeric" value="${d.nut}" oninput="mmSet(${day},'nut',this.value)"></div>
+        </div>
+        <div class="fg" style="margin-bottom:11px"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" inputmode="decimal" value="${d.fuelhour}" oninput="mmSet(${day},'fuelhour',this.value)"></div>
+        ` : ''}
+        <div class="frow" style="margin-bottom:0">
+          <div class="trow" style="padding:6px 0;border:none">
+            <span class="tlbl">グリス充填<span class="tog-state" style="color:${d.grease?'#1f8b4c':'#c94b4b'}">${d.grease?'あり':'なし'}</span></span>
+            <div class="tog ${d.grease?'on':'off'}" onclick="mmToggle(${day},'grease',this)"><div class="tog-k"></div></div>
+          </div>
+          <div class="trow" style="padding:6px 0;border:none">
+            <span class="tlbl">回送あり<span class="tog-state" style="color:${d.trans?'#1f8b4c':'#c94b4b'}">${d.trans?'あり':'なし'}</span></span>
+            <div class="tog ${d.trans?'on':'off'}" onclick="mmToggle(${day},'trans',this)"><div class="tog-k"></div></div>
+          </div>
+        </div>
+        <div class="fg" style="margin-top:11px;margin-bottom:0">
+          <label class="fl">備考・故障報告</label>
+          <select class="fc" style="margin-bottom:8px" onchange="mmSet(${day},'noteType',this.value)">
+            <option value="" ${d.noteType===''?'selected':''}>選んでいない</option>
+            <option value="備考" ${d.noteType==='備考'?'selected':''}>備考</option>
+            <option value="故障" ${d.noteType==='故障'?'selected':''}>故障</option>
+            <option value="備考と故障" ${d.noteType==='備考と故障'?'selected':''}>備考と故障</option>
+          </select>
+          <textarea class="fc" rows="2" placeholder="任意" oninput="mmSet(${day},'notes',this.value)">${d.notes}</textarea>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function mmInspLabel(d, m){
+  const type = m ? (m.type || 'backhoe') : 'backhoe';
+  const total = INSPECTION_DATA[type] ? INSPECTION_DATA[type].items.length : 0;
+  const done = Object.values(d.inspChecks || {}).filter(Boolean).length;
+  if (done === 0) return `点検（${total}項目）`;
+  if (done === total) return `点検済（全${total}項目）`;
+  return `点検 ${done}/${total}項目`;
+}
+
+function mmSet(day, key, val){
+  if (!mmRowData[day]) return;
+  mmRowData[day][key] = val;
+}
+function mmToggle(day, key, el){
+  if (!mmRowData[day]) return;
+  mmRowData[day][key] = !mmRowData[day][key];
+  el.classList.toggle('on');
+  el.classList.toggle('off');
+  syncTogState(el);
+}
+
+function submitBulkMonthReports(){
+  const m = findMachine(mmMid);
+  const days = Object.keys(mmRowData).map(Number).sort((a,b)=>a-b);
+  const type = m ? (m.type || 'backhoe') : 'backhoe';
+  const total = INSPECTION_DATA[type] ? INSPECTION_DATA[type].items.length : 0;
+
+  let count = 0;
+  days.forEach(day=>{
+    const d = mmRowData[day];
+    const hasWork = d.whours !== '' || d.hmeter !== '';
+    const hasAny = hasWork || d.floc || d.famt || d.operator || d.contractor || d.location ||
+      d.notes.trim() || d.grease || d.trans || Object.values(d.inspChecks||{}).some(Boolean) ||
+      d.bit || d.bolt || d.nut || d.fuelhour;
+    if(!hasAny) return; // 何も入力されていない日はスキップ
+
+    const done = Object.values(d.inspChecks || {}).filter(Boolean).length;
+    const inspStatus = !hasWork ? '対象外' : (done===0?'未':(done===total?'済':`一部(${done}/${total})`));
+    const date = `${calYear}-${pad(calMonth+1)}-${pad(day)}`;
+    const report = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6) + count,
+      date, machineId: mmMid, yard: m ? m.yard : '', operator: d.operator,
+      contractor: d.contractor.trim(), location: d.location.trim(),
+      hourMeter: d.hmeter, workHours: d.whours,
+      fuelLocation: d.floc, fuelAmount: d.famt,
+      inspection: inspStatus,
+      grease: d.grease ? '済' : '未',
+      transfer: d.trans ? '有' : '無',
+      notes: d.notes.trim(), noteType: d.noteType, photo: '',
+      bit: d.bit, bolt: d.bolt, nut: d.nut, fuelHour: d.fuelhour,
+      lat: '', lng: '', accuracy: '',
+      savedAt: new Date().toISOString(), synced: false, deviceId: getDeviceId()
+    };
+    pending.push(report);
+    count++;
+  });
+
+  if(count===0){ showToast('入力された日がありません', 'err'); return; }
+
+  saveData();
+  updateSyncRow();
+  showToast(`${count}日分の日報を保存しました`, 'ok');
+  renderSuggestLists([...allReports()]);
+  closeBulkMonthModal();
+  loadCalMonth();
+
+  if (navigator.onLine) autoSync();
 }
 
 function submitBulkReports() {
