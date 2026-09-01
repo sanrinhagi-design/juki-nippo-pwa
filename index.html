@@ -3210,8 +3210,10 @@ function buildCrusherMonthHtml(mid,m,reports){
       let endH = '', workH = '', bit = '', bolt = '', nut = '', notes = '', fuelHour = '', fuelAmt = '', isInsp = false;
 
       if (arr && arr.length > 0) {
-        const lastR = arr[arr.length - 1];
-        endH = lastR.hourMeter !== undefined && lastR.hourMeter !== '' ? lastR.hourMeter : '';
+        // ★終了アワメータはスナップショット値のため、最後に「入力された」1件ではなく
+        // その日のうちで最後に非空だった値を採用する（別の回で記録が空欄でも消えないように）
+        const endR = [...arr].reverse().find(r => r.hourMeter !== undefined && r.hourMeter !== '');
+        endH = endR ? endR.hourMeter : '';
         const totalW = arr.reduce((s, r) => s + (parseFloat(r.workHours) || 0), 0);
         workH = totalW > 0 ? totalW : '';
 
@@ -3418,8 +3420,10 @@ function buildStandardMonthHtml(mid, m, reports) {
       let endH = '', workH = '', siteOp = '', fuelF = '', fuelL = '', isInsp = false, isTrans = false;
 
       if (arr && arr.length > 0) {
-        const lastR = arr[arr.length - 1];
-        endH = lastR.hourMeter !== undefined && lastR.hourMeter !== '' ? lastR.hourMeter : '';
+        // ★終了アワメータはスナップショット値のため、最後に「入力された」1件ではなく
+        // その日のうちで最後に非空だった値を採用する（別の回で記録が空欄でも消えないように）
+        const endR = [...arr].reverse().find(r => r.hourMeter !== undefined && r.hourMeter !== '');
+        endH = endR ? endR.hourMeter : '';
         const totalW = arr.reduce((s, r) => s + (parseFloat(r.workHours) || 0), 0);
         workH = totalW > 0 ? totalW : '';
 
