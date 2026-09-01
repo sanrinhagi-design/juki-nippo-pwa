@@ -189,6 +189,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="a-desc">はじめてこの端末でお使いの場合、<br>Googleアカウントでログインしてください。<br>（以降はログイン不要で使えます）</div>
   <div id="g_id_signin_container"></div>
   <div id="auth-error"></div>
+  <div id="auth-request-link" style="display:none;margin-top:14px">
+    <a href="https://script.google.com/macros/s/AKfycbyCko53kzXg1MWp2fGA9diCheQsLKrU5vFf0FwJh9cnG7O1GjibB8Ym5bHkPzVQfhHR/exec" target="_blank" rel="noopener" style="color:#7ab6ff;font-size:15px;font-weight:700;text-decoration:underline">→ 利用申請はこちら（業務ポータル）</a>
+  </div>
   <div id="auth-hint">ログインには電波が必要です。<br>圏外の場合は電波のある場所で一度ログインしてから<br>現場へ向かってください。</div>
 </div>
 
@@ -347,9 +350,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       </div>
       <div class="trow" style="padding:6px 0;border:none">
         <span class="tlbl">回送あり<span class="tog-state" id="tog-trans-state"></span></span>
-        <div class="tog off" id="tog-trans" onclick="togEl(this)"><div class="tog-k"></div></div>
+        <div class="tog off" id="tog-trans" onclick="onTransferToggle(this)"><div class="tog-k"></div></div>
       </div>
     </div>
+    <div id="transfer-info" style="display:none;font-size:15px;color:#5a5a5a;margin-top:5px;cursor:pointer" onclick="openTransferModal()"></div>
   </div></div>
 
   <div class="card" id="crusher-fields" style="display:none"><div class="card-b">
@@ -583,6 +587,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div id="mm-rows"></div>
     <div id="mm-empty-hint" style="display:none;text-align:center;color:#5a5a5a;font-size:15px;padding:20px 0">この月に未入力日はありません。</div>
     <button class="btn btn-p" id="mm-submit-btn" onclick="submitBulkMonthReports()" style="margin-top:14px">まとめて保存する</button>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- 回送先モーダル（回送ありトグルON時に表示、元請・現場名を入力） -->
+<div class="modal-bg" id="transfer-modal">
+  <div class="modal">
+    <div class="modal-h">
+      <span class="modal-t">回送先の元請・現場名</span>
+      <span class="modal-x" onclick="cancelTransferModal()">&times;</span>
+    </div>
+    <div style="font-size:15px;color:#5a5a5a;margin-bottom:14px;line-height:1.5">今日この機体を回送した先の元請・現場名を入力してください（必須）。次にこの機体を選んだとき、ここで入力した内容が自動で反映されます。</div>
+    <div class="fg">
+      <label class="fl">元請</label>
+      <input class="fc" type="text" id="tf-contractor" list="dl-contractor" autocomplete="off" placeholder="例: 〇〇林業">
+    </div>
+    <div class="fg" style="margin-bottom:0">
+      <label class="fl">現場名</label>
+      <input class="fc" type="text" id="tf-location" list="dl-location" autocomplete="off" placeholder="例: 深山林道 3工区">
+    </div>
+    <button class="btn btn-p" onclick="confirmTransferModal()" style="margin-top:14px">回送先を確定する</button>
     <div style="height:10px"></div>
   </div>
 </div>
@@ -900,11 +925,13 @@ function setDeviceToken(t){ localStorage.setItem('portalDeviceToken', t); }
 function clearDeviceToken(){ localStorage.removeItem('portalDeviceToken'); }
 
 let _authOverlayErrMsg = '';
-function showAuthOverlay(errMsg){
+function showAuthOverlay(errMsg, showRequestLink){
   document.getElementById('auth-overlay').style.display='flex';
   const errEl=document.getElementById('auth-error');
   if(errMsg){_authOverlayErrMsg=errMsg;errEl.textContent=errMsg;errEl.style.display='block';}
   else{errEl.style.display='none';}
+  // ★未登録／権限なしでログインできなかった場合は、業務ポータルの申請フォームへのリンクを出す
+  document.getElementById('auth-request-link').style.display = showRequestLink ? 'block' : 'none';
   renderGoogleSignInButton();
 }
 
@@ -955,7 +982,7 @@ async function onGoogleSignIn(response){
       // ポータルへのログインは成功。ここで重機日報(juki)権限があるかも確認する。
       const access = (data.access || '').split(',').map(function(a){return a.trim();});
       if(data.rank !== 'admin' && access.indexOf('juki') === -1){
-        showAuthOverlay('重機日報へのアクセス権限がありません（'+data.email+'）。業務ポータルから利用申請をしてください。');
+        showAuthOverlay('重機日報へのアクセス権限がありません（'+data.email+'）。下のリンクから業務ポータルにログインし、利用申請をしてください。', true);
         return;
       }
       setDeviceToken(data.deviceToken);
@@ -963,7 +990,7 @@ async function onGoogleSignIn(response){
       showToast(data.name+'さん、ログインしました','ok');
       initApp();
     }else if(data.needsRequest){
-      showAuthOverlay('ユーザー登録がありません（'+data.email+'）。業務ポータルから利用申請をしてください。');
+      showAuthOverlay('ユーザー登録がありません（'+data.email+'）。下のリンクから業務ポータルにログインし、利用申請をしてください。', true);
     }else{
       showAuthOverlay(data.message||'ログインに失敗しました');
     }
@@ -1505,11 +1532,17 @@ let _prevSiteFetchToken = 0;
 async function updatePrevSiteInfo(mid){
   const myToken = ++_prevSiteFetchToken;
   const selDate=document.getElementById('f-date').value||todayStr();
+  // ★直近の日報で「回送あり」かつ回送先が入力されていた場合は、その日報自身の元請/現場名
+  // （＝その日実際に稼働した現場）ではなく、回送先の元請/現場名を優先して次回の自動反映に使う
+  //   （機体は回送先に移動済みのため、次はそちらの現場で稼働する可能性が高いため）
   const consider=(r,best)=>{
     if(String(r.date)>selDate)return best;
-    if(!r.contractor && !r.location)return best; // 元請・現場名どちらも空の記録は無視
+    const useTransfer = r.transfer==='有' && (r.transferContractor || r.transferLocation);
+    const c = useTransfer ? (r.transferContractor||'') : (r.contractor||'');
+    const l = useTransfer ? (r.transferLocation||'') : (r.location||'');
+    if(!c && !l)return best; // 元請・現場名どちらも空の記録は無視
     const key=String(r.date)+String(r.savedAt||'');
-    if(!best||key>best.key)return {key,contractor:r.contractor||'',location:r.location||'',date:r.date};
+    if(!best||key>best.key)return {key,contractor:c,location:l,date:r.date};
     return best;
   };
   let best=null;
@@ -1830,6 +1863,56 @@ function syncTogState(tog){
 }
 function togEl(el){el.classList.toggle('on');el.classList.toggle('off');syncTogState(el);}
 
+// ================================================================
+// 回送先の元請・現場名（回送ありトグルON時にポップアップで入力）
+// ================================================================
+let curTransferContractor='', curTransferLocation='';
+
+function onTransferToggle(el){
+  el.classList.toggle('on');el.classList.toggle('off');syncTogState(el);
+  if(el.classList.contains('on')){
+    openTransferModal();
+  }else{
+    curTransferContractor='';curTransferLocation='';
+    renderTransferInfo();
+  }
+}
+
+function openTransferModal(){
+  document.getElementById('tf-contractor').value=curTransferContractor;
+  document.getElementById('tf-location').value=curTransferLocation;
+  document.getElementById('transfer-modal').classList.add('on');
+}
+
+// ×で閉じた場合：まだ確定していなければ回送トグル自体をOFFに戻す（必須入力のため）
+function cancelTransferModal(){
+  document.getElementById('transfer-modal').classList.remove('on');
+  if(!curTransferContractor && !curTransferLocation){
+    const t=document.getElementById('tog-trans');
+    t.classList.remove('on');t.classList.add('off');syncTogState(t);
+  }
+}
+
+function confirmTransferModal(){
+  const c=document.getElementById('tf-contractor').value.trim();
+  const l=document.getElementById('tf-location').value.trim();
+  if(!c || !l){showToast('回送先の元請・現場名は必須です','err');return;}
+  curTransferContractor=c;curTransferLocation=l;
+  document.getElementById('transfer-modal').classList.remove('on');
+  renderTransferInfo();
+}
+
+function renderTransferInfo(){
+  const el=document.getElementById('transfer-info');
+  if(curTransferContractor || curTransferLocation){
+    el.style.display='block';
+    el.textContent=`回送先: ${curTransferContractor}／${curTransferLocation}（タップで修正）`;
+  }else{
+    el.style.display='none';
+    el.textContent='';
+  }
+}
+
 let photoData=null;
 
 function updateNoteTypeUI(){
@@ -1900,6 +1983,8 @@ function submitReport(){
     inspection:inspStatus,
     grease:document.getElementById('tog-grease').classList.contains('on')?'済':'未',
     transfer:document.getElementById('tog-trans').classList.contains('on')?'有':'無',
+    transferContractor:document.getElementById('tog-trans').classList.contains('on')?curTransferContractor:'',
+    transferLocation:document.getElementById('tog-trans').classList.contains('on')?curTransferLocation:'',
     notes:document.getElementById('f-notes').value.trim(),
     noteType:document.querySelector('input[name="note-type"]:checked').value,
     photo:photoData||'',
@@ -1938,6 +2023,7 @@ function resetForm(){
   document.querySelector('input[name="note-type"][value=""]').checked=true;
   updateNoteTypeUI();
   ['tog-grease','tog-trans'].forEach(id=>{const t=document.getElementById(id);t.classList.remove('on');t.classList.add('off');});
+  curTransferContractor='';curTransferLocation='';renderTransferInfo();
   document.getElementById('gps-skip').checked=false;
   curInspChecks={};curInspType=null;
   setInspBar('idle');
