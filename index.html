@@ -784,7 +784,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
       <div class="fg"><label class="fl">備考</label><textarea class="fc" id="dm-notes" rows="2"></textarea></div>
       <div class="fg" id="dm-photo-wrap" style="display:none">
         <label class="fl">添付写真</label>
-        <img id="dm-photo-img" style="width:100%;border-radius:9px;display:block;margin-bottom:8px;cursor:pointer" onclick="window.open(document.getElementById('dm-photo-link').href,'_blank')">
+        <img id="dm-photo-img" style="width:100%;border-radius:9px;display:block;margin-bottom:8px;cursor:pointer" onclick="window.open(document.getElementById('dm-photo-link').href,'_blank')" onerror="this.style.display='none'" onload="this.style.display='block'">
         <a href="#" id="dm-photo-link" target="_blank" class="btn btn-o" style="text-decoration:none">📷 写真を開く（原寸）</a>
       </div>
 
@@ -2858,6 +2858,12 @@ function openReportModal(title,rs){
   document.getElementById('day-modal').classList.add('on');
 }
 
+// GoogleドライブのファイルURL（view形式）からサムネイル画像用のURLに変換する
+function driveThumbUrl(url){
+  const m=String(url||'').match(/\/d\/([a-zA-Z0-9_-]+)/)||String(url||'').match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  return m?`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`:url;
+}
+
 function dmSelect(i){
   const r=dmDayReports[i];
   if(!r)return;
@@ -2928,8 +2934,11 @@ function dmSelect(i){
   document.getElementById('dm-notes').value=r.notes||'';
   document.getElementById('dm-notetype').value=r.noteType||'';
   const pw=document.getElementById('dm-photo-wrap');
-  if(r.photoUrl){pw.style.display='block';document.getElementById('dm-photo-link').href=r.photoUrl;}
-  else{pw.style.display='none';}
+  if(r.photoUrl){
+    pw.style.display='block';
+    document.getElementById('dm-photo-link').href=r.photoUrl;
+    document.getElementById('dm-photo-img').src=driveThumbUrl(r.photoUrl);
+  }else{pw.style.display='none';}
   const dmM=findMachine(r.machineId);
   const isCrusher=dmM&&dmM.type==='crusher';
   document.getElementById('dm-crusher').style.display=isCrusher?'block':'none';
