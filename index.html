@@ -1009,6 +1009,8 @@ const JUKI_ACTION_MAP = {
 async function fetchJukiApi(action, params){
   const payload = Object.assign({action: JUKI_ACTION_MAP[action] || action, deviceToken: getDeviceToken()}, params || {});
   const data = await postToGas(payload);
+  // 通常のAPI呼び出しが1回でも成功すればサーバーに届いている＝オンライン扱いにする
+  if(data && !realOnline){ realOnline=true; updateNet(); }
   if(data && data.status==='error' && /認証|ログイン/.test(data.message||'')){
     clearDeviceToken();
     showAuthOverlay(data.message);
@@ -1020,7 +1022,9 @@ let realOnline=false;
 async function checkRealConnectivity(){
   if(!navigator.onLine){realOnline=false;updateNet();return false;}
   try{
-    const data=await postToGas({action:'jukiPing', deviceToken:getDeviceToken()}, 5000);
+    // GASの応答は1〜6秒程度ばらつくため、タイムアウトは余裕を持って15秒にする
+    // （5秒だと4G回線などで頻繁に「通信不安定」になってしまう）
+    const data=await postToGas({action:'jukiPing', deviceToken:getDeviceToken()}, 15000);
     realOnline = !!data.ok;
   }catch(e){
     realOnline=false;
