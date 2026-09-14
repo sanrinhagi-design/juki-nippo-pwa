@@ -529,6 +529,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
   </div></div>
 
+  <div id="dash-updated" style="font-size:13px;color:#5a5a5a;text-align:right;margin:-2px 4px 8px"></div>
   <div class="stat-grid" id="dash-stats"></div>
 
   <div class="slbl">機体別 稼働時間（当月）・燃費（直近3か月平均 L/h）</div>
@@ -928,7 +929,7 @@ let curInspType=null, curInspChecks={};
 
 function getDeviceToken(){ return localStorage.getItem('portalDeviceToken') || ''; }
 function setDeviceToken(t){ localStorage.setItem('portalDeviceToken', t); }
-function clearDeviceToken(){ localStorage.removeItem('portalDeviceToken'); }
+function clearDeviceToken(){ localStorage.removeItem('portalDeviceToken'); clearDataCaches(); }
 
 let _authOverlayErrMsg = '';
 function showAuthOverlay(errMsg, showRequestLink){
@@ -1010,11 +1011,19 @@ const JUKI_ACTION_MAP = {
   getReports:'jukiGetReports', ping:'jukiPing', batchAddReports:'jukiBatchAddReports',
   addMachine:'jukiAddMachine', editMachine:'jukiEditMachine', deleteMachine:'jukiDeleteMachine',
   addOperator:'jukiAddOperator', deleteOperator:'jukiDeleteOperator', saveInspection:'jukiSaveInspection',
-  editReport:'jukiEditReport', deleteReport:'jukiDeleteReport', getFuelStats:'jukiGetFuelStats'
+  editReport:'jukiEditReport', deleteReport:'jukiDeleteReport', getFuelStats:'jukiGetFuelStats', init:'jukiInit'
 };
+// ★通信の時間制限（電波が弱い時に「取得中...」のまま止まらないように）
+// 起動時の一括取得は30秒、日報送信（写真を含むことがある）は120秒、取得系は20秒、その他の更新系は60秒
+function jukiTimeout(action){
+  if(action==='init')return 30000;
+  if(action==='batchAddReports')return 120000;
+  if(/^(get|ping)/.test(action))return 20000;
+  return 60000;
+}
 async function fetchJukiApi(action, params){
   const payload = Object.assign({action: JUKI_ACTION_MAP[action] || action, deviceToken: getDeviceToken()}, params || {});
-  const data = await postToGas(payload);
+  const data = await postToGas(payload, jukiTimeout(action));
   // 通常のAPI呼び出しが1回でも成功すればサーバーに届いている＝オンライン扱いにする
   if(data && !realOnline){ realOnline=true; updateNet(); }
   if(data && data.status==='error' && /認証|ログイン/.test(data.message||'')){
@@ -1120,7 +1129,7 @@ function initApp(){
       setTimeout(async ()=>{
         if(realOnline || !navigator.onLine)return;
         await checkRealConnectivity();
-        if(realOnline){autoSync();refreshTodayList(false);refreshSuggestLists();}
+        if(realOnline){autoSync();fetchRemote();}
       }, ms);
     });
   }
@@ -1129,7 +1138,7 @@ function initApp(){
   setInterval(async ()=>{
     if(navigator.onLine && !realOnline){
       await checkRealConnectivity();
-      if(realOnline){autoSync();refreshTodayList(false);}
+      if(realOnline){autoSync();fetchRemote();}
     }
   }, 10000);
   if('serviceWorker' in navigator){
@@ -1147,7 +1156,10 @@ function initApp(){
       });
     }).catch(e=>console.warn('SW:',e));
   }
-  checkRealConnectivity().then(()=>{fetchRemote();refreshSuggestLists();});
+  // ★起動時：端末に保存済みの直近データで入力候補を先に出し、サーバーからは一括取得1回で最新化する
+  //   （一括取得の成功＝オンライン確認を兼ねるので、事前の疎通確認を待たない。失敗時だけ疎通確認で状態表示を更新）
+  renderSuggestLists([...recentCache.reports,...allReports()]);
+  fetchRemote().then(ok=>{ if(!ok)checkRealConnectivity(); });
 }
 
 function syncStickyOffset(){
@@ -1191,6 +1203,7 @@ function loadData(){
   pending=JSON.parse(localStorage.getItem('pending')||'[]');
   synced=JSON.parse(localStorage.getItem('synced')||'[]');
   inspections=JSON.parse(localStorage.getItem('inspections')||'[]');
+  loadDataCaches();
 }
 function saveData(){
   localStorage.setItem('machines',JSON.stringify(machines));
@@ -1212,6 +1225,57 @@ function getDeviceId(){let id=localStorage.getItem('deviceId');if(!id){id='dev-'
 function allReports(){return [...pending,...synced];}
 function todayReports(){const t=todayStr();return allReports().filter(r=>r.date===t);}
 function findMachine(id){return machines.find(m=>m.id===id);}
+
+// ================================================================
+// ★端末キャッシュ（起動・機体選択・集計画面を速くするための「写し」。正本はサーバー）
+//   recentCache : サーバー上の直近2か月（前月・当月）の日報。前回終了/前回給油時/前回の現場/入力候補に使う
+//   calMonthCache / calMonthAt / fuelStatsCache : 集計画面で表示した月ごとの日報・取得時刻・燃費（直近6件）
+//   ログアウト時（clearDeviceToken）に消去する。容量不足で保存できない時は保存を諦めて従来どおり動く
+// ================================================================
+let recentCache={months:[],reports:[],at:0};
+let calMonthCache={}, calMonthAt={}, fuelStatsCache={};
+let calShownKey='';
+function lsGet(key,def){try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;}}
+function lsSet(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch(e){console.warn('cache:',key,e);}}
+function loadDataCaches(){
+  recentCache=lsGet('recentCache',{months:[],reports:[],at:0});
+  const c=lsGet('calCache',{});
+  calMonthCache=c.reports||{}; calMonthAt=c.at||{}; fuelStatsCache=c.fuel||{};
+}
+function setRecentCache(months,reports){
+  recentCache={months:months||[],reports:reports||[],at:Date.now()};
+  lsSet('recentCache',recentCache);
+}
+// 集計画面で日報を編集・削除した時に、直近2か月キャッシュにも同じ変更を反映する（upd=null で削除）
+function patchRecentCache(id,upd){
+  recentCache.reports = upd ? recentCache.reports.map(r=>r.id===id?Object.assign({},r,upd):r) : recentCache.reports.filter(r=>r.id!==id);
+  lsSet('recentCache',recentCache);
+}
+function saveCalCache(){
+  Object.keys(calMonthAt).sort((a,b)=>calMonthAt[b]-calMonthAt[a]).slice(6).forEach(k=>{delete calMonthAt[k];delete calMonthCache[k];});
+  const f={}; Object.keys(fuelStatsCache).sort().slice(-6).forEach(k=>{f[k]=fuelStatsCache[k];});
+  fuelStatsCache=f;
+  lsSet('calCache',{reports:calMonthCache,at:calMonthAt,fuel:fuelStatsCache});
+}
+function clearDataCaches(){
+  recentCache={months:[],reports:[],at:0}; calMonthCache={}; calMonthAt={}; fuelStatsCache={};
+  try{localStorage.removeItem('recentCache');localStorage.removeItem('calCache');}catch(e){}
+}
+// 指定日の当月・前月の、指定機体の日報（サーバー分）。直近2か月キャッシュで足りれば通信しない
+async function serverReportsAround(mid, selDate){
+  const d=new Date(selDate+'T00:00:00');
+  const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+  const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+  const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+  const cached=recentCache.reports.filter(r=>r.machineId===mid);
+  if(!navigator.onLine || [thisM,prevM].every(m=>recentCache.months.includes(m)))return cached;
+  const results=await Promise.all([thisM,prevM].map(ym=>
+    fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
+  ));
+  const out=[];
+  results.forEach(dd=>{(dd.reports||[]).forEach(r=>out.push(r));});
+  return out;
+}
 
 function daysAgoStr(n){
   const d=new Date();d.setDate(d.getDate()-n);
@@ -1241,9 +1305,10 @@ function mergeIntoDatalist(id,newValues){
   const merged=[...new Set([...newValues,...existing])];
   dl.innerHTML=merged.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">`).join('');
 }
+// 直近2か月（前月・当月）の日報を取り直して端末キャッシュと入力候補を更新する（旧GAS用・一括取得失敗時用）
 async function refreshSuggestLists(){
   if(!navigator.onLine){
-    renderSuggestLists(allReports());
+    renderSuggestLists([...recentCache.reports,...allReports()]);
     return;
   }
   try{
@@ -1251,40 +1316,67 @@ async function refreshSuggestLists(){
     const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
     const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
     const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
-    const results=await Promise.all([thisM,prevM].map(ym=>
-      fetchJukiApi('getReports',{month:ym}).catch(()=>({reports:[]}))
+    const results=await Promise.all([prevM,thisM].map(ym=>
+      fetchJukiApi('getReports',{month:ym}).catch(()=>({}))
     ));
-    const merged=[];
-    results.forEach(dd=>{if(dd.reports)merged.push(...dd.reports);});
-    merged.push(...allReports());
-    renderSuggestLists(merged);
+    if(results.every(dd=>dd.reports)){
+      const merged=[];
+      results.forEach(dd=>merged.push(...dd.reports));
+      setRecentCache([prevM,thisM],merged);
+      applyTodayFromReports(merged);
+    }
+    afterRecentUpdated();
   }catch(e){
     console.warn('suggest:',e);
-    renderSuggestLists(allReports());
+    renderSuggestLists([...recentCache.reports,...allReports()]);
   }
 }
 
+// ★起動時・電波回復時・送信後の最新化。GASの一括取得（jukiInit）1回で、
+//   重機一覧・運転者・特定自主検査・直近2か月の日報をまとめて受け取る。
+//   旧GAS（jukiInit未対応）の場合は従来どおり個別に取得する。成功したら true（＝オンライン確認を兼ねる）
+let _fetchRemoteBusy=false;
 async function fetchRemote(){
-  if(!navigator.onLine) return;
-  const [mR,oR,iR,tR]=await Promise.allSettled([
-    fetchJukiApi('getMachines',{}), fetchJukiApi('getOperators',{}), fetchJukiApi('getInspections',{}),
-    fetchJukiApi('getReports',{month:monthStr()})
-  ]);
-  if(mR.status==='fulfilled'&&mR.value.machines&&mR.value.machines.length>0){
-    machines=mR.value.machines;populateForms();renderMachines();renderYardChips();
-  }
-  if(oR.status==='fulfilled'&&oR.value.operators&&oR.value.operators.length>0){
-    operators=oR.value.operators;populateForms();
-  }
-  if(iR.status==='fulfilled'&&iR.value.inspections){
-    inspections=iR.value.inspections;renderJikensa();renderDashWarnings();
-  }
-  if(tR.status==='fulfilled'&&tR.value.reports){
-    const t=todayStr();
-    serverToday=tR.value.reports.filter(r=>String(r.date)===t).map(r=>({...r,synced:true}));
-    renderList();
-  }
+  if(!navigator.onLine||_fetchRemoteBusy) return false;
+  _fetchRemoteBusy=true;
+  try{
+    let data=null;
+    try{ data=await fetchJukiApi('init',{month:monthStr()}); }
+    catch(e){ console.warn('init:',e); return false; }   // 通信失敗・時間切れ → 端末のデータのまま
+    if(data && data.machines){
+      applyRemote(data.machines, data.operators, data.inspections);
+      setRecentCache(data.months, data.reports);
+      applyTodayFromReports(data.reports);
+      afterRecentUpdated();
+      return true;
+    }
+    // 認証エラー等は個別取得しても同じなので打ち切る（「不明なアクション」＝旧GASの時だけ個別取得へ）
+    if(data && data.status==='error' && !/不明なアクション/.test(data.message||'')) return false;
+    const [mR,oR,iR]=await Promise.allSettled([
+      fetchJukiApi('getMachines',{}), fetchJukiApi('getOperators',{}), fetchJukiApi('getInspections',{})
+    ]);
+    applyRemote(mR.status==='fulfilled'&&mR.value.machines, oR.status==='fulfilled'&&oR.value.operators, iR.status==='fulfilled'&&iR.value.inspections);
+    await refreshSuggestLists();
+    return true;
+  }finally{ _fetchRemoteBusy=false; }
+}
+function applyRemote(ms, ops, insps){
+  if(ms&&ms.length>0){machines=ms;populateForms();renderMachines();renderYardChips();}
+  if(ops&&ops.length>0){operators=ops;populateForms();}
+  if(insps){inspections=insps;renderJikensa();renderDashWarnings();}
   saveData();
+}
+function applyTodayFromReports(reports){
+  const t=todayStr();
+  serverToday=(reports||[]).filter(r=>String(r.date)===t).map(r=>({...r,synced:true}));
+  renderList();
+}
+// 直近2か月キャッシュ更新後：入力候補を作り直し、選択中の機体の前回値も最新のデータで出し直す
+function afterRecentUpdated(){
+  renderSuggestLists([...recentCache.reports,...allReports()]);
+  const mid=document.getElementById('f-machine').value;
+  const m=mid&&findMachine(mid);
+  if(m){ updatePrevHour(mid); if(m.type==='crusher')updatePrevFuelHour(mid); }
 }
 
 let serverToday=[];
@@ -1479,18 +1571,8 @@ async function updatePrevFuelHour(mid){
   };
   let best=null;
   [...allReports(),...serverToday].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
-  if(navigator.onLine){
-    try{
-      const d=new Date(selDate+'T00:00:00');
-      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
-      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
-      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
-      const results=await Promise.all([thisM,prevM].map(ym=>
-        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
-      ));
-      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
-    }catch(e){}
-  }
+  // 直近2か月の端末キャッシュで足りれば通信しない（足りない過去の日付の時だけサーバーに問い合わせる）
+  (await serverReportsAround(mid, selDate).catch(()=>[])).forEach(r=>{best=consider(r,best);});
   if(document.getElementById('f-machine').value!==mid)return;
   if(best){
     prevFuelHour=best.h;
@@ -1564,18 +1646,8 @@ async function updatePrevSiteInfo(mid){
   };
   let best=null;
   [...allReports(),...serverToday].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
-  if(navigator.onLine){
-    try{
-      const d=new Date(selDate+'T00:00:00');
-      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
-      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
-      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
-      const results=await Promise.all([thisM,prevM].map(ym=>
-        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
-      ));
-      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
-    }catch(e){}
-  }
+  // 直近2か月の端末キャッシュで足りれば通信しない（足りない過去の日付の時だけサーバーに問い合わせる）
+  (await serverReportsAround(mid, selDate).catch(()=>[])).forEach(r=>{best=consider(r,best);});
   // 選択中の機体が途中で変わっていたら（連続でタップした場合など）反映しない
   if(document.getElementById('f-machine').value!==mid || myToken!==_prevSiteFetchToken)return;
   if(!best)return;
@@ -1628,18 +1700,8 @@ async function updatePrevHour(mid){
   };
   let best=null;
   [...allReports(),...serverToday].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
-  if(navigator.onLine){
-    try{
-      const d=new Date(selDate+'T00:00:00');
-      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
-      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
-      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
-      const results=await Promise.all([thisM,prevM].map(ym=>
-        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
-      ));
-      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
-    }catch(e){}
-  }
+  // 直近2か月の端末キャッシュで足りれば通信しない（足りない過去の日付の時だけサーバーに問い合わせる）
+  (await serverReportsAround(mid, selDate).catch(()=>[])).forEach(r=>{best=consider(r,best);});
   if(document.getElementById('f-machine').value!==mid)return;
   const nqEl=document.getElementById('nq-prev-hmeter');
   if(best){
@@ -2135,7 +2197,7 @@ async function doSync(retryCount){
       // ★軽量化：集計・サジェストの再取得は保存の都度ではなく、
       // 少し間を置いてまとめて1回だけ行う（連続保存された場合の負荷軽減）
       clearTimeout(_postSyncDebounce);
-      _postSyncDebounce = setTimeout(()=>{ renderDashWarnings(); if(document.getElementById('scr-dash').classList.contains('on'))loadCalMonth(); refreshSuggestLists(); }, 1500);
+      _postSyncDebounce = setTimeout(()=>{ renderDashWarnings(); if(document.getElementById('scr-dash').classList.contains('on'))loadCalMonth(); fetchRemote(); }, 1500);
     }
   }catch(e){
     console.warn('Sync:',e);
@@ -2494,6 +2556,11 @@ function dashScopeLabel(){
 // （データは calReports = 表示中の月・拠点・機体で既に絞り込み済み）
 function renderDashboard(){
   document.getElementById('dash-month').textContent=`令和${calYear-2018}年${calMonth+1}月　${dashScopeLabel()}`;
+  // ★端末キャッシュの値を表示している可能性があるので、サーバーから取得した時刻を出す
+  const upAt=calMonthAt[calShownKey];
+  document.getElementById('dash-updated').textContent = upAt
+    ? '最終更新 '+new Date(upAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})
+    : (navigator.onLine ? '' : '圏外のため端末内のデータのみ表示');
 
   const rpts=calReports;
   const totalW=rpts.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
@@ -2632,13 +2699,13 @@ function calNav(dir){
 
 // ★燃費（表示月を含む直近3か月の平均）：サーバー側で機体別の給油量・稼働時間の合計を集計して1回で受け取る
 // 月ごとにキャッシュし、再表示のたびに最新値を取り直す（取得中は前回値を表示）
-let fuelStatsCache={};
 async function loadFuelStats(ym){
   if(!navigator.onLine){ if(!fuelStatsCache[ym])fuelStatsCache[ym]={}; return; }
   try{
     const data=await fetchJukiApi('getFuelStats',{month:ym});
     // サーバーが未対応（旧バージョン）やエラーの場合は空扱いにして「—」表示にする
     fuelStatsCache[ym]=(data&&data.stats)?data.stats:(fuelStatsCache[ym]||{});
+    if(data&&data.stats)saveCalCache();
   }catch(e){
     console.warn('fuel:',e);
     if(!fuelStatsCache[ym])fuelStatsCache[ym]={};
@@ -2646,7 +2713,6 @@ async function loadFuelStats(ym){
   if(calYM()===ym)renderDashboard();
 }
 
-let calMonthCache={};
 async function loadCalMonth(){
   const ym=calYM();
   loadFuelStats(ym);
@@ -2654,6 +2720,7 @@ async function loadCalMonth(){
   if(calMachineId){
     const mid=calMachineId;
     const key=mid+'|'+ym;
+    calShownKey=key;
     const local=allReports().filter(r=>r.machineId===mid && String(r.date).startsWith(ym));
     calReports=calMonthCache[key]?calMonthCache[key]:local;
     renderCalView();
@@ -2664,7 +2731,7 @@ async function loadCalMonth(){
           const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
           const localOnly=local.filter(r=>!sids.has(r.id));
           const merged=[...data.reports,...localOnly];
-          calMonthCache[key]=merged;
+          calMonthCache[key]=merged;calMonthAt[key]=Date.now();saveCalCache();
           if(calMachineId===mid && calYM()===ym){
             calReports=merged;
             renderCalView();
@@ -2680,7 +2747,15 @@ async function loadCalMonth(){
   const idSet=new Set(targetIds);
   const matches = r => isOther ? r.yard==='その他' : idSet.has(r.machineId);
   const local=allReports().filter(r=>matches(r) && String(r.date).startsWith(ym));
-  calReports=local;
+  // ★前回表示したこの月・範囲の内容（端末キャッシュ）があれば先に出し、裏で最新に差し替える
+  const skey='scope:'+calScope+'|'+ym;
+  calShownKey=skey;
+  if(calMonthCache[skey]){
+    const cids=new Set(calMonthCache[skey].map(r=>r.id).filter(Boolean));
+    calReports=[...calMonthCache[skey],...local.filter(r=>!cids.has(r.id))];
+  }else{
+    calReports=local;
+  }
   renderCalView();
   if(navigator.onLine){
     try{
@@ -2689,7 +2764,8 @@ async function loadCalMonth(){
         const filtered=data.reports.filter(matches);
         const sids=new Set(filtered.map(r=>r.id).filter(Boolean));
         const localOnly=local.filter(r=>!sids.has(r.id));
-        if(!calMachineId && calYM()===ym){
+        calMonthCache[skey]=filtered;calMonthAt[skey]=Date.now();saveCalCache();
+        if(!calMachineId && calShownKey===skey){
           calReports=[...filtered,...localOnly];
           renderCalView();
         }
@@ -3023,18 +3099,8 @@ async function updateDmPrevHour(){
   };
   let best=null;
   [...allReports(),...serverToday,...calReports].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
-  if(navigator.onLine){
-    try{
-      const d=new Date(selDate+'T00:00:00');
-      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
-      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
-      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
-      const results=await Promise.all([thisM,prevM].map(ym=>
-        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
-      ));
-      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
-    }catch(e){}
-  }
+  // 直近2か月の端末キャッシュで足りれば通信しない（足りない過去の日付の時だけサーバーに問い合わせる）
+  (await serverReportsAround(mid, selDate).catch(()=>[])).forEach(r=>{best=consider(r,best);});
   if(!dmCurrent||(document.getElementById('dm-machine').value||dmCurrent.machineId)!==mid)return;
   if(best){
     dmPrevHour=best.h;
@@ -3070,18 +3136,8 @@ async function updateDmPrevFuelHour(){
   };
   let best=null;
   [...allReports(),...serverToday,...calReports].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
-  if(navigator.onLine){
-    try{
-      const d=new Date(selDate+'T00:00:00');
-      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
-      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
-      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
-      const results=await Promise.all([thisM,prevM].map(ym=>
-        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
-      ));
-      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
-    }catch(e){}
-  }
+  // 直近2か月の端末キャッシュで足りれば通信しない（足りない過去の日付の時だけサーバーに問い合わせる）
+  (await serverReportsAround(mid, selDate).catch(()=>[])).forEach(r=>{best=consider(r,best);});
   if(!dmCurrent||(document.getElementById('dm-machine').value||dmCurrent.machineId)!==mid)return;
   if(best){
     dmPrevFuelHour=best.h;
@@ -3156,6 +3212,7 @@ async function saveDayModal(){
         if(idx>=0)Object.assign(arr[idx],upd,{yard:newYard});
       });
       serverToday=serverToday.map(r=>r.id===upd.id?Object.assign({},r,upd,{yard:newYard}):r);
+      patchRecentCache(upd.id,Object.assign({},upd,{yard:newYard}));
       saveData();
       closeDayModal();
       showToast('日報を更新しました','ok');
@@ -3180,6 +3237,7 @@ async function deleteDayModal(){
       pending=pending.filter(r=>r.id!==delId);
       synced=synced.filter(r=>r.id!==delId);
       serverToday=serverToday.filter(r=>r.id!==delId);
+      patchRecentCache(delId,null);
       saveData();
       closeDayModal();
       showToast('日報を削除しました','ok');
@@ -4031,18 +4089,8 @@ async function bkFetchPrevHour(mid) {
   };
   let best = null;
   [...allReports(), ...serverToday].filter(r => r.machineId === mid).forEach(r => { best = consider(r, best); });
-  if (navigator.onLine) {
-    try {
-      const d = new Date(selDate + 'T00:00:00');
-      const thisM = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
-      const pm = new Date(d.getFullYear(), d.getMonth()-1, 1);
-      const prevM = `${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
-      const results = await Promise.all([thisM, prevM].map(ym =>
-        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
-      ));
-      results.forEach(dd => { (dd.reports||[]).forEach(r => { best = consider(r, best); }); });
-    } catch(e) {}
-  }
+  // 直近2か月の端末キャッシュで足りれば通信しない（一括入力で機体が多くても待たない）
+  (await serverReportsAround(mid, selDate).catch(() => [])).forEach(r => { best = consider(r, best); });
   if (!bkRowData[mid]) return;
   if (best) {
     bkRowData[mid].prevHour = best.h;
