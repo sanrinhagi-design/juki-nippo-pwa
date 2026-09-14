@@ -531,7 +531,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <div class="stat-grid" id="dash-stats"></div>
 
-  <div class="slbl">機体別 稼働時間・燃費（L/h）</div>
+  <div class="slbl">機体別 稼働時間（当月）・燃費（直近3か月平均 L/h）</div>
   <div class="card"><div class="card-b" id="dash-chart"></div></div>
 
   <div class="slbl">点検達成率</div>
@@ -1010,7 +1010,7 @@ const JUKI_ACTION_MAP = {
   getReports:'jukiGetReports', ping:'jukiPing', batchAddReports:'jukiBatchAddReports',
   addMachine:'jukiAddMachine', editMachine:'jukiEditMachine', deleteMachine:'jukiDeleteMachine',
   addOperator:'jukiAddOperator', deleteOperator:'jukiDeleteOperator', saveInspection:'jukiSaveInspection',
-  editReport:'jukiEditReport', deleteReport:'jukiDeleteReport'
+  editReport:'jukiEditReport', deleteReport:'jukiDeleteReport', getFuelStats:'jukiGetFuelStats'
 };
 async function fetchJukiApi(action, params){
   const payload = Object.assign({action: JUKI_ACTION_MAP[action] || action, deviceToken: getDeviceToken()}, params || {});
@@ -2502,12 +2502,10 @@ function renderDashboard(){
     <div class="stat-card"><div class="num">${Math.round(totalW*10)/10} h</div><div class="lbl">総稼働時間</div></div>
     <div class="stat-card"><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>`;
 
-  // 機体別 稼働時間の横棒グラフ（右端に燃費＝表示範囲の給油量合計÷稼働時間合計 L/h）
+  // 機体別 稼働時間の横棒グラフ（右端に燃費＝表示月を含む直近3か月の給油量合計÷稼働時間合計 L/h）
   const workByM={};
-  const fuelByM={};
+  const fuelStats=fuelStatsCache[calYM()];
   rpts.forEach(r=>{
-    const f=parseFloat(r.fuelAmount)||0;
-    if(f>0)fuelByM[r.machineId]=(fuelByM[r.machineId]||0)+f;
     const w=parseFloat(r.workHours)||0;
     if(w<=0)return;
     workByM[r.machineId]=(workByM[r.machineId]||0)+w;
@@ -2518,7 +2516,8 @@ function renderDashboard(){
     ? '<div style="font-size:15px;color:#5a5a5a;padding:8px 4px">この範囲の稼働記録なし</div>'
     : workEntries.map(([id,w])=>{
         const pct=maxW>0?Math.max(4,Math.round(w/maxW*100)):0;
-        const eff=fuelByM[id]?`${Math.round(fuelByM[id]/w*10)/10}L/h`:'—';
+        const st=fuelStats&&fuelStats[id];
+        const eff=!fuelStats ? '計算中' : (st&&st.fuel>0&&st.work>0 ? `${Math.round(st.fuel/st.work*10)/10}L/h` : '—');
         return `<div class="bar-row"><span class="bar-id">${id}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-val">${Math.round(w*10)/10}h</span><span class="bar-eff">${eff}</span></div>`;
       }).join('');
 
@@ -2631,9 +2630,26 @@ function calNav(dir){
   loadCalMonth();
 }
 
+// ★燃費（表示月を含む直近3か月の平均）：サーバー側で機体別の給油量・稼働時間の合計を集計して1回で受け取る
+// 月ごとにキャッシュし、再表示のたびに最新値を取り直す（取得中は前回値を表示）
+let fuelStatsCache={};
+async function loadFuelStats(ym){
+  if(!navigator.onLine){ if(!fuelStatsCache[ym])fuelStatsCache[ym]={}; return; }
+  try{
+    const data=await fetchJukiApi('getFuelStats',{month:ym});
+    // サーバーが未対応（旧バージョン）やエラーの場合は空扱いにして「—」表示にする
+    fuelStatsCache[ym]=(data&&data.stats)?data.stats:(fuelStatsCache[ym]||{});
+  }catch(e){
+    console.warn('fuel:',e);
+    if(!fuelStatsCache[ym])fuelStatsCache[ym]={};
+  }
+  if(calYM()===ym)renderDashboard();
+}
+
 let calMonthCache={};
 async function loadCalMonth(){
   const ym=calYM();
+  loadFuelStats(ym);
 
   if(calMachineId){
     const mid=calMachineId;
