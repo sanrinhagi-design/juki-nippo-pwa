@@ -129,6 +129,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .bar-track{flex:1;background:#f0f0f0;border-radius:5px;height:14px;overflow:hidden}
 .bar-fill{height:100%;border-radius:5px;background:#185fa5;transition:width .3s}
 .bar-val{font-size:14.5px;font-weight:700;color:#333;min-width:46px;text-align:right;flex-shrink:0}
+.bar-eff{font-size:13.5px;font-weight:600;color:#5a5a5a;min-width:60px;text-align:right;flex-shrink:0}
 .card-alert{border-left:3px solid #c0392b}
 .card-alert .card-h{background:#fff5f5}
 .fab{background:#185fa5;color:#fff;border-radius:28px;padding:13px 20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(24,95,165,.35);margin-bottom:12px;transition:opacity .15s}
@@ -342,6 +343,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div class="fg" id="f-fuelhour-row" style="display:none;margin-bottom:11px">
       <label class="fl">給油時アワメータ (h)</label>
       <input class="fc" type="number" id="f-fuelhour" placeholder="例: 4262" inputmode="decimal">
+      <div id="prev-fuelhour" style="font-size:15px;color:#5a5a5a;margin-top:5px">前回給油時: —</div>
     </div>
     <div class="frow" style="margin-bottom:0">
       <div class="trow" style="padding:6px 0;border:none">
@@ -529,7 +531,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <div class="stat-grid" id="dash-stats"></div>
 
-  <div class="slbl">機体別 稼働時間</div>
+  <div class="slbl">機体別 稼働時間・燃費（L/h）</div>
   <div class="card"><div class="card-b" id="dash-chart"></div></div>
 
   <div class="slbl">点検達成率</div>
@@ -731,7 +733,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     <div id="dm-empty" style="display:none;font-size:15px;color:#5a5a5a;padding:12px 0">この日の日報はありません。日報入力タブから新規入力してください。</div>
     <div id="dm-form">
       <div class="frow" style="margin-bottom:11px">
-        <div class="fg" style="margin-bottom:0"><label class="fl">日付</label><input class="fc" type="date" id="dm-date" onchange="updateDmPrevHour()"></div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">日付</label><input class="fc" type="date" id="dm-date" onchange="updateDmPrevHour();updateDmPrevFuelHour()"></div>
         <div class="fg" style="margin-bottom:0"><label class="fl">重機番号</label><select class="fc" id="dm-machine"></select></div>
       </div>
       <div class="fg"><label class="fl">運転者</label>
@@ -752,6 +754,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
           <input class="fc" type="text" id="dm-floc" list="dl-floc" autocomplete="off">
         </div>
         <div class="fg" style="margin-bottom:0"><label class="fl">給油量(L)</label><input class="fc" type="number" id="dm-famt" inputmode="decimal"></div>
+      </div>
+      <div class="fg" id="dm-fuelhour-row" style="display:none;margin-bottom:11px">
+        <label class="fl">給油時アワメータ(h)</label>
+        <input class="fc" type="number" id="dm-fuelhour" inputmode="decimal" oninput="calcDmFuelHourDiff()">
+        <div style="font-size:13px;color:#5a5a5a;margin-top:5px">前回給油時: <span id="dm-prev-fuelhour">—</span><span id="dm-fuelhour-diff"></span></div>
       </div>
       <div class="fg"><label class="fl">点検</label>
         <div class="fc" id="dm-insp-bar" onclick="openDmInspModal()" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#fff;border-color:#d5d5d5">
@@ -776,7 +783,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
           <div class="fg" style="margin-bottom:0"><label class="fl">ボルト</label><input class="fc" type="number" id="dm-bolt" inputmode="numeric"></div>
           <div class="fg" style="margin-bottom:0"><label class="fl">ナット</label><input class="fc" type="number" id="dm-nut" inputmode="numeric"></div>
         </div>
-        <div class="fg"><label class="fl">給油時アワメータ(h)</label><input class="fc" type="number" id="dm-fuelhour" inputmode="decimal"></div>
       </div>
       <div class="fg"><label class="fl">備考区分</label>
         <select class="fc" id="dm-notetype"><option value="">選んでいない</option><option value="備考">備考</option><option value="故障">故障</option><option value="備考と故障">備考と故障</option></select>
@@ -1459,6 +1465,9 @@ async function updatePrevFuelHour(mid){
   if(!valEl)return;
   valEl.textContent='取得中...';
   if(diffEl)diffEl.textContent='';
+  // 日報入力画面の「給油時アワメータ」欄の下にも同じ前回値を表示する
+  const fEl=document.getElementById('prev-fuelhour');
+  if(fEl)fEl.textContent='前回給油時: 取得中...';
   const selDate=document.getElementById('f-date').value||todayStr();
   const consider=(r,best)=>{
     const h=parseFloat(r.fuelHour);
@@ -1486,10 +1495,13 @@ async function updatePrevFuelHour(mid){
   if(best){
     prevFuelHour=best.h;
     const dd=String(best.date);
-    valEl.textContent=`${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    const label=`${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    valEl.textContent=label;
+    if(fEl)fEl.textContent='前回給油時: '+label;
     calcNqFuelHourDiff();
   }else{
     valEl.textContent='記録なし';
+    if(fEl)fEl.textContent='前回給油時: 記録なし';
   }
 }
 function calcNqFuelHourDiff(){
@@ -1527,6 +1539,7 @@ function onMachineChange(){
   setInspBar('ready');
   updatePrevHour(id);
   updatePrevSiteInfo(id);
+  if(m.type==='crusher')updatePrevFuelHour(id);
 }
 
 // ★機体選択時に、前回その機体を使った日報の「元請」「現場名」を自動で入力欄に反映する。
@@ -2021,6 +2034,7 @@ function resetForm(){
   document.getElementById('f-date').value=todayStr();
   document.getElementById('crusher-fields').style.display='none';
   document.getElementById('f-fuelhour-row').style.display='none';
+  document.getElementById('prev-fuelhour').textContent='前回給油時: —';
   renderFMachineChips();
   prevHour=null;document.getElementById('prev-hmeter').textContent='前回終了: —';
   clearPhoto();
@@ -2488,9 +2502,12 @@ function renderDashboard(){
     <div class="stat-card"><div class="num">${Math.round(totalW*10)/10} h</div><div class="lbl">総稼働時間</div></div>
     <div class="stat-card"><div class="num">${Math.round(totalL)} L</div><div class="lbl">総給油量</div></div>`;
 
-  // 機体別 稼働時間の横棒グラフ
+  // 機体別 稼働時間の横棒グラフ（右端に燃費＝表示範囲の給油量合計÷稼働時間合計 L/h）
   const workByM={};
+  const fuelByM={};
   rpts.forEach(r=>{
+    const f=parseFloat(r.fuelAmount)||0;
+    if(f>0)fuelByM[r.machineId]=(fuelByM[r.machineId]||0)+f;
     const w=parseFloat(r.workHours)||0;
     if(w<=0)return;
     workByM[r.machineId]=(workByM[r.machineId]||0)+w;
@@ -2501,7 +2518,8 @@ function renderDashboard(){
     ? '<div style="font-size:15px;color:#5a5a5a;padding:8px 4px">この範囲の稼働記録なし</div>'
     : workEntries.map(([id,w])=>{
         const pct=maxW>0?Math.max(4,Math.round(w/maxW*100)):0;
-        return `<div class="bar-row"><span class="bar-id">${id}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-val">${Math.round(w*10)/10}h</span></div>`;
+        const eff=fuelByM[id]?`${Math.round(fuelByM[id]/w*10)/10}L/h`:'—';
+        return `<div class="bar-row"><span class="bar-id">${id}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-val">${Math.round(w*10)/10}h</span><span class="bar-eff">${eff}</span></div>`;
       }).join('');
 
   // 点検達成率（機体ごと）
@@ -2946,10 +2964,12 @@ function dmSelect(i){
   const dmM=findMachine(r.machineId);
   const isCrusher=dmM&&dmM.type==='crusher';
   document.getElementById('dm-crusher').style.display=isCrusher?'block':'none';
+  document.getElementById('dm-fuelhour-row').style.display=isCrusher?'block':'none';
   document.getElementById('dm-bit').value=r.bit!==undefined?r.bit:'';
   document.getElementById('dm-bolt').value=r.bolt!==undefined?r.bolt:'';
   document.getElementById('dm-nut').value=r.nut!==undefined?r.nut:'';
   document.getElementById('dm-fuelhour').value=r.fuelHour!==undefined?r.fuelHour:'';
+  updateDmPrevFuelHour();
 
   // ★集計画面編集モーダル内のGPS読み込み処理★
   document.getElementById('dm-lat').value = r.lat || '';
@@ -3008,6 +3028,62 @@ async function updateDmPrevHour(){
   }else{
     if(el)el.textContent='前回終了: 記録なし';
   }
+}
+let dmPrevFuelHour=null;
+// ★破砕機のみ：日報入力画面と同じく、編集モーダルでも「前回給油時アワメータ」と入力値との時間差を表示する
+async function updateDmPrevFuelHour(){
+  dmPrevFuelHour=null;
+  const el=document.getElementById('dm-prev-fuelhour');
+  const diffEl=document.getElementById('dm-fuelhour-diff');
+  if(diffEl)diffEl.textContent='';
+  if(!el)return;
+  if(!dmCurrent){el.textContent='—';return;}
+  const mid=document.getElementById('dm-machine').value||dmCurrent.machineId;
+  const m=findMachine(mid);
+  if(!m||m.type!=='crusher'){el.textContent='—';return;}
+  const selDate=document.getElementById('dm-date').value||dmCurrent.date;
+  el.textContent='取得中...';
+  const consider=(r,best)=>{
+    if(r.id===dmCurrent.id)return best; // 編集中の自分自身は除外
+    const h=parseFloat(r.fuelHour);
+    if(isNaN(h))return best;
+    if(String(r.date)>selDate)return best;
+    const key=String(r.date)+String(r.savedAt||'');
+    if(!best||key>best.key)return {key,h,date:r.date};
+    return best;
+  };
+  let best=null;
+  [...allReports(),...serverToday,...calReports].filter(r=>r.machineId===mid).forEach(r=>{best=consider(r,best);});
+  if(navigator.onLine){
+    try{
+      const d=new Date(selDate+'T00:00:00');
+      const thisM=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const pm=new Date(d.getFullYear(),d.getMonth()-1,1);
+      const prevM=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`;
+      const results=await Promise.all([thisM,prevM].map(ym=>
+        fetchJukiApi('getReports',{month:ym, machineId:mid}).catch(()=>({reports:[]}))
+      ));
+      results.forEach(dd=>{(dd.reports||[]).forEach(r=>{best=consider(r,best);});});
+    }catch(e){}
+  }
+  if(!dmCurrent||(document.getElementById('dm-machine').value||dmCurrent.machineId)!==mid)return;
+  if(best){
+    dmPrevFuelHour=best.h;
+    const dd=String(best.date);
+    el.textContent=`${best.h} h（${parseInt(dd.slice(5,7),10)}/${parseInt(dd.slice(8,10),10)}）`;
+    calcDmFuelHourDiff();
+  }else{
+    el.textContent='記録なし';
+  }
+}
+function calcDmFuelHourDiff(){
+  const diffEl=document.getElementById('dm-fuelhour-diff');
+  if(!diffEl)return;
+  if(dmPrevFuelHour===null){diffEl.textContent='';return;}
+  const cur=parseFloat(document.getElementById('dm-fuelhour').value);
+  if(isNaN(cur)){diffEl.textContent='';return;}
+  const diff=Math.round((cur-dmPrevFuelHour)*10)/10;
+  diffEl.textContent = diff>=0 ? `　時間差: ${diff} h` : '';
 }
 function calcDmWorkHours(){
   if(dmPrevHour===null)return;
