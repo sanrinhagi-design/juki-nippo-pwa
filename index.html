@@ -20,7 +20,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .arrow.open{transform:rotate(180deg)}
 .entries{border-top:1px solid #eee;display:none}
 .entries.open{display:block}
-.entry{padding:13px 14px;border-bottom:1px solid #f4f4f4;display:flex;align-items:flex-start;gap:12px}
+.entry{padding:13px 14px;bordera-bottom:1px solid #f4f4f4;display:flex;align-items:flex-start;gap:12px}
 .entry:last-child{border-bottom:none}
 .entry-time{font-size:16px;font-weight:800;color:#185fa5;min-width:56px}
 .entry-body{flex:1}
@@ -31,7 +31,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .hdr-title{font-size:20px;font-weight:700;letter-spacing:.3px}
 .hdr-date{font-size:15px;color:#c5cad6;margin-top:3px}
 .net-badge{font-size:15px;padding:5px 14px;border-radius:12px;font-weight:700;transition:.3s}
-.net-on{background:#27ae60}.net-off{background:#c0392b}
+.net-on{background:#27ae60}.net-off{background:#c0392b}.net-chk{background:#6b7280}
 .tabs{display:flex;background:#fff;border-bottom:1px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
 .tab{flex:1 0 auto;padding:15px 10px;text-align:center;font-size:15px;color:#999;cursor:pointer;border-bottom:3px solid transparent;font-weight:600;white-space:nowrap}
 .tab.on{color:#185fa5;border-bottom-color:#185fa5;font-weight:700}
@@ -1034,6 +1034,8 @@ async function fetchJukiApi(action, params){
 }
 
 let realOnline=false;
+// ★起動直後の接続確認が終わるまでは「通信不安定」ではなく「確認中」と表示する
+let netChecking=false;
 async function checkRealConnectivity(){
   if(!navigator.onLine){realOnline=false;updateNet();return false;}
   try{
@@ -1159,7 +1161,10 @@ function initApp(){
   // ★起動時：端末に保存済みの直近データで入力候補を先に出し、サーバーからは一括取得1回で最新化する
   //   （一括取得の成功＝オンライン確認を兼ねるので、事前の疎通確認を待たない。失敗時だけ疎通確認で状態表示を更新）
   renderSuggestLists([...recentCache.reports,...allReports()]);
-  fetchRemote().then(ok=>{ if(!ok)checkRealConnectivity(); });
+  // 一括取得はデータ量が多く数秒かかるため、軽い疎通確認（ping）を同時に出して接続状態の表示だけ先に確定させる
+  netChecking=true; updateNet();
+  checkRealConnectivity().finally(()=>{ netChecking=false; updateNet(); if(realOnline)autoSync(); });
+  fetchRemote();
 }
 
 function syncStickyOffset(){
@@ -1182,7 +1187,12 @@ function setDate(){
 
 function updateNet(){
   const b=document.getElementById('net-badge'), t=document.getElementById('inp-notice-txt');
-  if(realOnline){
+  if(realOnline)netChecking=false;
+  if(netChecking && navigator.onLine){
+    b.textContent='確認中';b.className='net-badge net-chk';
+    t.textContent='サーバーへの接続を確認しています。入力はそのまま続けられます。';
+    document.getElementById('inp-notice').className='notice n-info';
+  }else if(realOnline){
     b.textContent='オンライン';b.className='net-badge net-on';
     t.textContent='オンライン中 — データはリアルタイムでスプレッドシートに送信されます。';
     document.getElementById('inp-notice').className='notice n-ok';
