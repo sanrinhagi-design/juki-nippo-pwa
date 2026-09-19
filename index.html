@@ -20,7 +20,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .arrow.open{transform:rotate(180deg)}
 .entries{border-top:1px solid #eee;display:none}
 .entries.open{display:block}
-.entry{padding:13px 14px;bordera-bottom:1px solid #f4f4f4;display:flex;align-items:flex-start;gap:12px}
+.entry{padding:13px 14px;border-bottom:1px solid #f4f4f4;display:flex;align-items:flex-start;gap:12px}
 .entry:last-child{border-bottom:none}
 .entry-time{font-size:16px;font-weight:800;color:#185fa5;min-width:56px}
 .entry-body{flex:1}
@@ -1233,6 +1233,22 @@ function monthStr(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMon
 function pad(n){return String(n).padStart(2,'0');}
 function getDeviceId(){let id=localStorage.getItem('deviceId');if(!id){id='dev-'+Math.random().toString(36).slice(2,11);localStorage.setItem('deviceId',id);}return id;}
 function allReports(){return [...pending,...synced];}
+// ★他の端末で削除された日報が、この端末に残った送信済みデータから復活しないようにする。
+// サーバーからその月（機体指定があればその機体）の一覧を取得できた時、一覧に無い送信済みの日報は
+// 「削除された」と判断して端末側からも消す。未送信（pending）は対象外なので消えない。
+function pruneSyncedByServer(serverReports, ym, mid){
+  if(!serverReports)return 0;
+  const sids=new Set(serverReports.map(r=>r.id).filter(Boolean));
+  const before=synced.length;
+  synced=synced.filter(r=>{
+    if(!r.id || !String(r.date).startsWith(ym))return true;
+    if(mid && r.machineId!==mid)return true;
+    return sids.has(r.id);
+  });
+  const removed=before-synced.length;
+  if(removed>0){saveData();updateSyncRow();}
+  return removed;
+}
 function todayReports(){const t=todayStr();return allReports().filter(r=>r.date===t);}
 function findMachine(id){return machines.find(m=>m.id===id);}
 
@@ -1333,6 +1349,7 @@ async function refreshSuggestLists(){
       const merged=[];
       results.forEach(dd=>merged.push(...dd.reports));
       setRecentCache([prevM,thisM],merged);
+      [prevM,thisM].forEach(mm=>pruneSyncedByServer(merged, mm));
       applyTodayFromReports(merged);
     }
     afterRecentUpdated();
@@ -1356,6 +1373,7 @@ async function fetchRemote(){
     if(data && data.machines){
       applyRemote(data.machines, data.operators, data.inspections);
       setRecentCache(data.months, data.reports);
+      (data.months||[]).forEach(mm=>pruneSyncedByServer(data.reports, mm));
       applyTodayFromReports(data.reports);
       afterRecentUpdated();
       return true;
@@ -1395,6 +1413,7 @@ async function refreshTodayList(showMsg){
   try{
     const data=await fetchJukiApi('getReports',{month:monthStr()});
     if(data.reports){
+      pruneSyncedByServer(data.reports, monthStr());
       const t=todayStr();
       serverToday=data.reports.filter(r=>String(r.date)===t).map(r=>({...r,synced:true}));
       renderList();
@@ -2738,8 +2757,9 @@ async function loadCalMonth(){
       try{
         const data=await fetchJukiApi('getReports',{month:ym, machineId:mid});
         if(data.reports){
+          pruneSyncedByServer(data.reports, ym, mid);
           const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
-          const localOnly=local.filter(r=>!sids.has(r.id));
+          const localOnly=local.filter(r=>!sids.has(r.id) && !r.synced);
           const merged=[...data.reports,...localOnly];
           calMonthCache[key]=merged;calMonthAt[key]=Date.now();saveCalCache();
           if(calMachineId===mid && calYM()===ym){
@@ -2771,9 +2791,10 @@ async function loadCalMonth(){
     try{
       const data=await fetchJukiApi('getReports',{month:ym});
       if(data.reports){
+        pruneSyncedByServer(data.reports, ym);
         const filtered=data.reports.filter(matches);
         const sids=new Set(filtered.map(r=>r.id).filter(Boolean));
-        const localOnly=local.filter(r=>!sids.has(r.id));
+        const localOnly=local.filter(r=>!sids.has(r.id) && !r.synced);
         calMonthCache[skey]=filtered;calMonthAt[skey]=Date.now();saveCalCache();
         if(!calMachineId && calShownKey===skey){
           calReports=[...filtered,...localOnly];
@@ -3385,8 +3406,9 @@ async function fetchMonthReportsForMachine(mid){
     try{
       const data=await fetchJukiApi('getReports',{month:ym, machineId:mid});
       if(data.reports){
+        pruneSyncedByServer(data.reports, ym, mid);
         const sids=new Set(data.reports.map(r=>r.id).filter(Boolean));
-        const localOnly=local.filter(r=>!sids.has(r.id));
+        const localOnly=local.filter(r=>!sids.has(r.id) && !r.synced);
         reports=[...data.reports,...localOnly];
       }
     }catch(e){console.warn('printFetch:',e);}
