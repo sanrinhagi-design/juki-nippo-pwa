@@ -541,6 +541,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <div class="slbl">故障・備考</div>
   <div id="dash-notes"></div>
 
+  <div class="slbl">月末確認</div>
+  <div class="card"><div class="card-b">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+      <span id="dash-monthly-head" style="font-size:15px;font-weight:700;color:#185fa5"></span>
+      <button class="btn btn-o btn-sm" id="dash-monthly-all" style="display:none" onclick="monthlyCheckAll()"></button>
+    </div>
+    <div id="dash-monthly"></div>
+  </div></div>
+
   <div class="slbl">月次一覧</div>
   <div class="card" id="ml-view-card"><div class="card-b">
     <div class="ml-scroll"><table class="ml-table" id="ml-table"></table></div>
@@ -1011,7 +1020,8 @@ const JUKI_ACTION_MAP = {
   getReports:'jukiGetReports', ping:'jukiPing', batchAddReports:'jukiBatchAddReports',
   addMachine:'jukiAddMachine', editMachine:'jukiEditMachine', deleteMachine:'jukiDeleteMachine',
   addOperator:'jukiAddOperator', deleteOperator:'jukiDeleteOperator', saveInspection:'jukiSaveInspection',
-  editReport:'jukiEditReport', deleteReport:'jukiDeleteReport', getFuelStats:'jukiGetFuelStats', init:'jukiInit'
+  editReport:'jukiEditReport', deleteReport:'jukiDeleteReport', getFuelStats:'jukiGetFuelStats', init:'jukiInit',
+  getMonthlyChecks:'jukiGetMonthlyChecks', setMonthlyCheck:'jukiSetMonthlyCheck'
 };
 // ★通信の時間制限（電波が弱い時に「取得中...」のまま止まらないように）
 // 起動時の一括取得は30秒、日報送信（写真を含むことがある）は120秒、取得系は20秒、その他の更新系は60秒
@@ -1261,12 +1271,14 @@ function findMachine(id){return machines.find(m=>m.id===id);}
 let recentCache={months:[],reports:[],at:0};
 let calMonthCache={}, calMonthAt={}, fuelStatsCache={};
 let calShownKey='';
+let monthlyChecks={};   // 月末確認：'yyyy-MM' → {checks:{機体ID:{name,at,changed}}, canConfirm}
 function lsGet(key,def){try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;}}
 function lsSet(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch(e){console.warn('cache:',key,e);}}
 function loadDataCaches(){
   recentCache=lsGet('recentCache',{months:[],reports:[],at:0});
   const c=lsGet('calCache',{});
   calMonthCache=c.reports||{}; calMonthAt=c.at||{}; fuelStatsCache=c.fuel||{};
+  monthlyChecks=lsGet('monthlyChecks',{});
 }
 function setRecentCache(months,reports){
   recentCache={months:months||[],reports:reports||[],at:Date.now()};
@@ -1284,8 +1296,8 @@ function saveCalCache(){
   lsSet('calCache',{reports:calMonthCache,at:calMonthAt,fuel:fuelStatsCache});
 }
 function clearDataCaches(){
-  recentCache={months:[],reports:[],at:0}; calMonthCache={}; calMonthAt={}; fuelStatsCache={};
-  try{localStorage.removeItem('recentCache');localStorage.removeItem('calCache');}catch(e){}
+  recentCache={months:[],reports:[],at:0}; calMonthCache={}; calMonthAt={}; fuelStatsCache={}; monthlyChecks={};
+  try{localStorage.removeItem('recentCache');localStorage.removeItem('calCache');localStorage.removeItem('monthlyChecks');}catch(e){}
 }
 // 指定日の当月・前月の、指定機体の日報（サーバー分）。直近2か月キャッシュで足りれば通信しない
 async function serverReportsAround(mid, selDate){
@@ -2590,6 +2602,7 @@ function renderDashboard(){
   document.getElementById('dash-updated').textContent = upAt
     ? '最終更新 '+new Date(upAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})
     : (navigator.onLine ? '' : '圏外のため端末内のデータのみ表示');
+  renderMonthlyCheck();
 
   const rpts=calReports;
   const totalW=rpts.reduce((s,r)=>s+(parseFloat(r.workHours)||0),0);
@@ -2742,9 +2755,113 @@ async function loadFuelStats(ym){
   if(calYM()===ym)renderDashboard();
 }
 
+// ================================================================
+// ★月末確認（責任者が月末に機体ごとの日報を確認した記録。GASの「月次確認」シートに保存）
+//   確認・取消できるのは管理者・マネージャーのみ（サーバーが canConfirm で返す）
+//   確認後に日報が修正・削除されると、サーバーが changed:true を返すので警告を出す
+// ================================================================
+function mcEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function mcParse(at){
+  const m=/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(String(at||''));
+  return m?{md:`${+m[2]}/${+m[3]}`,hm:m[4]?`${+m[4]}:${m[5]}`:''}:{md:'',hm:''};
+}
+async function loadMonthlyChecks(ym){
+  if(navigator.onLine){
+    try{
+      const data=await fetchJukiApi('getMonthlyChecks',{month:ym});
+      if(data&&data.checks){
+        monthlyChecks[ym]={checks:data.checks,canConfirm:!!data.canConfirm};
+        lsSet('monthlyChecks',monthlyChecks);
+      }
+    }catch(e){console.warn('monthly:',e);}
+  }
+  if(calYM()===ym)renderMonthlyCheck();
+  return monthlyChecks[ym];
+}
+// 月末確認の対象＝集計画面で表示中の機体（機体を選んでいればその1台、それ以外は拠点・全体の機体）
+function monthlyScopeMachines(){
+  if(calMachineId)return [findMachine(calMachineId)||{id:calMachineId}];
+  return printScopeMachines();
+}
+function renderMonthlyCheck(){
+  const el=document.getElementById('dash-monthly');
+  if(!el)return;
+  const head=document.getElementById('dash-monthly-head');
+  const allBtn=document.getElementById('dash-monthly-all');
+  const mc=monthlyChecks[calYM()];
+  const checks=(mc&&mc.checks)||{};
+  const can=!!(mc&&mc.canConfirm);
+  const list=monthlyScopeMachines();
+  if(list.length===0){
+    el.innerHTML='<div style="font-size:15px;color:#5a5a5a;padding:4px">対象の機体がありません</div>';
+    head.textContent='';allBtn.style.display='none';
+    return;
+  }
+  const done=list.filter(m=>checks[m.id]).length;
+  const rest=list.length-done;
+  head.textContent = mc ? `確認済 ${done} / ${list.length}台` : (navigator.onLine?'確認状況を読み込み中…':'圏外のため確認状況を表示できません');
+  allBtn.style.display=(can&&rest>0)?'inline-block':'none';
+  allBtn.textContent=`表示中の未確認 ${rest}台をまとめて確認`;
+  el.innerHTML=list.map(m=>{
+    const rs=calReports.filter(r=>r.machineId===m.id);
+    const byDay={};
+    rs.forEach(r=>{(byDay[r.date]=byDay[r.date]||[]).push(r.inspection||'未');});
+    // 点検未実施：日報がある日のうち、点検が「済」「対象外」の記録が1件も無い日の数
+    const noInsp=Object.values(byDay).filter(a=>!a.some(x=>x==='済'||x==='対象外')).length;
+    const info=`日報${rs.length}件`+(noInsp?`<span style="color:#b45309"> 点検未実施${noInsp}日</span>`:'');
+    const c=checks[m.id];
+    let st;
+    if(c){
+      const t=mcParse(c.at);
+      st=`<span style="color:#1f8b4c;font-weight:700">✅ ${mcEsc(c.name)} ${t.md} ${t.hm}</span>`
+        +(can?` <span style="color:#c0392b;font-size:14px;cursor:pointer;text-decoration:underline;margin-left:6px" onclick="monthlyCheckAction(['${m.id}'],true)">取消</span>`:'');
+    }else{
+      st=can?`<button class="btn btn-p btn-sm" onclick="monthlyCheckAction(['${m.id}'],false)">確認する</button>`:(mc?'<span style="color:#888">未確認</span>':'');
+    }
+    const warn=(c&&c.changed)?'<div style="color:#b45309;font-size:13px;font-weight:700;margin-top:2px">⚠ 確認後に日報の修正・削除あり</div>':'';
+    return `<div class="trow" style="flex-wrap:wrap;gap:6px">
+      <div><span style="font-weight:800;color:#185fa5">${mcEsc(m.id)}</span> <span style="font-size:14px;color:#5a5a5a">${info}</span>${warn}</div>
+      <div style="margin-left:auto">${st}</div>
+    </div>`;
+  }).join('');
+}
+async function monthlyCheckAction(ids,cancel){
+  if(!navigator.onLine){showToast('月末確認はオンライン時のみ行えます','err');return;}
+  const ym=calYM();
+  const mLabel=`${calMonth+1}月分`;
+  const msg=cancel?`${ids[0]} の${mLabel}の確認を取り消しますか？`
+    :(ids.length===1?`${ids[0]} の${mLabel}を確認済みにしますか？`:`表示中の未確認 ${ids.length}台（${ids.join('、')}）の${mLabel}を確認済みにしますか？`);
+  if(!confirm(msg))return;
+  showToast(cancel?'取消中...':'記録中...','');
+  try{
+    const data=await fetchJukiApi('setMonthlyCheck',{month:ym, machineIds:ids, cancel:!!cancel});
+    if(data&&data.checks){
+      monthlyChecks[ym]={checks:data.checks,canConfirm:!!data.canConfirm};
+      lsSet('monthlyChecks',monthlyChecks);
+      if(calYM()===ym)renderMonthlyCheck();
+      showToast(cancel?'確認を取り消しました':`${data.count||0}台を確認済みにしました`,'ok');
+    }else{
+      showToast((data&&(data.message||data.error))||'記録に失敗しました','err');
+    }
+  }catch(e){showToast('通信エラー: '+e.message,'err');}
+}
+function monthlyCheckAll(){
+  const mc=monthlyChecks[calYM()]||{checks:{}};
+  const ids=monthlyScopeMachines().filter(m=>!mc.checks[m.id]).map(m=>m.id);
+  if(ids.length===0){showToast('未確認の機体はありません','');return;}
+  monthlyCheckAction(ids,false);
+}
+// 印刷の「月次点検・担当印」：月末確認の記録があれば☑と確認者名（確認日）を入れる。未確認なら従来どおり空欄
+function monthlySignHtml(mid){
+  const mc=monthlyChecks[calYM()];
+  const c=mc&&mc.checks&&mc.checks[mid];
+  return c ? `月次点検 ☑  担当印：${mcEsc(c.name)}（${mcParse(c.at).md}）` : '月次点検 □  担当印：＿＿＿＿＿＿';
+}
+
 async function loadCalMonth(){
   const ym=calYM();
   loadFuelStats(ym);
+  loadMonthlyChecks(ym);
 
   if(calMachineId){
     const mid=calMachineId;
@@ -3527,6 +3644,7 @@ async function confirmPrintPdf(){
   document.getElementById('print-progress').style.display='block';
   try{
     await loadPrintLibs();
+    await loadMonthlyChecks(calYM());   // 担当印欄に最新の月末確認を反映する
     const { jsPDF } = window.jspdf;
     const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const pageW=210, pageH=297, margin=4;
@@ -3584,11 +3702,9 @@ function buildCrusherMonthHtml(mid,m,reports){
   }
 
   const notesList = [];
-  let monthlyChecked = false;
   Object.entries(byDay).forEach(([d, arr]) => {
     arr.forEach(r => {
       if (r.notes && String(r.notes).trim() !== '') notesList.push(`${d}日: ${r.notes}`);
-      if (r.inspection === '済') monthlyChecked = true;
     });
   });
 
@@ -3753,7 +3869,7 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px;
           <div class="notes-content">${notesList.join('<br>')}</div>
         </div>
         <div class="monthly-check-in-notes">
-          月次点検 ${monthlyChecked ? '☑' : '□'}  担当印：＿＿＿＿＿＿
+          ${monthlySignHtml(mid)}
         </div>
       </div>
     </div>
@@ -3794,11 +3910,9 @@ function buildStandardMonthHtml(mid, m, reports) {
   }
 
   const notesList = [];
-  let monthlyChecked = false;
   Object.entries(byDay).forEach(([d, arr]) => {
     arr.forEach(r => {
       if (r.notes && String(r.notes).trim() !== '') notesList.push(`${d}日: ${r.notes}`);
-      if (r.inspection === '済') monthlyChecked = true;
     });
   });
 
@@ -3968,7 +4082,7 @@ table.sheet-tbl th { background-color: #f2f2f2; font-weight: bold; height: 24px;
           <div class="notes-content">${notesList.join('<br>')}</div>
         </div>
         <div class="monthly-check-in-notes">
-          月次点検 ${monthlyChecked ? '☑' : '□'}  担当印：＿＿＿＿＿＿
+          ${monthlySignHtml(mid)}
         </div>
       </div>
     </div>
