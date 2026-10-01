@@ -1167,6 +1167,9 @@ function initApp(){
   document.getElementById('f-date').value=todayStr();
   document.getElementById('f-date').addEventListener('change',()=>{const mid=document.getElementById('f-machine').value;if(mid)updatePrevHour(mid);});
 
+  // ★起動時の初期表示は「日報入力」タブ（稼働一覧は必要なときにタブで切り替える）
+  showTab('input');
+
   // ★NFCタグ経由のURL（例: ?machine=H-3）から機体を自動選択し、日報入力タブを開く
   applyNfcMachineParam();
 
