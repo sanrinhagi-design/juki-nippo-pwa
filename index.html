@@ -3094,7 +3094,9 @@ function renderMonthlyList(){
   tbody+='</tbody>';
 
   document.getElementById('ml-table').innerHTML=thead+tbody;
-  document.getElementById('ml-float-table').innerHTML=thead; // 固定表示用の見出しコピー
+  const ftEl=document.getElementById('ml-float-table');
+  ftEl.innerHTML=thead; // 固定表示用の見出しコピー
+  ftEl.dataset.cols='';
   updateMlFloat();
 }
 
@@ -3118,7 +3120,18 @@ function updateMlFloat(){
   fl.style.left=sr.left+'px';
   fl.style.width=sr.width+'px';
   const ft=document.getElementById('ml-float-table');
+  // 本体の各列の実際の幅（中身によって広がることがある）を見出しコピーにそのまま写す
+  const key=Array.from(tbl.tHead.rows[0].cells).map(c=>c.offsetWidth).join(',');
+  if(ft.dataset.cols!==key){
+    ft.dataset.cols=key;
+    const src=tbl.tHead.rows[0].cells, dst=ft.tHead.rows[0].cells;
+    for(let i=0;i<src.length&&i<dst.length;i++){
+      const w=src[i].offsetWidth+'px';
+      dst[i].style.cssText=`box-sizing:border-box;width:${w};min-width:${w};max-width:${w}`;
+    }
+  }
   ft.style.width=tbl.offsetWidth+'px';
+  ft.style.height=thH+'px';
   document.getElementById('ml-float-in').scrollLeft=sc.scrollLeft;
 }
 window.addEventListener('scroll',updateMlFloat,{passive:true});
