@@ -90,6 +90,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .gps-compact-skiprow{width:100%;display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;color:#555;padding-top:2px}
 .ml-scroll{overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;border:1px solid #e5e5e5;border-radius:10px;max-width:100%}
 .ml-table{border-collapse:collapse;font-size:14px}
+.ml-float{display:none;position:fixed;z-index:80;pointer-events:none;box-shadow:0 3px 6px rgba(0,0,0,.18);background:#f7f7f7}
+.ml-float-in{overflow:hidden}
+.ml-float .ml-table{table-layout:fixed}
+.ml-table th.ml-today{background:#fff3cd !important;color:#8a5a00}
 .ml-table th,.ml-table td{border:1px solid #ececec;padding:0;text-align:center}
 .ml-table thead th{background:#f7f7f7;color:#5a5a5a;font-weight:700;font-size:13px;padding:8px 2px}
 .ml-table th.ml-daynum{width:52px;min-width:52px}
@@ -575,6 +579,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   <!-- 月次一覧 -->
   <div class="dash-pane" data-pane="list" hidden>
   <div class="card" id="ml-view-card"><div class="card-b">
+    <div class="ml-float" id="ml-float"><div class="ml-float-in" id="ml-float-in"><table class="ml-table" id="ml-float-table"></table></div></div>
     <div class="ml-scroll"><table class="ml-table" id="ml-table"></table></div>
     <div style="font-size:15px;color:#6b6b6b;margin-top:10px;line-height:1.5">セル上段＝元請／下段＝現場名。緑＝入力済み／黄＝点検未実施／赤＝備考あり。同じ元請・現場名が連続する日はセルを結合表示します（同日に複数件入力がある場合は結合せず件数を表示）。セルをタップで編集できます。横にスクロールできます。</div>
     <div style="display:flex;gap:8px;margin-top:12px">
@@ -3021,7 +3026,8 @@ function renderMonthlyList(){
   for(let d=1;d<=daysIn;d++){
     const wd=new Date(calYear,calMonth,d).getDay();
     const cls=wd===0?'ml-sun':(wd===6?'ml-sat':'');
-    thead+=`<th class="ml-daynum ${cls}">${d}${isCurMonth&&d===todayNum?'●':''}</th>`;
+    const isToday=isCurMonth&&d===todayNum;
+    thead+=`<th class="ml-daynum ${cls}${isToday?' ml-today':''}">${d}${isToday?'●':''}</th>`;
   }
   thead+='</tr></thead>';
 
@@ -3085,7 +3091,39 @@ function renderMonthlyList(){
   tbody+='</tbody>';
 
   document.getElementById('ml-table').innerHTML=thead+tbody;
+  document.getElementById('ml-float-table').innerHTML=thead; // 固定表示用の見出しコピー
+  updateMlFloat();
 }
+
+// ★月次一覧：縦スクロールで表の見出し（日付行）が画面上部から消えたら、ヘッダー直下に見出しだけ固定表示する
+// （横スクロール枠の中ではCSSのstickyが効かないため、見出しのコピーを固定表示して横位置を同期する）
+function updateMlFloat(){
+  const fl=document.getElementById('ml-float');
+  const sc=document.querySelector('.ml-scroll');
+  const tbl=document.getElementById('ml-table');
+  const top=document.getElementById('top-fixed');
+  if(!fl||!sc||!tbl||!top)return;
+  const hide=()=>{fl.style.display='none';};
+  if(!sc.offsetParent||!tbl.tHead)return hide();
+  const headerH=top.offsetHeight;
+  const thH=tbl.tHead.offsetHeight;
+  const tr=tbl.getBoundingClientRect();
+  const sr=sc.getBoundingClientRect();
+  if(tr.top+thH>headerH||tr.bottom<headerH+thH)return hide();   // 見出しが見えている／表の終わり
+  fl.style.display='block';
+  fl.style.top=headerH+'px';
+  fl.style.left=sr.left+'px';
+  fl.style.width=sr.width+'px';
+  const ft=document.getElementById('ml-float-table');
+  ft.style.width=tbl.offsetWidth+'px';
+  document.getElementById('ml-float-in').scrollLeft=sc.scrollLeft;
+}
+window.addEventListener('scroll',updateMlFloat,{passive:true});
+window.addEventListener('resize',updateMlFloat);
+document.addEventListener('DOMContentLoaded',()=>{
+  const sc=document.querySelector('.ml-scroll');
+  if(sc)sc.addEventListener('scroll',updateMlFloat,{passive:true});
+});
 
 // ★複数日が結合表示されたセル（colspan）では、クリックしたX座標から実際の日を割り出す
 // （結合セルは常に開始日が開いてしまい、別の日の日報を開いてしまう不具合の対策）
