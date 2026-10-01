@@ -604,7 +604,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
   </div>
   <div id="pv-body" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:8px">
     <div id="pv-loading" style="color:#fff;text-align:center;padding:40px 0;font-size:16px">プレビューを作成中…</div>
-    <div id="pv-wrap" style="margin:0 auto;background:#fff;overflow:hidden"><iframe id="pv-frame" style="border:0;width:764px;transform-origin:0 0;background:#fff"></iframe></div>
+    <div id="pv-wrap" style="margin:0 auto;background:#fff;overflow:hidden"><iframe id="pv-frame" style="pointer-events:none;border:0;width:764px;transform-origin:0 0;background:#fff"></iframe></div>
   </div>
 </div>
 
@@ -2871,7 +2871,8 @@ function renderMonthlyCheck(){
     }else{
       st=can?`<button class="btn btn-p btn-sm" onclick="monthlyCheckAction(['${m.id}'],false)">確認する</button>`:(mc?'<span style="color:#888">未確認</span>':'');
     }
-    st=`<button class="btn btn-o btn-sm" onclick="openPrintPreview('${m.id}')" style="margin-right:6px">📄 プレビュー</button>`+st;
+    st=(rs.length===0?'<span style="color:#888;font-size:14px;margin-right:6px">当月稼働なし</span>':'')
+      +`<button class="btn btn-o btn-sm" onclick="openPrintPreview('${m.id}')" style="margin-right:6px">📄 プレビュー</button>`+st;
     const warn=(c&&c.changed)?'<div style="color:#b45309;font-size:13px;font-weight:700;margin-top:2px">⚠ 確認後に日報の修正・削除あり</div>':'';
     return `<div class="trow" style="flex-wrap:wrap;gap:6px">
       <div><span style="font-weight:800;color:#185fa5">${mcEsc(m.id)}</span> <span style="font-size:14px;color:#5a5a5a">${info}</span>${warn}</div>
@@ -3732,13 +3733,13 @@ async function openPrintPreview(mid){
         const target=doc.querySelector('.page-container');
         if(target&&target.style)target.style.height='auto'; // PDFと同じ見た目（高さ固定を解除）
         const h=doc.documentElement.scrollHeight;
-        const scale=Math.min(1,(document.getElementById('pv-body').clientWidth-16)/764);
         frame.style.height=h+'px';
-        frame.style.transform=`scale(${scale})`;
-        wrap.style.width=(764*scale)+'px';
-        wrap.style.height=(h*scale)+'px';
+        pvH=h;
+        pvFit=Math.min(1,(document.getElementById('pv-body').clientWidth-16)/764);
         document.getElementById('pv-loading').style.display='none';
         wrap.style.display='block';
+        pvSetScale(pvFit);
+        document.getElementById('pv-body').scrollTo(0,0);
       }catch(e){console.warn(e);}
     };
     frame.srcdoc=built.html;
@@ -3748,6 +3749,47 @@ async function openPrintPreview(mid){
     showToast('プレビューの作成に失敗しました','err');
   }
 }
+// ピンチ拡大・縮小（viewportでブラウザ標準のズームを禁止しているため、プレビュー内だけ自前で実装）
+let pvScale=1, pvFit=1, pvH=0;
+function pvSetScale(s, cx, cy){
+  const body=document.getElementById('pv-body');
+  const wrap=document.getElementById('pv-wrap');
+  const frame=document.getElementById('pv-frame');
+  s=Math.max(pvFit,Math.min(3,s));
+  // 指の中心位置が動かないようにスクロール位置を補正する
+  const bx=cx===undefined?body.clientWidth/2:cx, by=cy===undefined?body.clientHeight/2:cy;
+  const ratio=s/pvScale;
+  const sl=(body.scrollLeft+bx)*ratio-bx, st=(body.scrollTop+by)*ratio-by;
+  pvScale=s;
+  frame.style.transform=`scale(${s})`;
+  wrap.style.width=(764*s)+'px';
+  wrap.style.height=(pvH*s)+'px';
+  body.scrollLeft=sl;body.scrollTop=st;
+}
+(function(){
+  let d0=0,s0=1;
+  const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  document.addEventListener('DOMContentLoaded',()=>{
+    const body=document.getElementById('pv-body');
+    body.addEventListener('touchstart',e=>{if(e.touches.length===2){d0=dist(e.touches);s0=pvScale;}},{passive:true});
+    body.addEventListener('touchmove',e=>{
+      if(e.touches.length!==2||!d0)return;
+      e.preventDefault();
+      const r=body.getBoundingClientRect();
+      const cx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left;
+      const cy=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
+      pvSetScale(s0*dist(e.touches)/d0,cx,cy);
+    },{passive:false});
+    body.addEventListener('touchend',e=>{if(e.touches.length<2)d0=0;},{passive:true});
+    // PC用：Ctrl+ホイールで拡大縮小
+    body.addEventListener('wheel',e=>{
+      if(!e.ctrlKey)return;
+      e.preventDefault();
+      const r=body.getBoundingClientRect();
+      pvSetScale(pvScale*(e.deltaY<0?1.1:1/1.1),e.clientX-r.left,e.clientY-r.top);
+    },{passive:false});
+  });
+})();
 function closePrintPreview(){
   document.getElementById('pv-modal').style.display='none';
   document.getElementById('pv-frame').srcdoc='';
