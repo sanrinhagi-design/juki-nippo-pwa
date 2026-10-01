@@ -597,6 +597,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 </div>
 
 <!-- 印刷/PDF出力 機体選択モーダル -->
+<div id="pv-modal" style="display:none;position:fixed;inset:0;z-index:1100;background:#555;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#1a1a2e;color:#fff;padding:10px 14px;flex-shrink:0">
+    <span id="pv-title" style="font-weight:800;font-size:17px"></span>
+    <span onclick="closePrintPreview()" style="font-size:30px;line-height:1;cursor:pointer;padding:0 6px">&times;</span>
+  </div>
+  <div id="pv-body" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:8px">
+    <div id="pv-loading" style="color:#fff;text-align:center;padding:40px 0;font-size:16px">プレビューを作成中…</div>
+    <div id="pv-wrap" style="margin:0 auto;background:#fff;overflow:hidden"><iframe id="pv-frame" style="border:0;width:764px;transform-origin:0 0;background:#fff"></iframe></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="print-modal">
   <div class="modal">
     <div class="modal-h">
@@ -2860,6 +2871,7 @@ function renderMonthlyCheck(){
     }else{
       st=can?`<button class="btn btn-p btn-sm" onclick="monthlyCheckAction(['${m.id}'],false)">確認する</button>`:(mc?'<span style="color:#888">未確認</span>':'');
     }
+    st=`<button class="btn btn-o btn-sm" onclick="openPrintPreview('${m.id}')" style="margin-right:6px">📄 プレビュー</button>`+st;
     const warn=(c&&c.changed)?'<div style="color:#b45309;font-size:13px;font-weight:700;margin-top:2px">⚠ 確認後に日報の修正・削除あり</div>':'';
     return `<div class="trow" style="flex-wrap:wrap;gap:6px">
       <div><span style="font-weight:800;color:#185fa5">${mcEsc(m.id)}</span> <span style="font-size:14px;color:#5a5a5a">${info}</span>${warn}</div>
@@ -3699,6 +3711,46 @@ function renderHtmlToCanvas(html){
     };
     iframe.srcdoc=html;
   });
+}
+
+// PDFと同じ印刷用HTMLを、画像化せずそのまま表示する高速プレビュー（ライブラリ不要）
+async function openPrintPreview(mid){
+  const modal=document.getElementById('pv-modal');
+  const frame=document.getElementById('pv-frame');
+  const wrap=document.getElementById('pv-wrap');
+  document.getElementById('pv-title').textContent=`${mid} ${calMonth+1}月分 プレビュー`;
+  document.getElementById('pv-loading').style.display='block';
+  wrap.style.display='none';
+  modal.style.display='flex';
+  try{
+    const m=findMachine(mid);
+    const reports=await fetchMonthReportsForMachine(mid);
+    const built=(m&&m.type==='crusher')?buildCrusherMonthHtml(mid,m,reports):buildStandardMonthHtml(mid,m,reports);
+    frame.onload=()=>{
+      try{
+        const doc=frame.contentDocument;
+        const target=doc.querySelector('.page-container');
+        if(target&&target.style)target.style.height='auto'; // PDFと同じ見た目（高さ固定を解除）
+        const h=doc.documentElement.scrollHeight;
+        const scale=Math.min(1,(document.getElementById('pv-body').clientWidth-16)/764);
+        frame.style.height=h+'px';
+        frame.style.transform=`scale(${scale})`;
+        wrap.style.width=(764*scale)+'px';
+        wrap.style.height=(h*scale)+'px';
+        document.getElementById('pv-loading').style.display='none';
+        wrap.style.display='block';
+      }catch(e){console.warn(e);}
+    };
+    frame.srcdoc=built.html;
+  }catch(e){
+    console.error(e);
+    closePrintPreview();
+    showToast('プレビューの作成に失敗しました','err');
+  }
+}
+function closePrintPreview(){
+  document.getElementById('pv-modal').style.display='none';
+  document.getElementById('pv-frame').srcdoc='';
 }
 
 async function confirmPrintPdf(){
