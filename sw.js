@@ -1,7 +1,7 @@
 // ============================================================
 // Service Worker — キャッシュ & オフライン対応
 // ============================================================
-const CACHE_NAME = 'juki-nippo-v44';
+const CACHE_NAME = 'juki-nippo-v45';
 const ASSETS = ['./index.html', './manifest.json'];
 self.addEventListener('install', e => {
   // cache:'reload' でブラウザのHTTPキャッシュを経由せず、必ず最新版を取り込む
