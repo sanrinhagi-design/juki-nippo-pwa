@@ -144,6 +144,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .yard-chips{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:8px;margin-bottom:8px}
 .chip{flex:0 0 auto;font-size:15px;padding:9px 16px;border-radius:18px;border:1.5px solid #d5d5d5;background:#fff;color:#555;cursor:pointer;font-weight:600;white-space:nowrap}
 .chip.on{background:#185fa5;color:#fff;border-color:#185fa5}
+/* 集計画面の切り替えボタン（集計／月次一覧／月末確認／警告） */
+.dash-seg{display:flex;gap:6px;margin:0 0 10px}
+.dash-seg .seg{flex:1 1 0;min-width:0;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:14.5px;font-weight:700;padding:6px 2px;border-radius:10px;border:1.5px solid #d5d5d5;background:#fff;color:#555;cursor:pointer;white-space:nowrap;line-height:1.25}
+.dash-seg .seg.on{background:#185fa5;color:#fff;border-color:#185fa5}
+.dash-seg .seg .cnt{font-size:12.5px;font-weight:700}
+.dash-seg .seg .cnt:empty{display:none}
+.dash-seg .seg:not(.on) .cnt-warn{color:#c0392b}
 .nt-opt{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;border:1.5px solid #d5d5d5;border-radius:9px;cursor:pointer;background:#fafafa}
 .nt-opt span{font-size:15px;font-weight:700;color:#555}
 .nt-opt.on-biko{border-color:#185fa5;background:#e6f1fb}
@@ -529,7 +536,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
   </div></div>
 
+  <!-- ★表示の切り替え（選んだものだけ表示して画面を短くする。最後に開いた表示を端末に記憶） -->
+  <div class="dash-seg" id="dash-seg">
+    <div class="seg" data-pane="sum" onclick="setDashPane('sum')">集計</div>
+    <div class="seg" data-pane="list" onclick="setDashPane('list')">月次一覧</div>
+    <div class="seg" data-pane="month" onclick="setDashPane('month')">月末確認<span class="cnt" id="seg-month-cnt"></span></div>
+    <div class="seg" data-pane="warn" onclick="setDashPane('warn')">警告<span class="cnt cnt-warn" id="seg-warn-cnt"></span></div>
+  </div>
   <div id="dash-updated" style="font-size:13px;color:#5a5a5a;text-align:right;margin:-2px 4px 8px"></div>
+
+  <!-- 集計 -->
+  <div class="dash-pane" data-pane="sum">
   <div class="stat-grid" id="dash-stats"></div>
 
   <div class="slbl">機体別 稼働時間（当月）・燃費（直近3か月平均 L/h）</div>
@@ -540,17 +557,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
   <div class="slbl">故障・備考</div>
   <div id="dash-notes"></div>
+  </div>
 
-  <div class="slbl">月末確認</div>
+  <!-- 月末確認 -->
+  <div class="dash-pane" data-pane="month" hidden>
   <div class="card"><div class="card-b">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px">
       <span id="dash-monthly-head" style="font-size:15px;font-weight:700;color:#185fa5"></span>
       <button class="btn btn-o btn-sm" id="dash-monthly-all" style="display:none" onclick="monthlyCheckAll()"></button>
     </div>
     <div id="dash-monthly"></div>
+    <button class="btn btn-o" style="width:100%;margin-top:12px" onclick="openPrintModal()">🖨 印刷 / PDF保存</button>
+    <div style="font-size:13px;color:#5a5a5a;margin-top:6px;text-align:center">確認済みの機体は、担当印の欄に確認者名と日付が入ります</div>
   </div></div>
+  </div>
 
-  <div class="slbl">月次一覧</div>
+  <!-- 月次一覧 -->
+  <div class="dash-pane" data-pane="list" hidden>
   <div class="card" id="ml-view-card"><div class="card-b">
     <div class="ml-scroll"><table class="ml-table" id="ml-table"></table></div>
     <div style="font-size:15px;color:#6b6b6b;margin-top:10px;line-height:1.5">セル上段＝元請／下段＝現場名。緑＝入力済み／黄＝点検未実施／赤＝備考あり。同じ元請・現場名が連続する日はセルを結合表示します（同日に複数件入力がある場合は結合せず件数を表示）。セルをタップで編集できます。横にスクロールできます。</div>
@@ -560,12 +583,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
     <button class="btn btn-o" style="width:100%;margin-top:8px" onclick="openBulkMonthModal()">📋 月末一括登録（未入力日をまとめて記入）</button>
   </div></div>
+  </div>
 
+  <!-- 警告 -->
+  <div class="dash-pane" data-pane="warn" hidden>
   <div class="slbl">特定自主検査 期限警告</div>
   <div id="dash-jikensa"></div>
 
   <div class="slbl" style="margin-top:4px">アワーメーター警告</div>
   <div id="dash-alerts"></div>
+  </div>
   <div style="height:20px"></div>
 </div>
 
@@ -2582,6 +2609,9 @@ function renderDashWarnings(){
     const m=findMachine(w.id);const nm=m?(m.attachment?`${m.model}・${m.attachment}`:m.model):'';
     return `<div class="card card-alert"><div class="card-h"><div><div class="mname" style="color:#c0392b">${w.id} ${nm}</div><div class="msub">現在: ${w.h} h</div></div><span class="bdg bdg-warn">⚠ 要点検</span></div><div class="card-b" style="font-size:15px;color:#666">${w.next}h定期点検まで あと ${w.next-w.h} h</div></div>`;
   }).join(''):'<div class="card"><div class="card-b" style="font-size:15px;color:#27ae60;font-weight:600">⬤ アワー警告なし</div></div>';
+  // 切り替えボタン「警告」に件数を出して、他の表示を見ている時も見落とさないようにする
+  const wc=due.length+warns.length;
+  document.getElementById('seg-warn-cnt').textContent = wc ? `⚠${wc}` : '';
 }
 
 // 表示範囲（全体／拠点／機体）＋表示月のラベルを組み立てる
@@ -2760,6 +2790,16 @@ async function loadFuelStats(ym){
 //   確認・取消できるのは管理者・マネージャーのみ（サーバーが canConfirm で返す）
 //   確認後に日報が修正・削除されると、サーバーが changed:true を返すので警告を出す
 // ================================================================
+// ★集計画面の切り替え表示（sum=集計／list=月次一覧／month=月末確認／warn=警告）。最後に開いた表示を端末に記憶する
+const DASH_PANES=['sum','list','month','warn'];
+let dashPane=(()=>{try{const p=localStorage.getItem('dashPane');return DASH_PANES.includes(p)?p:'sum';}catch(e){return 'sum';}})();
+function setDashPane(p){
+  if(!DASH_PANES.includes(p))p='sum';
+  dashPane=p;
+  try{localStorage.setItem('dashPane',p);}catch(e){}
+  document.querySelectorAll('#dash-seg .seg').forEach(el=>el.classList.toggle('on',el.dataset.pane===p));
+  document.querySelectorAll('#scr-dash .dash-pane').forEach(el=>{el.hidden=el.dataset.pane!==p;});
+}
 function mcEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function mcParse(at){
   const m=/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(String(at||''));
@@ -2795,11 +2835,13 @@ function renderMonthlyCheck(){
   if(list.length===0){
     el.innerHTML='<div style="font-size:15px;color:#5a5a5a;padding:4px">対象の機体がありません</div>';
     head.textContent='';allBtn.style.display='none';
+    document.getElementById('seg-month-cnt').textContent='';
     return;
   }
   const done=list.filter(m=>checks[m.id]).length;
   const rest=list.length-done;
   head.textContent = mc ? `確認済 ${done} / ${list.length}台` : (navigator.onLine?'確認状況を読み込み中…':'圏外のため確認状況を表示できません');
+  document.getElementById('seg-month-cnt').textContent = mc ? `${done}/${list.length}` : '';
   allBtn.style.display=(can&&rest>0)?'inline-block':'none';
   allBtn.textContent=`表示中の未確認 ${rest}台をまとめて確認`;
   el.innerHTML=list.map(m=>{
@@ -4114,7 +4156,7 @@ function showTab(name){
   if(name==='list'){refreshTodayList(false);renderList();updateSyncRow();}
   if(name==='machines')renderMachines();
   if(name==='jikensa')renderJikensa();
-  if(name==='dash'){renderDashWarnings();renderCalMachineChips();renderMlYardChips();loadCalMonth();}
+  if(name==='dash'){setDashPane(dashPane);renderDashWarnings();renderCalMachineChips();renderMlYardChips();loadCalMonth();}
   if(name==='input')updateNet();
   window.scrollTo(0,0);
   requestAnimationFrame(syncStickyOffset);
